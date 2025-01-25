@@ -2,10 +2,26 @@
 #include "app.h"
 
 int tracklistWidth = 100;
+float timelineXScale = 1.5;
+int snappingPrecision = 10;
+bool playbackActive = false;
+float playbackTime = 0.0;
+float timeMarkerValue = 0.0;
 
 
 int trackCount = 2;
 int track1Height = 30;
+int savedTrackWidth = 180;
+int savedTrackLeftPadding = 0;
+bool track1isBeingMoved = false;
+bool track1isSelected = false;
+bool isResizingLeft = false;
+bool isResizingRight = false;
+float track1SavedStartCutoff = 0;
+float track1SavedEndCutoff = 0;
+
+ImVec2 moveStartPos = ImVec2(0, 0);
+ImVec2 resizeStartPos = ImVec2(0, 0);
 
 void UI_DrawEditor(App* app) {
 
@@ -21,6 +37,9 @@ void UI_DrawEditor(App* app) {
 		ImGui::Text("cutoffstart");
 		ImGui::Text("cutoffend");
 		ImGui::Text("scaling");
+
+		ImGui::Checkbox("track1beingMoved", &track1isBeingMoved);
+
 		//local iPtr = ffi.new("int[1]", 0)
 		//iPtr[0] = track1Height
 		//imgui.SliderInt("trackHeight", iPtr, 10, 100, "%d")
@@ -79,6 +98,10 @@ void UI_DrawEditor(App* app) {
 			//ImGui::PopStyleVar();
 		}
 
+		bool hoveringOverTrack = false;
+		int trackWidth = savedTrackWidth;
+		int trackLeftPadding = savedTrackLeftPadding;
+
 		{ // Timeline
 			ImGui::SetCursorScreenPos(cursorTracklistAfter);
 			ImGui::BeginGroup();
@@ -88,6 +111,7 @@ void UI_DrawEditor(App* app) {
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 			ImGui::SameLine();
 			ImVec2 childSize = ImVec2(ImGui::GetContentRegionAvail().x, fmax(ImGui::GetContentRegionAvail().y, (trackCount + 3) * track1Height));
+			// create child window so that we can have a horizontal scrollbar for the timeline
 			ImGui::BeginChild("TimelineWindowChild", childSize, false, ImGuiWindowFlags_HorizontalScrollbar);
 
 			bool timelineHovered = ImGui::IsWindowHovered();
@@ -103,9 +127,244 @@ void UI_DrawEditor(App* app) {
 			ImVec2 cursorTimelineAfter = ImGui::GetCursorScreenPos();
 			ImGui::GetWindowDrawList()->AddRectFilled(r_min, r_max, timeline_color);
 
-			bool timelineClicked = ImGui::IsItemClicked(ImGuiButtonFlags_MouseButtonLeft);
+			bool timelineClicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
 
 			ImGui::SetCursorScreenPos(cursorTimelineBefore);
+
+			{ // Track resizing/movement
+				bool mouseLetGo = !ImGui::IsMouseDown(ImGuiMouseButton_Left);
+				ImVec2 mousePos = ImGui::GetMousePos();
+
+				if (track1isBeingMoved) {
+					float diff = (mousePos.x - moveStartPos.x) / timelineXScale;
+					if (snappingEnabled) {
+						trackLeftPadding += ceil((diff) / snappingPrecision) * snappingPrecision;
+					}
+					else {
+						trackLeftPadding += diff;
+					}
+					if (trackLeftPadding < 0) {
+						trackLeftPadding = 0;
+					}
+
+					if (mouseLetGo) {
+						track1isBeingMoved = false;
+						savedTrackLeftPadding = trackLeftPadding;
+					}
+				}
+
+				// there is apprently a GetMouseDragDelta() function that I might wanna look into
+				if (isResizingLeft) {
+					float cutoffOffset = (mousePos.x - resizeStartPos.x) / timelineXScale;
+					if (snappingEnabled) {
+						cutoffOffset = floor(cutoffOffset / snappingPrecision) * snappingPrecision;
+					}
+					trackLeftPadding = savedTrackLeftPadding + cutoffOffset;
+					float totalCutOffvalue = cutoffOffset + track1SavedStartCutoff;
+
+					if (totalCutOffvalue < 0) {
+						cutoffOffset = -track1SavedStartCutoff;
+						totalCutOffvalue = cutoffOffset + track1SavedStartCutoff;
+						trackLeftPadding = savedTrackLeftPadding + cutoffOffset;
+					}
+					if (trackLeftPadding < 0) {
+						cutoffOffset = -savedTrackLeftPadding;
+						totalCutOffvalue = cutoffOffset + track1SavedStartCutoff;
+						trackLeftPadding = 0;
+					}
+
+					trackWidth -= cutoffOffset;
+
+					if (mouseLetGo) {
+						savedTrackLeftPadding = trackLeftPadding;
+						track1SavedStartCutoff = totalCutOffvalue;
+						isResizingLeft = false;
+					}
+				}
+				else if (isResizingRight) {
+					float cutoffOffset = (resizeStartPos.x - mousePos.x) / timelineXScale;
+					if (snappingEnabled) {
+						cutoffOffset = floor(cutoffOffset / snappingPrecision) * snappingPrecision;
+					}
+
+					float totalCutOffvalue = cutoffOffset + track1SavedEndCutoff;
+					if (totalCutOffvalue < 0) { // limit resizing to the max size of the video
+						cutoffOffset = -track1SavedEndCutoff;
+						totalCutOffvalue = cutoffOffset + track1SavedEndCutoff;
+					}
+					trackWidth -= cutoffOffset;
+
+					if (mouseLetGo) {
+						track1SavedEndCutoff = totalCutOffvalue;
+						isResizingRight = false;
+						printf("cut away time: %f\n", totalCutOffvalue);
+					}
+				}
+				if (mouseLetGo) {
+					savedTrackWidth = trackWidth;
+				}
+
+				ImVec2 cursor_before_invisButton(0, 0);
+				ImVec2 cursor_after_invisButton(0, 0);
+				for (int i = 0; i <= trackCount-1; i++) {
+					cursor_before_invisButton = ImGui::GetCursorScreenPos();
+					ImVec2 cursor_before_invisButton_padded = ImGui::GetCursorScreenPos();
+					cursor_before_invisButton_padded.x = (cursor_before_invisButton_padded.x + trackLeftPadding * timelineXScale);
+					ImVec2 track_size(trackWidth * timelineXScale, track1Height);
+
+					ImGui::SetCursorScreenPos(cursor_before_invisButton_padded);
+					ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+					bool trackselected = false;
+					if (i <= trackCount) {
+						ImGui::InvisibleButton(("track1Button#" + std::to_string(i)).c_str(), track_size);
+					}
+					else {
+						ImGui::Dummy(track_size);
+					}
+
+					ImGui::PopStyleVar();
+
+					cursor_after_invisButton = ImGui::GetCursorScreenPos();
+					if (i <= trackCount) {
+						ImVec2 r_min = ImGui::GetItemRectMin();
+						ImVec2 r_max = ImGui::GetItemRectMax();
+
+						ImU32 track_color = ImGui::GetColorU32(ImVec4(0., 0.5, 0.95, 1));
+						if (i == 0) { // if video track
+							track_color = ImGui::GetColorU32(ImVec4(0.96, 0.655, 0., 1));
+						}
+						ImGui::GetWindowDrawList()->AddRectFilled(r_min, r_max, track_color, 0.0f);
+
+						hoveringOverTrack = hoveringOverTrack || ImGui::IsItemHovered();
+
+						// ######### bottom border
+						float thickness = 1;
+						ImU32 border_color = ImGui::GetColorU32(ImVec4(0.1, 0.1, 0.5, 1));
+						if (i != 0) {
+							ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(r_min.x, r_min.y), ImVec2(r_max.x, r_min.y + thickness), border_color);
+						}
+					}
+
+					// ########## track separator
+					ImGui::SetCursorScreenPos(cursor_after_invisButton);
+					ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+					ImGui::Separator();
+					ImGui::PopStyleVar();
+				}
+
+				// ########### track selection
+				if (track1isSelected) {
+					ImU32 border_color = ImGui::GetColorU32(ImVec4(1, 1, 1, 1));
+					ImVec2 posStart(cursorTimelineBefore.x + trackLeftPadding * timelineXScale, cursorTimelineBefore.y);
+					ImVec2 posEnd(cursorTimelineBefore.x + (trackLeftPadding + trackWidth) * timelineXScale, cursorTimelineBefore.y + track1Height * trackCount);
+					ImGui::GetWindowDrawList()->AddRect(posStart, posEnd, border_color, 0.0f, 0, 1.0f);
+				}
+
+				if (hoveringOverTrack) {
+					float edgeLeft = (cursor_before_invisButton.x + trackLeftPadding * timelineXScale);
+					float edgeRight = (cursor_before_invisButton.x + (trackWidth + trackLeftPadding) * timelineXScale);
+
+					if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+						track1isSelected = true;
+					}
+
+					if (abs(ImGui::GetMousePos().x - edgeLeft) < 10 || isResizingLeft) {
+						ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+						if (!isResizingLeft && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+							resizeStartPos = ImGui::GetMousePos();
+							printf("set: %f\n", resizeStartPos.x);
+							isResizingLeft = true;
+						}
+					}
+					else if (abs(ImGui::GetMousePos().x - edgeRight) < 10 || isResizingRight) {
+						ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+						if (!isResizingRight && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+							resizeStartPos = ImGui::GetMousePos();
+							printf("set: %f\n", resizeStartPos.x);
+							isResizingRight = true;
+						}
+					}
+					else {
+						if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+							track1isBeingMoved = true;
+							moveStartPos = ImGui::GetMousePos();
+						}
+					}
+				}
+			}
+
+			{ // timeMarker
+				if (playbackActive) {
+					playbackTime += ImGui::GetIO().DeltaTime;
+					timeMarkerValue = playbackTime*timelineXScale;
+				}
+
+				ImGui::SetCursorScreenPos(cursorTimelineBefore);
+				ImVec2 cursor_offset = ImGui::GetCursorScreenPos();
+				cursor_offset.x = cursor_offset.x + timeMarkerValue;
+				ImGui::SetCursorScreenPos(cursor_offset);
+
+				ImU32 timeline_color = ImGui::GetColorU32(ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+				ImVec2 timeline_size(2, ImGui::GetContentRegionAvail().y);
+				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+				ImGui::Dummy(timeline_size);
+				ImGui::PopStyleVar();
+
+				ImVec2 r_min = ImGui::GetItemRectMin();
+				ImVec2 r_max = ImGui::GetItemRectMax();
+
+				ImGui::GetWindowDrawList()->AddRectFilled(r_min, r_max, timeline_color);
+			}
+
+			{ // zooming in and out of the timeline
+				if (timelineHovered && !ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
+					float mw = ImGui::GetIO().MouseWheel; // -1 for downwards, 1 for upwards
+					float factor = 1.05f;
+
+					if (mw != 0) {
+						float oldZoom = timelineXScale;
+						if (mw > 0) {
+							timelineXScale = timelineXScale * factor;
+						} else {
+							timelineXScale = timelineXScale / factor;
+						}
+
+						float currentScrollPos = ImGui::GetScrollX();
+						float timelineMousePos = ImGui::GetMousePos().x - cursorTimelineBefore.x;
+
+						float diffBefore = timelineMousePos / oldZoom - currentScrollPos;
+						float diffAfter = timelineMousePos / timelineXScale - currentScrollPos;
+
+						float offset = diffBefore - diffAfter;
+						ImGui::SetScrollX(currentScrollPos + offset * timelineXScale);
+					}
+				}
+			}
+
+			{ // changing playback cursor position
+				if (!hoveringOverTrack && timelineClicked) {
+					ImVec2 mousePos = ImGui::GetMousePos();
+					if (mousePos.x > cursorTimelineBefore.x) {
+						if (snappingEnabled) {
+							float snapSensitivity = 8;
+							float track1LeftmostPos = cursorTimelineBefore.x + trackLeftPadding * timelineXScale;
+							float track1RightmostPos = cursorTimelineBefore.x + (trackLeftPadding + trackWidth) * timelineXScale;
+
+							if (abs(mousePos.x - track1LeftmostPos) < snapSensitivity) {
+								mousePos.x = track1LeftmostPos;
+							}
+							else if (abs(mousePos.x - track1RightmostPos) < snapSensitivity) {
+								mousePos.x = track1RightmostPos;
+							}
+						}
+
+						track1isSelected = false;
+						float secs = (mousePos.x - cursorTimelineBefore.x)/timelineXScale;
+						playbackTime = secs;
+						timeMarkerValue = mousePos.x - cursorTimelineBefore.x;
+					}
+				}
+			}
 
 			ImGui::EndChild();
 			ImGui::EndGroup();
