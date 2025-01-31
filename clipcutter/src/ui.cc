@@ -3,7 +3,6 @@
 //#include "mediaClip.h"
 
 int tracklistWidth = 100;
-float timelineXScale = 1.5;
 int snappingPrecision = 10;
 float playbackTime = 0.0;
 
@@ -150,7 +149,7 @@ void UI_DrawEditor(App* app) {
 				if (app->playbackActive) {
 					playbackTime += ImGui::GetIO().DeltaTime;
 				}
-				float timeMarkerValue = playbackTime*timelineXScale;
+				float timeMarkerValue = playbackTime*app->timeline.scaleX;
 
 				ImGui::SetCursorScreenPos(cursorTimelineBefore);
 				ImVec2 cursor_offset = ImGui::GetCursorScreenPos();
@@ -175,21 +174,21 @@ void UI_DrawEditor(App* app) {
 					float factor = 1.05f;
 
 					if (mw != 0) {
-						float oldZoom = timelineXScale;
+						float oldZoom = app->timeline.scaleX;
 						if (mw > 0) {
-							timelineXScale = timelineXScale * factor;
+							app->timeline.scaleX = app->timeline.scaleX * factor;
 						} else {
-							timelineXScale = timelineXScale / factor;
+							app->timeline.scaleX = app->timeline.scaleX / factor;
 						}
 
 						float currentScrollPos = ImGui::GetScrollX();
 						float timelineMousePos = ImGui::GetMousePos().x - cursorTimelineBefore.x;
 
 						float diffBefore = timelineMousePos / oldZoom - currentScrollPos;
-						float diffAfter = timelineMousePos / timelineXScale - currentScrollPos;
+						float diffAfter = timelineMousePos / app->timeline.scaleX - currentScrollPos;
 
 						float offset = diffBefore - diffAfter;
-						ImGui::SetScrollX(currentScrollPos + offset * timelineXScale);
+						ImGui::SetScrollX(currentScrollPos + offset * app->timeline.scaleX);
 					}
 				}
 			}
@@ -200,8 +199,8 @@ void UI_DrawEditor(App* app) {
 					if (mousePos.x > cursorTimelineBefore.x) {
 						if (snappingEnabled) {
 							float snapSensitivity = 8;
-							float track1LeftmostPos = cursorTimelineBefore.x + trackLeftPadding * timelineXScale;
-							float track1RightmostPos = cursorTimelineBefore.x + (trackLeftPadding + trackWidth) * timelineXScale;
+							float track1LeftmostPos = cursorTimelineBefore.x + trackLeftPadding * app->timeline.scaleX;
+							float track1RightmostPos = cursorTimelineBefore.x + (trackLeftPadding + trackWidth) * app->timeline.scaleX;
 
 							if (fabs(mousePos.x - track1LeftmostPos) < snapSensitivity) {
 								mousePos.x = track1LeftmostPos;
@@ -213,7 +212,7 @@ void UI_DrawEditor(App* app) {
 
 						
 						app->selectedTrack = NULL;
-						float secs = (mousePos.x - cursorTimelineBefore.x)/timelineXScale;
+						float secs = (mousePos.x - cursorTimelineBefore.x)/app->timeline.scaleX;
 						playbackTime = secs;
 						setPlaybackPos(app->mpv, secs);
 					}
