@@ -3,22 +3,8 @@
 //#include "mediaClip.h"
 
 int tracklistWidth = 100;
-int snappingPrecision = 10;
-float playbackTime = 0.0;
 
-
-int trackCount = 2;
-int track1Height = 30;
-int savedTrackWidth = 180;
-int savedTrackLeftPadding = 0;
-bool track1isBeingMoved = false;
-bool isResizingLeft = false;
-bool isResizingRight = false;
-float track1SavedStartCutoff = 0;
-float track1SavedEndCutoff = 0;
-
-ImVec2 moveStartPos = ImVec2(0, 0);
-ImVec2 resizeStartPos = ImVec2(0, 0);
+int trackCount = 5; // Todo: make function to get the max tracks of all the clips
 
 void setPlaybackPos(mpv_handle* mpv, double seconds) {
 	printf("fuc\n");
@@ -32,20 +18,25 @@ void setPlaybackPos(mpv_handle* mpv, double seconds) {
 void UI_DrawEditor(App* app) {
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::Button("Load File")) {
-                        char* thing = mpv_get_property_string(app->mpv, "path");
-                        printf(thing);
-
+                        //char* thing = mpv_get_property_string(app->mpv, "path");
+                        //printf(thing);
 		}
 		ImGui::EndMainMenuBar();
 	}
 
 	if (ImGui::Begin("DebugThingies")) {
-		ImGui::Text("playbacktime: %.2f", playbackTime);
-		ImGui::Text("cutoffstart");
-		ImGui::Text("cutoffend");
-		ImGui::Text("scaling");
+		ImGui::Text("playbacktime: %.2f", app->playbackTime);
+		ImGui::Text("scaling: %.2f", app->timeline.scaleX);
 
-		ImGui::Checkbox("track1beingMoved", &track1isBeingMoved);
+		ImGui::Text("------Track 1:");
+		MediaClip* testClip = app->mediaClips[0];
+		if (testClip != NULL) {
+			ImGui::Text("padding: %.2f", testClip->padding);
+			ImGui::Text("cutoffstart: %.2f", testClip->drawStartCutoff);
+			ImGui::Text("cutoffend: %.2f", testClip->drawEndCutoff);
+
+			ImGui::Checkbox("track1beingMoved", &testClip->isBeingMoved);
+		}
 
 		//local iPtr = ffi.new("int[1]", 0)
 		//iPtr[0] = track1Height
@@ -71,7 +62,7 @@ void UI_DrawEditor(App* app) {
 			ImGui::BeginGroup();
 			ImU32 tracklistColor = ImGui::GetColorU32(ImVec4(0.15, 0.15, 0.15, 1));
 			//ImVec2 tracklistSize = ImVec2(tracklistWidth, std::max(ImGui::GetContentRegionAvail().y, (trackCount + 3) * track1Height));
-			ImVec2 tracklistSize = ImVec2(tracklistWidth, fmax(ImGui::GetContentRegionAvail().y, (float)((trackCount + 3) * track1Height)));
+			ImVec2 tracklistSize = ImVec2(tracklistWidth, fmax(ImGui::GetContentRegionAvail().y, (float)((trackCount + 3) * app->timeline.clipHeight)));
 
 			cursorTrackListBefore = ImGui::GetCursorScreenPos();
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
@@ -90,7 +81,7 @@ void UI_DrawEditor(App* app) {
 				ImGui::Text("Track %d", i);
 				ImGui::SameLine(tracklistWidth - 40);
 				ImGui::SmallButton("Mute");
-				trackCursor.y += track1Height;
+				trackCursor.y += app->timeline.clipHeight;
 				ImGui::SetCursorScreenPos(trackCursor);
 
 				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
@@ -106,8 +97,6 @@ void UI_DrawEditor(App* app) {
 		}
 
 		bool hoveringOverTrack = false;
-		int trackWidth = savedTrackWidth;
-		int trackLeftPadding = savedTrackLeftPadding;
 
 		{ // Timeline
 			ImGui::SetCursorScreenPos(cursorTracklistAfter);
@@ -117,7 +106,7 @@ void UI_DrawEditor(App* app) {
 
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 			ImGui::SameLine();
-			ImVec2 childSize = ImVec2(ImGui::GetContentRegionAvail().x, fmax(ImGui::GetContentRegionAvail().y, (trackCount + 3) * track1Height));
+			ImVec2 childSize = ImVec2(ImGui::GetContentRegionAvail().x, fmax(ImGui::GetContentRegionAvail().y, (trackCount + 3) * app->timeline.clipHeight));
 			// create child window so that we can have a horizontal scrollbar for the timeline
 			ImGui::BeginChild("TimelineWindowChild", childSize, false, ImGuiWindowFlags_HorizontalScrollbar);
 
@@ -147,9 +136,9 @@ void UI_DrawEditor(App* app) {
 
 			{ // timeMarker
 				if (app->playbackActive) {
-					playbackTime += ImGui::GetIO().DeltaTime;
+					app->playbackTime += ImGui::GetIO().DeltaTime;
 				}
-				float timeMarkerValue = playbackTime*app->timeline.scaleX;
+				float timeMarkerValue = app->playbackTime*app->timeline.scaleX;
 
 				ImGui::SetCursorScreenPos(cursorTimelineBefore);
 				ImVec2 cursor_offset = ImGui::GetCursorScreenPos();
@@ -197,10 +186,11 @@ void UI_DrawEditor(App* app) {
 				if (!hoveringOverTrack && timelineClicked) {
 					ImVec2 mousePos = ImGui::GetMousePos();
 					if (mousePos.x > cursorTimelineBefore.x) {
-						if (snappingEnabled) {
+						MediaClip* clip = app->mediaClips[0];
+						if (snappingEnabled && clip != NULL) {
 							float snapSensitivity = 8;
-							float track1LeftmostPos = cursorTimelineBefore.x + trackLeftPadding * app->timeline.scaleX;
-							float track1RightmostPos = cursorTimelineBefore.x + (trackLeftPadding + trackWidth) * app->timeline.scaleX;
+							float track1LeftmostPos = cursorTimelineBefore.x + clip->padding * app->timeline.scaleX;
+							float track1RightmostPos = cursorTimelineBefore.x + (clip->padding + clip->width) * app->timeline.scaleX;
 
 							if (fabs(mousePos.x - track1LeftmostPos) < snapSensitivity) {
 								mousePos.x = track1LeftmostPos;
@@ -213,7 +203,7 @@ void UI_DrawEditor(App* app) {
 						
 						app->selectedTrack = NULL;
 						float secs = (mousePos.x - cursorTimelineBefore.x)/app->timeline.scaleX;
-						playbackTime = secs;
+						app->playbackTime = secs;
 						setPlaybackPos(app->mpv, secs);
 					}
 				}
