@@ -2,23 +2,30 @@
 #ifndef MEDIACLIP_H
 #define MEDIACLIP_H
 #include "mediaSource.h"
+#include "app.h"
+
+typedef struct App App;
 
 typedef struct MediaClip {
 	MediaSource* source;
-	bool isSelected;
+
+	// UI
 	bool isResizingLeft;
 	bool isResizingRight;
 	bool isBeingMoved;
-	ImVec2 moveStartPos;
+	bool isHovered;
 	
-	float drawWidth;
-	float drawPadding;
-	float drawStartOffset;
-	float drawEndOffset; 
+	ImVec2 moveStartPos;
+	ImVec2 resizeStartPos;
+	float width;
+	float padding;
+	float drawStartCutoff;
+	float drawEndCutoff; 
 
 
 } MediaClip;
 
 void MediaClip_Init(MediaClip* mediaClip, MediaSource* mediaSource);
+void MediaClip_Draw(App* app, MediaClip* mediaClip);
 
 #endif
