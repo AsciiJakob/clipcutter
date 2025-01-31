@@ -8,6 +8,16 @@ typedef struct Events {
 	u32 wakeupOnMpvRenderUpdate, wakeupOnMpvEvents;
 };
 
+typedef struct Timeline {
+	float scaleX;
+	bool snappingEnabled;
+	float snappingPrecision;
+	float clipHeight;
+
+	ImVec2 cursTopLeft;
+};
+
+typedef struct MediaClip MediaClip;
 
 typedef struct App {
 	SDL_Window* window;
@@ -21,11 +31,20 @@ typedef struct App {
 	int mpv_width; 
 	int mpv_height;
 
+	bool playbackActive;
+	float playbackTime;
+	MediaClip* selectedTrack;
+
+	Timeline timeline;
 	MediaSource* mediaSources[200];
 	MediaClip* mediaClips[200];
 } app;
 
-
+typedef struct GetPropertyCallback {
+	MediaSource* mediaSource;
+	int remainingRetrievals;
+	void(*callback)(GetPropertyCallback*, App*);
+} GetPropertyCallback;
 
 void App_Init(App* app);
 

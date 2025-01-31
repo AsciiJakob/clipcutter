@@ -1,12 +1,11 @@
 #include "pch.h"
 #include "app.h"
+//#include "mediaClip.h"
 
 int tracklistWidth = 100;
 float timelineXScale = 1.5;
 int snappingPrecision = 10;
-bool playbackActive = false;
 float playbackTime = 0.0;
-float timeMarkerValue = 0.0;
 
 
 int trackCount = 2;
@@ -14,7 +13,6 @@ int track1Height = 30;
 int savedTrackWidth = 180;
 int savedTrackLeftPadding = 0;
 bool track1isBeingMoved = false;
-bool track1isSelected = false;
 bool isResizingLeft = false;
 bool isResizingRight = false;
 float track1SavedStartCutoff = 0;
@@ -23,17 +21,27 @@ float track1SavedEndCutoff = 0;
 ImVec2 moveStartPos = ImVec2(0, 0);
 ImVec2 resizeStartPos = ImVec2(0, 0);
 
-void UI_DrawEditor(App* app) {
+void setPlaybackPos(mpv_handle* mpv, double seconds) {
+	printf("fuc\n");
+	std::string timeStr = std::to_string(seconds);
+	const char* cmd[] = { "seek", timeStr.data(), "absolute", NULL };
+	if (int result = mpv_command(mpv, cmd); result != MPV_ERROR_SUCCESS) {
+		fprintf(stderr, "Fast forward failed, reason: %s\n", mpv_error_string(result));
+	}
+}
 
+void UI_DrawEditor(App* app) {
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::Button("Load File")) {
+                        char* thing = mpv_get_property_string(app->mpv, "path");
+                        printf(thing);
 
 		}
 		ImGui::EndMainMenuBar();
 	}
 
 	if (ImGui::Begin("DebugThingies")) {
-		ImGui::Text("playbacktime");
+		ImGui::Text("playbacktime: %.2f", playbackTime);
 		ImGui::Text("cutoffstart");
 		ImGui::Text("cutoffend");
 		ImGui::Text("scaling");
@@ -118,6 +126,7 @@ void UI_DrawEditor(App* app) {
 
 			ImGui::SetNextItemAllowOverlap();
 			ImVec2 cursorTimelineBefore = ImGui::GetCursorScreenPos();
+			app->timeline.cursTopLeft = cursorTimelineBefore; // todo: refac to use this
 			ImVec2 timeline_size = ImVec2(5000, ImGui::GetContentRegionAvail().y);
 			ImGui::InvisibleButton("timeline", timeline_size);
 			ImGui::PopStyleVar();
@@ -131,173 +140,17 @@ void UI_DrawEditor(App* app) {
 
 			ImGui::SetCursorScreenPos(cursorTimelineBefore);
 
-			{ // Track resizing/movement
-				bool mouseLetGo = !ImGui::IsMouseDown(ImGuiMouseButton_Left);
-				ImVec2 mousePos = ImGui::GetMousePos();
-
-				if (track1isBeingMoved) {
-					float diff = (mousePos.x - moveStartPos.x) / timelineXScale;
-					if (snappingEnabled) {
-						trackLeftPadding += ceil((diff) / snappingPrecision) * snappingPrecision;
-					}
-					else {
-						trackLeftPadding += diff;
-					}
-					if (trackLeftPadding < 0) {
-						trackLeftPadding = 0;
-					}
-
-					if (mouseLetGo) {
-						track1isBeingMoved = false;
-						savedTrackLeftPadding = trackLeftPadding;
-					}
-				}
-
-				// there is apprently a GetMouseDragDelta() function that I might wanna look into
-				if (isResizingLeft) {
-					float cutoffOffset = (mousePos.x - resizeStartPos.x) / timelineXScale;
-					if (snappingEnabled) {
-						cutoffOffset = floor(cutoffOffset / snappingPrecision) * snappingPrecision;
-					}
-					trackLeftPadding = savedTrackLeftPadding + cutoffOffset;
-					float totalCutOffvalue = cutoffOffset + track1SavedStartCutoff;
-
-					if (totalCutOffvalue < 0) {
-						cutoffOffset = -track1SavedStartCutoff;
-						totalCutOffvalue = cutoffOffset + track1SavedStartCutoff;
-						trackLeftPadding = savedTrackLeftPadding + cutoffOffset;
-					}
-					if (trackLeftPadding < 0) {
-						cutoffOffset = -savedTrackLeftPadding;
-						totalCutOffvalue = cutoffOffset + track1SavedStartCutoff;
-						trackLeftPadding = 0;
-					}
-
-					trackWidth -= cutoffOffset;
-
-					if (mouseLetGo) {
-						savedTrackLeftPadding = trackLeftPadding;
-						track1SavedStartCutoff = totalCutOffvalue;
-						isResizingLeft = false;
-					}
-				}
-				else if (isResizingRight) {
-					float cutoffOffset = (resizeStartPos.x - mousePos.x) / timelineXScale;
-					if (snappingEnabled) {
-						cutoffOffset = floor(cutoffOffset / snappingPrecision) * snappingPrecision;
-					}
-
-					float totalCutOffvalue = cutoffOffset + track1SavedEndCutoff;
-					if (totalCutOffvalue < 0) { // limit resizing to the max size of the video
-						cutoffOffset = -track1SavedEndCutoff;
-						totalCutOffvalue = cutoffOffset + track1SavedEndCutoff;
-					}
-					trackWidth -= cutoffOffset;
-
-					if (mouseLetGo) {
-						track1SavedEndCutoff = totalCutOffvalue;
-						isResizingRight = false;
-						printf("cut away time: %f\n", totalCutOffvalue);
-					}
-				}
-				if (mouseLetGo) {
-					savedTrackWidth = trackWidth;
-				}
-
-				ImVec2 cursor_before_invisButton(0, 0);
-				ImVec2 cursor_after_invisButton(0, 0);
-				for (int i = 0; i <= trackCount-1; i++) {
-					cursor_before_invisButton = ImGui::GetCursorScreenPos();
-					ImVec2 cursor_before_invisButton_padded = ImGui::GetCursorScreenPos();
-					cursor_before_invisButton_padded.x = (cursor_before_invisButton_padded.x + trackLeftPadding * timelineXScale);
-					ImVec2 track_size(trackWidth * timelineXScale, track1Height);
-
-					ImGui::SetCursorScreenPos(cursor_before_invisButton_padded);
-					ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-					bool trackselected = false;
-					if (i <= trackCount) {
-						ImGui::InvisibleButton(("track1Button#" + std::to_string(i)).c_str(), track_size);
-					}
-					else {
-						ImGui::Dummy(track_size);
-					}
-
-					ImGui::PopStyleVar();
-
-					cursor_after_invisButton = ImGui::GetCursorScreenPos();
-					if (i <= trackCount) {
-						ImVec2 r_min = ImGui::GetItemRectMin();
-						ImVec2 r_max = ImGui::GetItemRectMax();
-
-						ImU32 track_color = ImGui::GetColorU32(ImVec4(0., 0.5, 0.95, 1));
-						if (i == 0) { // if video track
-							track_color = ImGui::GetColorU32(ImVec4(0.96, 0.655, 0., 1));
-						}
-						ImGui::GetWindowDrawList()->AddRectFilled(r_min, r_max, track_color, 0.0f);
-
-						hoveringOverTrack = hoveringOverTrack || ImGui::IsItemHovered();
-
-						// ######### bottom border
-						float thickness = 1;
-						ImU32 border_color = ImGui::GetColorU32(ImVec4(0.1, 0.1, 0.5, 1));
-						if (i != 0) {
-							ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(r_min.x, r_min.y), ImVec2(r_max.x, r_min.y + thickness), border_color);
-						}
-					}
-
-					// ########## track separator
-					ImGui::SetCursorScreenPos(cursor_after_invisButton);
-					ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-					ImGui::Separator();
-					ImGui::PopStyleVar();
-				}
-
-				// ########### track selection
-				if (track1isSelected) {
-					ImU32 border_color = ImGui::GetColorU32(ImVec4(1, 1, 1, 1));
-					ImVec2 posStart(cursorTimelineBefore.x + trackLeftPadding * timelineXScale, cursorTimelineBefore.y);
-					ImVec2 posEnd(cursorTimelineBefore.x + (trackLeftPadding + trackWidth) * timelineXScale, cursorTimelineBefore.y + track1Height * trackCount);
-					ImGui::GetWindowDrawList()->AddRect(posStart, posEnd, border_color, 0.0f, 0, 1.0f);
-				}
-
-				if (hoveringOverTrack) {
-					float edgeLeft = (cursor_before_invisButton.x + trackLeftPadding * timelineXScale);
-					float edgeRight = (cursor_before_invisButton.x + (trackWidth + trackLeftPadding) * timelineXScale);
-
-					if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-						track1isSelected = true;
-					}
-
-					if (abs(ImGui::GetMousePos().x - edgeLeft) < 10 || isResizingLeft) {
-						ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
-						if (!isResizingLeft && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-							resizeStartPos = ImGui::GetMousePos();
-							printf("set: %f\n", resizeStartPos.x);
-							isResizingLeft = true;
-						}
-					}
-					else if (abs(ImGui::GetMousePos().x - edgeRight) < 10 || isResizingRight) {
-						ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
-						if (!isResizingRight && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-							resizeStartPos = ImGui::GetMousePos();
-							printf("set: %f\n", resizeStartPos.x);
-							isResizingRight = true;
-						}
-					}
-					else {
-						if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-							track1isBeingMoved = true;
-							moveStartPos = ImGui::GetMousePos();
-						}
-					}
-				}
+			for (int i = 0; i < 200; i++) { // draw clips
+				MediaClip* mediaClip = app->mediaClips[i];
+				if (mediaClip == NULL) break;
+				MediaClip_Draw(app, mediaClip);
 			}
 
 			{ // timeMarker
-				if (playbackActive) {
+				if (app->playbackActive) {
 					playbackTime += ImGui::GetIO().DeltaTime;
-					timeMarkerValue = playbackTime*timelineXScale;
 				}
+				float timeMarkerValue = playbackTime*timelineXScale;
 
 				ImGui::SetCursorScreenPos(cursorTimelineBefore);
 				ImVec2 cursor_offset = ImGui::GetCursorScreenPos();
@@ -350,18 +203,19 @@ void UI_DrawEditor(App* app) {
 							float track1LeftmostPos = cursorTimelineBefore.x + trackLeftPadding * timelineXScale;
 							float track1RightmostPos = cursorTimelineBefore.x + (trackLeftPadding + trackWidth) * timelineXScale;
 
-							if (abs(mousePos.x - track1LeftmostPos) < snapSensitivity) {
+							if (fabs(mousePos.x - track1LeftmostPos) < snapSensitivity) {
 								mousePos.x = track1LeftmostPos;
 							}
-							else if (abs(mousePos.x - track1RightmostPos) < snapSensitivity) {
+							else if (fabs(mousePos.x - track1RightmostPos) < snapSensitivity) {
 								mousePos.x = track1RightmostPos;
 							}
 						}
 
-						track1isSelected = false;
+						
+						app->selectedTrack = NULL;
 						float secs = (mousePos.x - cursorTimelineBefore.x)/timelineXScale;
 						playbackTime = secs;
-						timeMarkerValue = mousePos.x - cursorTimelineBefore.x;
+						setPlaybackPos(app->mpv, secs);
 					}
 				}
 			}
@@ -377,9 +231,8 @@ void UI_DrawEditor(App* app) {
 
 
 	bool show_demo_window = true;
-	bool show_another_window = true;
 	// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-	if (1)
+	if (show_demo_window)
 		ImGui::ShowDemoWindow(&show_demo_window);
 
 	// 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
@@ -406,31 +259,6 @@ void UI_DrawEditor(App* app) {
 
 			ImGui::Image((void*)(intptr_t)app->mpv_texture, displaySize);
 		}
-		ImGui::End();
-
-		ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-		ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-		ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-		ImGui::Checkbox("Another Window", &show_another_window);
-
-		ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-
-		if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-			counter++;
-		ImGui::SameLine();
-		ImGui::Text("counter = %d", counter);
-
-		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / app->io.Framerate, app->io.Framerate);
-		ImGui::End();
-	}
-
-	// 3. Show another simple window.
-	if (show_another_window) {
-		ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-		ImGui::Text("Hello from another window!");
-		if (ImGui::Button("Close Me"))
-			show_another_window = false;
 		ImGui::End();
 	}
 }

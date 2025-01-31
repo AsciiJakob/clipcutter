@@ -5,27 +5,20 @@
 #include "mediaSource.h"
 #include "mediaClip.h"
 
-// globals, put in some kind of struct
-bool playbackActive = false;
-float playbackTime = 0;
-float timemarkerPos = 0; // secToWidth(playbackTime)
-bool snappingEnabled = 1;
-int snappingPrecision = 10;
-int trackHeight = 30;
 
 static void die(const char* msg) {
     fprintf(stderr, "%s\n", msg);
     exit(1);
 }
 
-void setPositionRelative(mpv_handle* mpv, double seconds) {
-    printf("fuc\n");
-    std::string timeStr = std::to_string(seconds);
-    const char* cmd[] = { "seek", timeStr.data(), "relative", NULL };
-    if (int result = mpv_command(mpv, cmd); result != MPV_ERROR_SUCCESS) {
-        fprintf(stderr, "Fast forward failed, reason: %s\n", mpv_error_string(result));
-    }
-}
+//void setPositionRelative(mpv_handle* mpv, double seconds) {
+//    printf("fuc\n");
+//    std::string timeStr = std::to_string(seconds);
+//    const char* cmd[] = { "seek", timeStr.prop(), "relative", NULL };
+//    if (int result = mpv_command(mpv, cmd); result != MPV_ERROR_SUCCESS) {
+//        fprintf(stderr, "Fast forward failed, reason: %s\n", mpv_error_string(result));
+//    }
+//}
 
 void setMultipleAudioTracks(mpv_handle* mpv) {
     const char* cmd[] = { "set", "options/lavfi-complex", "[aid1] [aid2] amix [ao]", NULL };
@@ -77,6 +70,7 @@ int main(int argc, char* argv[]) {
         printf("Error: Failed loading file");
         return false;
     }
+    printf("did the load thing for file\n");
 
 
     bool mpvRedraw = false;
@@ -95,6 +89,7 @@ int main(int argc, char* argv[]) {
 				if (event.key.keysym.sym == SDLK_SPACE) {
 					const char* cmd_pause[] = { "cycle", "pause", NULL };
 					mpv_command_async(app->mpv, 0, cmd_pause);
+                    app->playbackActive = !app->playbackActive;
 				}
 				if (event.key.keysym.sym == SDLK_s) {
 					const char* cmd_scr[] = { "screenshot-to-file",
@@ -104,9 +99,9 @@ int main(int argc, char* argv[]) {
 					printf("attempting to save screenshot to %s\n", cmd_scr[1]);
 					mpv_command_async(app->mpv, 0, cmd_scr);
 				}
-				if (event.key.keysym.sym == SDLK_RIGHT) {
-					setPositionRelative(app->mpv, 5);
-				}
+				//if (event.key.keysym.sym == SDLK_RIGHT) {
+					//setPositionRelative(app->mpv, 5);
+				//}
             }
 			if (event.type == app->events.wakeupOnMpvRenderUpdate) {
 				uint64_t flags = mpv_render_context_update(app->mpv_gl);
@@ -130,15 +125,49 @@ int main(int argc, char* argv[]) {
                     printf("event: %s\n", mpv_event_name(mp_event->event_id));
                     if (mp_event->event_id == MPV_EVENT_FILE_LOADED) {
                         MediaSource* mediaSource = (MediaSource*) malloc(sizeof MediaSource);
-                        MediaSource_Init(mediaSource, mpv_get_property_string(app->mpv, "path"));
+                        MediaSource_Init(mediaSource, argv[1]);
                         app->mediaSources[0] = mediaSource;
-                        mpv_get_property(app->mpv, "track-list/count", MPV_FORMAT_INT64, &mediaSource->audioTracks);
-                        mediaSource->audioTracks -= 1; // track-list/count counts the video track too. TODO: see if there is a property for actual count of audio tracks
-                        printf("audio tracks: %d", mediaSource->audioTracks);
 
+                        GetPropertyCallback* callbackData = (GetPropertyCallback*) malloc(sizeof GetPropertyCallback);
+                        callbackData->mediaSource = mediaSource;
+                        callbackData->callback = [](GetPropertyCallback* callbackData, App* app) {
+							MediaClip* mediaClip = (MediaClip*) malloc(sizeof MediaClip);
+							MediaClip_Init(mediaClip, callbackData->mediaSource);
+                            app->mediaClips[0] = mediaClip;
 
-                        MediaClip* mediaClip = (MediaClip*) malloc(sizeof MediaClip);
-                        MediaClip_Init(mediaClip, mediaSource);
+							//MediaClip* mediaClip2 = (MediaClip*) malloc(sizeof MediaClip);
+							//MediaClip_Init(mediaClip2, callbackData->mediaSource);
+       //                     app->mediaClips[1] = mediaClip2;
+       //                     mediaClip2->padding = 190;
+
+                        };
+
+                        callbackData->remainingRetrievals = 2; // TODO: dangerous to do manually, add to func
+                        mpv_get_property_async(app->mpv, (uint64_t)callbackData, "duration", MPV_FORMAT_INT64);
+                        mpv_get_property_async(app->mpv, (uint64_t)callbackData, "track-list/count", MPV_FORMAT_INT64);
+
+                    }
+                    if (mp_event->event_id == MPV_EVENT_GET_PROPERTY_REPLY) {
+                        if (mp_event->error < 0) {
+                            printf("Error getting reply from MPV");
+                            continue;
+                        } 
+
+                        mpv_event_property* prop = (mpv_event_property*) mp_event->data;
+                        printf("Property name: %s\n", prop->name);
+                        int* data = (int*) prop->data;
+                        GetPropertyCallback* callbackData = (GetPropertyCallback*) mp_event->reply_userdata;
+                        MediaSource* src = callbackData->mediaSource;
+
+                        if (strcmp(prop->name, "duration")==0) {
+                            src->length = *data;
+                        } else if(strcmp(prop->name, "track-list/count")==0) {
+                            src->audioTracks = *data-1;
+                        }
+
+                        if (--callbackData->remainingRetrievals == 0) {
+                            callbackData->callback(callbackData, app);
+                        }
                     }
                 }
             }
