@@ -35,6 +35,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 #else
 int main(int argc, char* argv[]) {
 #endif // _WIN32
+
 #if defined(CC_PLATFORM_WINDOWS) && defined(CC_BUILD_DEBUG)
     if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
         AllocConsole();
@@ -51,7 +52,8 @@ int main(int argc, char* argv[]) {
 
 	App* app = (App*) malloc(sizeof App);
     App_Init(app);
-
+    //app->playbackActive = true;
+	App_CalculateTimelineEvents(app);
 
 
     // window init
@@ -119,11 +121,19 @@ int main(int argc, char* argv[]) {
                     if (mp_event->event_id == MPV_EVENT_LOG_MESSAGE) {
                         mpv_event_log_message* msg = static_cast<mpv_event_log_message*>(mp_event->data);
                         if (strstr(msg->text, "DR image"))
-                            printf("log: %s", msg->text);
+                            //printf("log: %s", msg->text);
                         continue;
                     }
-                    printf("event: %s\n", mpv_event_name(mp_event->event_id));
+                    //printf("event: %s\n", mpv_event_name(mp_event->event_id));
+                    if (mp_event->event_id == MPV_EVENT_END_FILE) {
+                        printf("Unloading video file\n");
+                        app->loadedMediaSource = nullptr;
+                    }
                     if (mp_event->event_id == MPV_EVENT_FILE_LOADED) {
+                        printf("file loaded event\n");
+                        static bool temp = false; // TODO: temp
+                        if (temp) continue;
+                        temp = true;
                         MediaSource* mediaSource = (MediaSource*) malloc(sizeof MediaSource);
                         MediaSource_Init(mediaSource, argv[1]);
                         app->mediaSources[0] = mediaSource;
@@ -135,10 +145,14 @@ int main(int argc, char* argv[]) {
 							MediaClip_Init(mediaClip, callbackData->mediaSource);
                             app->mediaClips[0] = mediaClip;
 
-							//MediaClip* mediaClip2 = (MediaClip*) malloc(sizeof MediaClip);
-							//MediaClip_Init(mediaClip2, callbackData->mediaSource);
-       //                     app->mediaClips[1] = mediaClip2;
-       //                     mediaClip2->padding = 190;
+							MediaClip* mediaClip2 = (MediaClip*) malloc(sizeof MediaClip);
+							MediaClip_Init(mediaClip2, callbackData->mediaSource);
+                            app->mediaClips[1] = mediaClip2;
+                            mediaClip2->padding = 190;
+                            App_CalculateTimelineEvents(app);
+
+                            app->loadedMediaSource = callbackData->mediaSource;
+                            app->playbackActive = true;
 
                         };
 
@@ -156,7 +170,7 @@ int main(int argc, char* argv[]) {
                         mpv_event_property* prop = (mpv_event_property*) mp_event->data;
                         printf("Property name: %s\n", prop->name);
                         int* data = (int*) prop->data;
-                        GetPropertyCallback* callbackData = (GetPropertyCallback*) mp_event->reply_userdata;
+                       GetPropertyCallback* callbackData = (GetPropertyCallback*) mp_event->reply_userdata;
                         MediaSource* src = callbackData->mediaSource;
 
                         if (strcmp(prop->name, "duration")==0) {
@@ -184,6 +198,19 @@ int main(int argc, char* argv[]) {
 			printf("not redraw");
         }
 
+		if (app->playbackActive) {
+			app->playbackTime += ImGui::GetIO().DeltaTime;
+
+            // handle events
+            TimelineEvent* nextEvent = App_GetNextTimelineEvent(app);
+            if (nextEvent != nullptr && app->playbackTime >= nextEvent->start) {
+                printf("new event!\n");
+				app->timelineEventIndex++;
+                App_LoadEvent(app, nextEvent);
+
+                // TODO: handle end event (don't increment)
+            }
+		}
 
         // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
@@ -194,7 +221,7 @@ int main(int argc, char* argv[]) {
 
         // Rendering
         ImGui::Render();
-        glViewport(0, 0, (int)app->io.DisplaySize.x, (int)app->io.DisplaySize.y);
+        glViewport(0, 0, (int)ImGui::GetIO().DisplaySize.x, (int)ImGui::GetIO().DisplaySize.y);
 		ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
         glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
         glClear(GL_COLOR_BUFFER_BIT);
