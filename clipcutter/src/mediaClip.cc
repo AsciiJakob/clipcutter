@@ -22,7 +22,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 	if (mediaClip->isBeingMoved) {
 		float diff = (mousePos.x - mediaClip->moveStartPos.x) / app->timeline.scaleX;
 		if (app->timeline.snappingEnabled) {
-			clipLeftPadding += ceil((diff) / app->timeline.snappingPrecision) * app->timeline.snappingPrecision;
+			clipLeftPadding += ceilf((diff) / app->timeline.snappingPrecision) * app->timeline.snappingPrecision;
 		} else {
 			clipLeftPadding += diff;
 		}
@@ -33,6 +33,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 		if (mouseLetGo) {
 			mediaClip->isBeingMoved = false;
 			mediaClip->padding = clipLeftPadding;
+			App_CalculateTimelineEvents(app);
 		}
 	}
 
@@ -40,7 +41,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 	if (mediaClip->isResizingLeft) {
 		float cutoffOffset = (mousePos.x - mediaClip->resizeStartPos.x) / app->timeline.scaleX;
 		if (app->timeline.snappingEnabled) {
-			cutoffOffset = floor(cutoffOffset / app->timeline.snappingPrecision) * app->timeline.snappingPrecision;
+			cutoffOffset = floorf(cutoffOffset / app->timeline.snappingPrecision) * app->timeline.snappingPrecision;
 		}
 		clipLeftPadding = mediaClip->padding + cutoffOffset;
 		float* startCutoff = &mediaClip->drawStartCutoff;
@@ -63,6 +64,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 			mediaClip->padding = clipLeftPadding;
 			*startCutoff = totalCutOffvalue;
 			mediaClip->isResizingLeft = false;
+			App_CalculateTimelineEvents(app);
 		}
 	}
 	else if (mediaClip->isResizingRight) {
@@ -84,6 +86,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 			*endCutoff = totalCutOffvalue;
 			mediaClip->isResizingRight = false;
 			printf("cut away time: %f\n", totalCutOffvalue);
+			App_CalculateTimelineEvents(app);
 		}
 	}
 	if (mouseLetGo) {

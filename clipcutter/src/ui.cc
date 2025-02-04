@@ -27,10 +27,12 @@ void UI_DrawEditor(App* app) {
 	if (ImGui::Begin("DebugThingies")) {
 		ImGui::Text("playbacktime: %.2f", app->playbackTime);
 		ImGui::Text("scaling: %.2f", app->timeline.scaleX);
+		ImGui::Text("timelineEvent: %d", app->timelineEvents[app->timelineEventIndex].type);
 
 		ImGui::Text("------Track 1:");
 		MediaClip* testClip = app->mediaClips[0];
 		if (testClip != NULL) {
+			ImGui::Text("length: %.2f", testClip->source->length);
 			ImGui::Text("padding: %.2f", testClip->padding);
 			ImGui::Text("cutoffstart: %.2f", testClip->drawStartCutoff);
 			ImGui::Text("cutoffend: %.2f", testClip->drawEndCutoff);
@@ -55,7 +57,6 @@ void UI_DrawEditor(App* app) {
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,  ImVec2(0, 0));
 
 	if (ImGui::Begin("Timeline")) {
-
 		ImVec2 cursorTrackListBefore;
 		ImVec2 cursorTracklistAfter;
 		{ // Tracklist
@@ -89,6 +90,7 @@ void UI_DrawEditor(App* app) {
 				ImGui::PopStyleVar();
 			}
 			ImGui::Dummy(ImVec2(0, 0)); // workaround.If there is no element(such as text or button or this) after the last track's ImGUI Separator then the SameL
+
 			ImGui::SetCursorScreenPos(cursorTrackListBefore);
 
 			//ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
@@ -102,7 +104,7 @@ void UI_DrawEditor(App* app) {
 			ImGui::SetCursorScreenPos(cursorTracklistAfter);
 			ImGui::BeginGroup();
 			ImU32 timeline_color = ImGui::GetColorU32(ImVec4(0.25f, 0.25f, 0.25f, 1.0f));
-			bool snappingEnabled = !ImGui::IsKeyDown(ImGuiKey_LeftShift);
+			app->timeline.snappingEnabled = !ImGui::IsKeyDown(ImGuiKey_LeftShift);
 
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 			ImGui::SameLine();
@@ -135,9 +137,6 @@ void UI_DrawEditor(App* app) {
 			}
 
 			{ // timeMarker
-				if (app->playbackActive) {
-					app->playbackTime += ImGui::GetIO().DeltaTime;
-				}
 				float timeMarkerValue = app->playbackTime*app->timeline.scaleX;
 
 				ImGui::SetCursorScreenPos(cursorTimelineBefore);
@@ -187,7 +186,7 @@ void UI_DrawEditor(App* app) {
 					ImVec2 mousePos = ImGui::GetMousePos();
 					if (mousePos.x > cursorTimelineBefore.x) {
 						MediaClip* clip = app->mediaClips[0];
-						if (snappingEnabled && clip != NULL) {
+						if (app->timeline.snappingEnabled && clip != NULL) {
 							float snapSensitivity = 8;
 							float track1LeftmostPos = cursorTimelineBefore.x + clip->padding * app->timeline.scaleX;
 							float track1RightmostPos = cursorTimelineBefore.x + (clip->padding + clip->width) * app->timeline.scaleX;
@@ -204,9 +203,14 @@ void UI_DrawEditor(App* app) {
 						app->selectedTrack = NULL;
 						float secs = (mousePos.x - cursorTimelineBefore.x)/app->timeline.scaleX;
 						app->playbackTime = secs;
-						setPlaybackPos(app->mpv, secs);
+						App_MovePlaybackMarker(app, secs);
 					}
 				}
+			}
+
+			if (ImGui::IsKeyPressed(ImGuiKey_RightCtrl)) {
+				App_CalculateTimelineEvents(app);
+				printf("");
 			}
 
 			ImGui::EndChild();

@@ -5,6 +5,7 @@
 #include "app.h"
 
 typedef struct App App;
+typedef struct MediaSource MediaSource;
 
 typedef struct MediaClip {
 	MediaSource* source;

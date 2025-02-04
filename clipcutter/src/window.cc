@@ -109,13 +109,11 @@ bool initWindow(App* app) {
 
 
     { // Setup Dear IMGUI
-		ImGuiIO* io = &app->io;
-
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
-        *io = ImGui::GetIO(); (void)*io;
-        io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-        io->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+        ImGuiIO& io = ImGui::GetIO(); (void)io;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
         // Setup Dear ImGui style
         ImGui::StyleColorsDark();
