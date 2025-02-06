@@ -15,6 +15,27 @@ void App_Init(App* app) {
 	app->timeline.snappingPrecision = 5.0;
 }
 
+void App_Free(App* app) {
+	for (int i = 0; i < MEDIASOURCES_SIZE; i++) {
+		MediaSource* mediaSource = app->mediaSources[i];
+		if (mediaSource == nullptr) break;
+
+		if (mediaSource->filename != nullptr) {
+			free(mediaSource->filename);
+		}
+		free(mediaSource);
+	}
+
+	for (int i = 0; i < MEDIACLIPS_SIZE; i++) {
+		MediaClip* mediaClip = app->mediaClips[i];
+		if (mediaClip == nullptr) break;
+
+		free(mediaClip);
+	}
+
+	free(app);
+}
+
 
 
 void App_CalculateTimelineEvents(App* app) {
@@ -27,7 +48,7 @@ void App_CalculateTimelineEvents(App* app) {
 		MediaClip* current;
 		for (int i = 0; i < 200; i++) {
 			current = app->mediaClips[i];
-			if (current == NULL) break;
+			if (current == nullptr) break;
 			int backI = i - 1;
 			while (backI >= 0 && app->mediaClips[backI]->padding > current->padding) {
 				mediaClips[backI + 1] = mediaClips[backI];
@@ -44,7 +65,7 @@ void App_CalculateTimelineEvents(App* app) {
 
 		TimelineEvent* event = &app->timelineEvents[eventI];
 		TimelineEvent* eventAfter = &app->timelineEvents[eventI+1];
-		if (clip == NULL) {
+		if (clip == nullptr) {
 			event->type = TIMELINE_EVENT_END;
 			MediaClip* clipBefore = app->timelineEvents[eventI - 1].clip;
 			if (i == 0) {
@@ -110,11 +131,11 @@ void App_LoadEvent(App* app, TimelineEvent* event) {
 	if (event->type == TIMELINE_EVENT_VIDEO) {
 		if (event->clip->source != app->loadedMediaSource) {
 			MediaSource_Load(app, event->clip->source);
-			printf("loaded new media file\n");
 			app->loadedMediaSource = event->clip->source;
 		}
 	} else if (event->type == TIMELINE_EVENT_BLANKSPACE) {
 		const char* cmd[] = { "stop", NULL };
+		// TODO: async
 		if (int result = mpv_command(app->mpv, cmd); result != MPV_ERROR_SUCCESS) {
 			fprintf(stderr, "stopping playback failed, reason: %s\n", mpv_error_string(result));
 		}

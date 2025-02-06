@@ -20,11 +20,23 @@ static void die(const char* msg) {
 //    }
 //}
 
-void setMultipleAudioTracks(mpv_handle* mpv) {
-    const char* cmd[] = { "set", "options/lavfi-complex", "[aid1] [aid2] amix [ao]", NULL };
-    if (int result = mpv_command(mpv, cmd); result != MPV_ERROR_SUCCESS) {
-        fprintf(stderr, "Multiple audio tracks failed, reason: %s\n", mpv_error_string(result));
-    }
+void setMultipleAudioTracks(App* app) {
+    //const char* cmd[] = { "set", "options/lavfi-complex", "[aid1] [aid2] amix [ao]", NULL };
+    // https://mpv.io/manual/stable/#options-lavfi-complex
+    if (app->loadedMediaSource->audioTracks == 2) {
+        printf("two audiotracks");
+		const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2]amix[ao]", NULL };
+		mpv_command_async(app->mpv, 0, cmd);
+    } else if (app->loadedMediaSource->audioTracks == 3) {
+        printf("three audiotracks");
+		const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2][aid3]amix=inputs=3[ao]", NULL };
+		mpv_command_async(app->mpv, 0, cmd);
+    } 
+
+	//mpv_command_async(app->mpv, 0, cmd);
+    //if (int result = mpv_command(mpv, cmd); result != MPV_ERROR_SUCCESS) {
+    //    fprintf(stderr, "Multiple audio tracks failed, reason: %s\n", mpv_error_string(result));
+    //}
 }
 
 
@@ -67,8 +79,9 @@ int main(int argc, char* argv[]) {
     // Main loop
     bool done = false;
 
+    app->isLoadingNewSource = true;
     const char* cmd[] = { "loadfile", argv[1], NULL };
-    if (mpv_command_async(app->mpv, 0, cmd) != MPV_ERROR_SUCCESS) {
+    if (mpv_command_async(app->mpv, (uint64_t) 43278, cmd) != MPV_ERROR_SUCCESS) {
         printf("Error: Failed loading file");
         return false;
     }
@@ -130,36 +143,45 @@ int main(int argc, char* argv[]) {
                         app->loadedMediaSource = nullptr;
                     }
                     if (mp_event->event_id == MPV_EVENT_FILE_LOADED) {
+                        printf("new file: %d\n", app->isLoadingNewSource);
+
                         printf("file loaded event\n");
-                        static bool temp = false; // TODO: temp
-                        if (temp) continue;
-                        temp = true;
-                        MediaSource* mediaSource = (MediaSource*) malloc(sizeof MediaSource);
-                        MediaSource_Init(mediaSource, argv[1]);
-                        app->mediaSources[0] = mediaSource;
+                        if (app->isLoadingNewSource) {
+							MediaSource* mediaSource = (MediaSource*) malloc(sizeof MediaSource);
+							MediaSource_Init(mediaSource, argv[1]);
+							app->mediaSources[0] = mediaSource;
 
-                        GetPropertyCallback* callbackData = (GetPropertyCallback*) malloc(sizeof GetPropertyCallback);
-                        callbackData->mediaSource = mediaSource;
-                        callbackData->callback = [](GetPropertyCallback* callbackData, App* app) {
-							MediaClip* mediaClip = (MediaClip*) malloc(sizeof MediaClip);
-							MediaClip_Init(mediaClip, callbackData->mediaSource);
-                            app->mediaClips[0] = mediaClip;
+							GetPropertyCallback* callbackData = (GetPropertyCallback*) malloc(sizeof GetPropertyCallback);
+							callbackData->mediaSource = mediaSource;
+							callbackData->callback = [](GetPropertyCallback* callbackData, App* app) {
+								MediaClip* mediaClip = (MediaClip*) malloc(sizeof MediaClip);
+								MediaClip_Init(mediaClip, callbackData->mediaSource);
+								app->mediaClips[0] = mediaClip;
 
-							MediaClip* mediaClip2 = (MediaClip*) malloc(sizeof MediaClip);
-							MediaClip_Init(mediaClip2, callbackData->mediaSource);
-                            app->mediaClips[1] = mediaClip2;
-                            mediaClip2->padding = 190;
-                            App_CalculateTimelineEvents(app);
+								MediaClip* mediaClip2 = (MediaClip*) malloc(sizeof MediaClip);
+								MediaClip_Init(mediaClip2, callbackData->mediaSource);
+								app->mediaClips[1] = mediaClip2;
+								mediaClip2->padding = 190;
+								App_CalculateTimelineEvents(app);
 
-                            app->loadedMediaSource = callbackData->mediaSource;
+								app->loadedMediaSource = callbackData->mediaSource;
+								app->playbackActive = true;
+                                app->isLoadingNewSource = false;
+								printf("setting playback to active again");
+
+								setMultipleAudioTracks(app);
+
+							};
+
+							callbackData->remainingRetrievals = 3; // TODO: dangerous to do manually, add to func
+							mpv_get_property_async(app->mpv, (uint64_t)callbackData, "duration", MPV_FORMAT_INT64);
+							mpv_get_property_async(app->mpv, (uint64_t)callbackData, "filename", MPV_FORMAT_STRING);
+							mpv_get_property_async(app->mpv, (uint64_t)callbackData, "track-list/count", MPV_FORMAT_INT64);
+                        } else {
                             app->playbackActive = true;
-
-                        };
-
-                        callbackData->remainingRetrievals = 2; // TODO: dangerous to do manually, add to func
-                        mpv_get_property_async(app->mpv, (uint64_t)callbackData, "duration", MPV_FORMAT_INT64);
-                        mpv_get_property_async(app->mpv, (uint64_t)callbackData, "track-list/count", MPV_FORMAT_INT64);
-
+                            // I need audioTracks for this
+                            setMultipleAudioTracks(app);
+                        }
                     }
                     if (mp_event->event_id == MPV_EVENT_GET_PROPERTY_REPLY) {
                         if (mp_event->error < 0) {
@@ -170,13 +192,17 @@ int main(int argc, char* argv[]) {
                         mpv_event_property* prop = (mpv_event_property*) mp_event->data;
                         printf("Property name: %s\n", prop->name);
                         int* data = (int*) prop->data;
-                       GetPropertyCallback* callbackData = (GetPropertyCallback*) mp_event->reply_userdata;
+                        GetPropertyCallback* callbackData = (GetPropertyCallback*) mp_event->reply_userdata;
                         MediaSource* src = callbackData->mediaSource;
 
                         if (strcmp(prop->name, "duration")==0) {
                             src->length = *data;
                         } else if(strcmp(prop->name, "track-list/count")==0) {
                             src->audioTracks = *data-1;
+                        } else if (strcmp(prop->name, "filename") == 0) {
+                            char* filenameP = (char*) malloc(strlen(*(char**) prop->data)+1);
+                            strcpy(filenameP, *(char**) prop->data);
+                            src->filename = filenameP;
                         }
 
                         if (--callbackData->remainingRetrievals == 0) {
@@ -240,4 +266,6 @@ int main(int argc, char* argv[]) {
     SDL_GL_DeleteContext(app->gl_context);
     SDL_DestroyWindow(app->window);
     SDL_Quit();
+
+    App_Free(app);
 }
