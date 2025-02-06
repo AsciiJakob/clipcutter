@@ -7,6 +7,7 @@ typedef struct App App;
 
 typedef struct MediaSource {
 	char* path;
+	char* filename;
 	// for videos
 	float length; 
 	int audioTracks;

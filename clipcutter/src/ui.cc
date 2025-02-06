@@ -31,7 +31,7 @@ void UI_DrawEditor(App* app) {
 
 		ImGui::Text("------Track 1:");
 		MediaClip* testClip = app->mediaClips[0];
-		if (testClip != NULL) {
+		if (testClip != nullptr) {
 			ImGui::Text("length: %.2f", testClip->source->length);
 			ImGui::Text("padding: %.2f", testClip->padding);
 			ImGui::Text("cutoffstart: %.2f", testClip->drawStartCutoff);
@@ -132,7 +132,7 @@ void UI_DrawEditor(App* app) {
 
 			for (int i = 0; i < 200; i++) { // draw clips
 				MediaClip* mediaClip = app->mediaClips[i];
-				if (mediaClip == NULL) break;
+				if (mediaClip == nullptr) break;
 				MediaClip_Draw(app, mediaClip);
 			}
 
@@ -186,7 +186,7 @@ void UI_DrawEditor(App* app) {
 					ImVec2 mousePos = ImGui::GetMousePos();
 					if (mousePos.x > cursorTimelineBefore.x) {
 						MediaClip* clip = app->mediaClips[0];
-						if (app->timeline.snappingEnabled && clip != NULL) {
+						if (app->timeline.snappingEnabled && clip != nullptr) {
 							float snapSensitivity = 8;
 							float track1LeftmostPos = cursorTimelineBefore.x + clip->padding * app->timeline.scaleX;
 							float track1RightmostPos = cursorTimelineBefore.x + (clip->padding + clip->width) * app->timeline.scaleX;
@@ -200,7 +200,7 @@ void UI_DrawEditor(App* app) {
 						}
 
 						
-						app->selectedTrack = NULL;
+						app->selectedTrack = nullptr;
 						float secs = (mousePos.x - cursorTimelineBefore.x)/app->timeline.scaleX;
 						app->playbackTime = secs;
 						App_MovePlaybackMarker(app, secs);

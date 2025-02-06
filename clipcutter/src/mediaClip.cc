@@ -94,7 +94,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 	}
 
 	ImVec2 cursor_trackclip(0, 0);
-	if (mediaClip != NULL) {
+	if (mediaClip != nullptr) {
 
 		mediaClip->isHovered = false; // we don't want this property inherited from the last draw
 		ImGui::SetCursorScreenPos(app->timeline.cursTopLeft);
@@ -106,6 +106,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 
 			ImGui::SetCursorScreenPos(cursor_trackclip_padded);
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+			ImVec2 tracNamePos = ImGui::GetCursorScreenPos();
 			if (i <= mediaClip->source->audioTracks) {
 				ImGui::InvisibleButton(("track1Button#" + std::to_string(i)).c_str(), track_size);
 			} else {
@@ -120,11 +121,22 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 
 				ImU32 track_color = ImGui::GetColorU32(ImVec4(0., 0.5, 0.95, 1));
 				if (i == 0) { // if video track
+
 					track_color = ImGui::GetColorU32(ImVec4(0.96, 0.655, 0., 1));
 				}
 				ImGui::GetWindowDrawList()->AddRectFilled(r_min, r_max, track_color, 0.0f);
 
 				mediaClip->isHovered = mediaClip->isHovered || ImGui::IsItemHovered();
+
+				if (i == 0) {
+					ImU32 textColor = ImGui::GetColorU32(ImVec4(0., 0., 0., 1));
+					ImVec2 savedPos = ImGui::GetCursorScreenPos();
+					ImGui::SetCursorScreenPos(tracNamePos);
+					ImGui::PushStyleColor(ImGuiCol_Text, textColor);
+					ImGui::Text("%s", mediaClip->source->filename);
+					ImGui::PopStyleColor();
+					ImGui::SetCursorScreenPos(savedPos);
+				}
 
 				// ######### bottom border
 				float thickness = 1;

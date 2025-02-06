@@ -5,6 +5,7 @@
 #include "mediaClip.h"
 
 #define MEDIACLIPS_SIZE 200
+#define MEDIASOURCES_SIZE 200
 #define TIMELINE_EVENTS_SIZE MEDIACLIPS_SIZE*2+1
 
 typedef struct MediaClip MediaClip;
@@ -53,12 +54,13 @@ typedef struct App {
 	float playbackTime;
 	MediaClip* selectedTrack;
 	MediaSource* loadedMediaSource;
+	bool isLoadingNewSource;
 
 	Timeline timeline;
 	int timelineEventIndex;
 	TimelineEvent timelineEvents[TIMELINE_EVENTS_SIZE];
-	MediaSource* mediaSources[200];
-	MediaClip* mediaClips[200];
+	MediaSource* mediaSources[MEDIASOURCES_SIZE];
+	MediaClip* mediaClips[MEDIACLIPS_SIZE];
 } app;
 
 typedef struct GetPropertyCallback {
@@ -68,6 +70,7 @@ typedef struct GetPropertyCallback {
 } GetPropertyCallback;
 
 void App_Init(App* app);
+void App_Free(App* app);
 void App_MovePlaybackMarker(App* app, float secs);
 void App_CalculateTimelineEvents(App* app);
 TimelineEvent* App_GetNextTimelineEvent(App* app);

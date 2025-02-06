@@ -1,4 +1,4 @@
-local USE_ASAN = false
+local USE_ASAN = true
 
 project "clipcutter"
     kind("WindowedApp")
