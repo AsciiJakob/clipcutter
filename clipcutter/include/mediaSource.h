@@ -13,7 +13,7 @@ typedef struct MediaSource {
 	int audioTracks;
 } MediaSource;
 
-void MediaSource_Init(MediaSource* mediaSource, char* path);
+void MediaSource_Init(MediaSource* mediaSource);
 void MediaSource_Load(App* app, MediaSource* source);
 
 #endif

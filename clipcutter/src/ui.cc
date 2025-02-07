@@ -20,6 +20,9 @@ void UI_DrawEditor(App* app) {
 		if (ImGui::Button("Load File")) {
                         //char* thing = mpv_get_property_string(app->mpv, "path");
                         //printf(thing);
+			MediaSource_Load(app, app->mediaSources[0]);
+			//App_InitNewMediaSource(app, app->mediaSources[0]->path);
+
 		}
 		ImGui::EndMainMenuBar();
 	}
@@ -28,6 +31,9 @@ void UI_DrawEditor(App* app) {
 		ImGui::Text("playbacktime: %.2f", app->playbackTime);
 		ImGui::Text("scaling: %.2f", app->timeline.scaleX);
 		ImGui::Text("timelineEvent: %d", app->timelineEvents[app->timelineEventIndex].type);
+		if (app->loadedMediaSource != nullptr) {
+			ImGui::Text("currentLoaded: %s", app->loadedMediaSource->filename);
+		}
 
 		ImGui::Text("------Track 1:");
 		MediaClip* testClip = app->mediaClips[0];
