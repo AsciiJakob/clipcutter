@@ -23,6 +23,10 @@ void App_Free(App* app) {
 		if (mediaSource->filename != nullptr) {
 			free(mediaSource->filename);
 		}
+		if (mediaSource->path != nullptr) {
+			free(mediaSource->path);
+		}
+
 		free(mediaSource);
 	}
 
@@ -36,7 +40,28 @@ void App_Free(App* app) {
 	free(app);
 }
 
+void App_InitNewMediaSource(App* app, char* path) {
+	//char* pathP = (char*) malloc(strlen(path) + 1);
+	//strcpy(pathP, path);
+	app->playbackActive = false;
+	app->isLoadingVideo = true;
+	app->isLoadingNewSource = true;
+	const char* cmd[] = { "loadfile", path, NULL };
+	if (mpv_command_async(app->mpv, NULL, cmd) != MPV_ERROR_SUCCESS) {
+		
+		printf("Error: Failed loading file");
+		exit(1);
+	}
+}
 
+int App_FindFirstNullptr(void** array, int maxLength) {
+	for (int i = 0; i < maxLength; i++) {
+		if (array[i] == nullptr) {
+			return i;
+		}
+	}
+	return -1;
+}
 
 void App_CalculateTimelineEvents(App* app) {
 	MediaClip** mediaClips = app->mediaClips;
@@ -122,11 +147,16 @@ void App_CalculateTimelineEvents(App* app) {
 void App_SetPlaybackPos(App* app, float secs) {
 	std::string timeStr = std::to_string(secs);
 	const char* cmd[] = { "seek", timeStr.data(), "absolute", NULL };
-	if (int result = mpv_command(app->mpv, cmd); result != MPV_ERROR_SUCCESS) {
-		fprintf(stderr, "Fast forward failed, reason: %s\n", mpv_error_string(result));
-	}
+	mpv_command_async(app->mpv, NULL, cmd);
+	//if (int result = mpv_command(app->mpv, cmd); result != MPV_ERROR_SUCCESS) {
+	//	fprintf(stderr, "Fast forward failed, reason: %s\n", mpv_error_string(result));
+	//}
 }
 
+// called when:
+// * playback is active and has reached a new event
+// * playback marker is moved somewhere
+// * new video file has been loaded
 void App_LoadEvent(App* app, TimelineEvent* event) {
 	if (event->type == TIMELINE_EVENT_VIDEO) {
 		if (event->clip->source != app->loadedMediaSource) {
@@ -185,3 +215,20 @@ TimelineEvent* App_GetNextTimelineEvent(App* app) {
 	}
 	return &app->timelineEvents[indx];
 }
+
+TimelineEvent* App_GetTimelineEventsEnd(App* app) {
+	for (int i = 0; i < TIMELINE_EVENTS_SIZE; i++) {
+		TimelineEvent* event = &app->timelineEvents[i];
+		printf("pointer: %p\n", event);
+		if (event == nullptr) {
+			printf("is nullptr\n");
+		}
+		assert(event != nullptr && "failed to get timeline events end. encountered nullptr");
+
+		if (event->type == TIMELINE_EVENT_END) {
+			return event;
+		}
+	}
+	assert(true && "failed to get timeline events end. went through whole array");
+}
+

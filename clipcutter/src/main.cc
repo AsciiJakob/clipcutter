@@ -21,22 +21,18 @@ static void die(const char* msg) {
 //}
 
 void setMultipleAudioTracks(App* app) {
-    //const char* cmd[] = { "set", "options/lavfi-complex", "[aid1] [aid2] amix [ao]", NULL };
     // https://mpv.io/manual/stable/#options-lavfi-complex
+
+    assert(app->loadedMediaSource != nullptr && "loadedMediaSource was null");
     if (app->loadedMediaSource->audioTracks == 2) {
-        printf("two audiotracks");
+        printf("two audiotracks\n");
 		const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2]amix[ao]", NULL };
 		mpv_command_async(app->mpv, 0, cmd);
     } else if (app->loadedMediaSource->audioTracks == 3) {
-        printf("three audiotracks");
+        printf("three audiotracks\n");
 		const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2][aid3]amix=inputs=3[ao]", NULL };
 		mpv_command_async(app->mpv, 0, cmd);
     } 
-
-	//mpv_command_async(app->mpv, 0, cmd);
-    //if (int result = mpv_command(mpv, cmd); result != MPV_ERROR_SUCCESS) {
-    //    fprintf(stderr, "Multiple audio tracks failed, reason: %s\n", mpv_error_string(result));
-    //}
 }
 
 
@@ -79,13 +75,13 @@ int main(int argc, char* argv[]) {
     // Main loop
     bool done = false;
 
-    app->isLoadingNewSource = true;
-    const char* cmd[] = { "loadfile", argv[1], NULL };
-    if (mpv_command_async(app->mpv, (uint64_t) 43278, cmd) != MPV_ERROR_SUCCESS) {
-        printf("Error: Failed loading file");
-        return false;
-    }
-    printf("did the load thing for file\n");
+    App_InitNewMediaSource(app, argv[1]);
+    //app->isLoadingNewSource = true;
+    //const char* cmd[] = { "loadfile", argv[1], NULL };
+    //if (mpv_command_async(app->mpv, (uint64_t) 43278, cmd) != MPV_ERROR_SUCCESS) {
+    //    printf("Error: Failed loading file");
+    //    return false;
+    //}
 
 
     bool mpvRedraw = false;
@@ -118,6 +114,13 @@ int main(int argc, char* argv[]) {
 					//setPositionRelative(app->mpv, 5);
 				//}
             }
+            if (event.type == SDL_DROPFILE) {
+                printf("drop event\n");
+                // TODO: check if already loaded
+                App_InitNewMediaSource(app, event.drop.file);
+                printf("%s\n", event.drop.file);
+            }
+
 			if (event.type == app->events.wakeupOnMpvRenderUpdate) {
 				uint64_t flags = mpv_render_context_update(app->mpv_gl);
 				if (flags & MPV_RENDER_UPDATE_FRAME) {
@@ -134,52 +137,66 @@ int main(int argc, char* argv[]) {
                     if (mp_event->event_id == MPV_EVENT_LOG_MESSAGE) {
                         mpv_event_log_message* msg = static_cast<mpv_event_log_message*>(mp_event->data);
                         if (strstr(msg->text, "DR image"))
-                            //printf("log: %s", msg->text);
+                            printf("log: %s", msg->text);
                         continue;
                     }
                     //printf("event: %s\n", mpv_event_name(mp_event->event_id));
                     if (mp_event->event_id == MPV_EVENT_END_FILE) {
                         printf("Unloading video file\n");
-                        app->loadedMediaSource = nullptr;
+                        if (!app->isLoadingVideo) {
+							app->loadedMediaSource = nullptr;
+                        }
                     }
                     if (mp_event->event_id == MPV_EVENT_FILE_LOADED) {
-                        printf("new file: %d\n", app->isLoadingNewSource);
+                        app->isLoadingVideo = false;
 
                         printf("file loaded event\n");
                         if (app->isLoadingNewSource) {
+                            int avail_index = App_FindFirstNullptr((void**) &app->mediaSources, MEDIASOURCES_SIZE);
+                            if (avail_index == -1) {
+                                printf("Error: not enough space for a new media source\n");
+                                exit(1);
+                            }
 							MediaSource* mediaSource = (MediaSource*) malloc(sizeof MediaSource);
-							MediaSource_Init(mediaSource, argv[1]);
-							app->mediaSources[0] = mediaSource;
+							MediaSource_Init(mediaSource);
+							app->mediaSources[avail_index] = mediaSource;
 
-							GetPropertyCallback* callbackData = (GetPropertyCallback*) malloc(sizeof GetPropertyCallback);
-							callbackData->mediaSource = mediaSource;
-							callbackData->callback = [](GetPropertyCallback* callbackData, App* app) {
-								MediaClip* mediaClip = (MediaClip*) malloc(sizeof MediaClip);
-								MediaClip_Init(mediaClip, callbackData->mediaSource);
-								app->mediaClips[0] = mediaClip;
+                            GetPropertyCallback* callbackData = (GetPropertyCallback*)malloc(sizeof GetPropertyCallback);
+                            callbackData->mediaSource = mediaSource;
+                            callbackData->callback = [](GetPropertyCallback* callbackData, App* app) {
+								int avail_index = App_FindFirstNullptr((void**) &app->mediaClips, MEDIACLIPS_SIZE);
+								if (avail_index == -1) {
+									printf("Error: not enough space for a new media clip\n");
+									exit(1);
+								}
 
-								MediaClip* mediaClip2 = (MediaClip*) malloc(sizeof MediaClip);
-								MediaClip_Init(mediaClip2, callbackData->mediaSource);
-								app->mediaClips[1] = mediaClip2;
-								mediaClip2->padding = 190;
-								App_CalculateTimelineEvents(app);
+                                MediaClip* mediaClip = (MediaClip*)malloc(sizeof MediaClip);
+                                MediaClip_Init(mediaClip, callbackData->mediaSource);
+                                app->mediaClips[avail_index] = mediaClip;
 
-								app->loadedMediaSource = callbackData->mediaSource;
-								app->playbackActive = true;
+                                mediaClip->padding = App_GetTimelineEventsEnd(app)->start+20;
+                                if (avail_index == 0) mediaClip->padding = 0;
+                                App_CalculateTimelineEvents(app);
+
+                                app->loadedMediaSource = callbackData->mediaSource;
+                                app->playbackActive = true;
                                 app->isLoadingNewSource = false;
-								printf("setting playback to active again");
+                                printf("setting playback to active again\n");
 
-								setMultipleAudioTracks(app);
+                                // this will load the video we were playing before loading the new one
+                                // (unless what we just loaded is what is supposed to be playing at this time marker location)
+                                App_MovePlaybackMarker(app, app->playbackTime);
 
+                                setMultipleAudioTracks(app);
 							};
 
-							callbackData->remainingRetrievals = 3; // TODO: dangerous to do manually, add to func
-							mpv_get_property_async(app->mpv, (uint64_t)callbackData, "duration", MPV_FORMAT_INT64);
-							mpv_get_property_async(app->mpv, (uint64_t)callbackData, "filename", MPV_FORMAT_STRING);
-							mpv_get_property_async(app->mpv, (uint64_t)callbackData, "track-list/count", MPV_FORMAT_INT64);
+                            callbackData->remainingRetrievals = 4; // TODO: dangerous to do manually, add to func
+                            mpv_get_property_async(app->mpv, (uint64_t)callbackData, "duration", MPV_FORMAT_INT64);
+                            mpv_get_property_async(app->mpv, (uint64_t)callbackData, "filename", MPV_FORMAT_STRING);
+                            mpv_get_property_async(app->mpv, (uint64_t)callbackData, "path", MPV_FORMAT_STRING);
+                            mpv_get_property_async(app->mpv, (uint64_t)callbackData, "track-list/count", MPV_FORMAT_INT64);
                         } else {
                             app->playbackActive = true;
-                            // I need audioTracks for this
                             setMultipleAudioTracks(app);
                         }
                     }
@@ -203,7 +220,12 @@ int main(int argc, char* argv[]) {
                             char* filenameP = (char*) malloc(strlen(*(char**) prop->data)+1);
                             strcpy(filenameP, *(char**) prop->data);
                             src->filename = filenameP;
+                        } else if (strcmp(prop->name, "path") == 0) {
+                            char* pathP = (char*) malloc(strlen(*(char**) prop->data)+1);
+                            strcpy(pathP, *(char**) prop->data);
+                            src->path = pathP;
                         }
+
 
                         if (--callbackData->remainingRetrievals == 0) {
                             callbackData->callback(callbackData, app);

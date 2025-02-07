@@ -54,6 +54,7 @@ typedef struct App {
 	float playbackTime;
 	MediaClip* selectedTrack;
 	MediaSource* loadedMediaSource;
+	bool isLoadingVideo;
 	bool isLoadingNewSource;
 
 	Timeline timeline;
@@ -71,9 +72,12 @@ typedef struct GetPropertyCallback {
 
 void App_Init(App* app);
 void App_Free(App* app);
+void App_InitNewMediaSource(App* app, char* path);
+int App_FindFirstNullptr(void** array, int maxLength);
 void App_MovePlaybackMarker(App* app, float secs);
 void App_CalculateTimelineEvents(App* app);
 TimelineEvent* App_GetNextTimelineEvent(App* app);
+TimelineEvent* App_GetTimelineEventsEnd(App* app);
 void App_LoadEvent(App* app, TimelineEvent* event);
 
 #endif
