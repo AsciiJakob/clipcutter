@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "app.h"
 #include "mediaSource.h"
+#include "playback.h"
 
 void App_Init(App* app) {
 	memset(app, 0, sizeof App);
@@ -46,12 +47,7 @@ void App_InitNewMediaSource(App* app, char* path) {
 	app->playbackActive = false;
 	app->isLoadingVideo = true;
 	app->isLoadingNewSource = true;
-	const char* cmd[] = { "loadfile", path, NULL };
-	if (mpv_command_async(app->mpv, NULL, cmd) != MPV_ERROR_SUCCESS) {
-		
-		printf("Error: Failed loading file");
-		exit(1);
-	}
+	Playback_LoadVideo(app, path);
 }
 
 int App_FindFirstNullptr(void** array, int maxLength) {
@@ -142,18 +138,8 @@ void App_CalculateTimelineEvents(App* app) {
 	//app->timelineEvents[TIMELINE_EVENTS_SIZE-1].type = TIMELINE_EVENT_END;
 	//mediaClip* mediaClipBefore = app->timelineEvents[TIMELINE_EVENTS_SIZE-2].type = TIMELINE_EVENT_END;
 }
-
-// TODO: maybe put in an mpv.cc file?
-void App_SetPlaybackPos(App* app, float secs) {
-	std::string timeStr = std::to_string(secs);
-	const char* cmd[] = { "seek", timeStr.data(), "absolute", NULL };
-	mpv_command_async(app->mpv, NULL, cmd);
-	//if (int result = mpv_command(app->mpv, cmd); result != MPV_ERROR_SUCCESS) {
-	//	fprintf(stderr, "Fast forward failed, reason: %s\n", mpv_error_string(result));
-	//}
-}
-
-// called when:
+// TODO: make sure this is actually true
+// called when: 
 // * playback is active and has reached a new event
 // * playback marker is moved somewhere
 // * new video file has been loaded
@@ -204,7 +190,7 @@ void App_MovePlaybackMarker(App* app, float secs) {
 	if (currentEvent->type == TIMELINE_EVENT_VIDEO) {
 		int seekPos = secs-currentEvent->start;
 		printf("seeking to: %d\n", seekPos);
-		App_SetPlaybackPos(app, seekPos);
+		Playback_SetPlaybackPos(app, seekPos);
 	}
 }
 

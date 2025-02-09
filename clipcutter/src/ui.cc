@@ -18,12 +18,12 @@ void setPlaybackPos(mpv_handle* mpv, double seconds) {
 void UI_DrawEditor(App* app) {
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::Button("Load File")) {
-                        //char* thing = mpv_get_property_string(app->mpv, "path");
-                        //printf(thing);
+		}
+		if (ImGui::Button("test")) {
 			MediaSource_Load(app, app->mediaSources[0]);
 			//App_InitNewMediaSource(app, app->mediaSources[0]->path);
-
 		}
+
 		ImGui::EndMainMenuBar();
 	}
 

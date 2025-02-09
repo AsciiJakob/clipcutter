@@ -32,8 +32,27 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 
 		if (mouseLetGo) {
 			mediaClip->isBeingMoved = false;
+			// TODO: update playback in case we're currently playing that clip
+			MediaClip* currentClip = app->timelineEvents[app->timelineEventIndex].clip;
+			// if currently playing this clip
+			bool updateThing = false;
+			if (app->playbackTime >= mediaClip->padding && app->playbackTime < mediaClip->padding + mediaClip->width) {
+				printf("Old location was where marker is\n");
+				updateThing = true;
+			}
+			if (app->playbackTime >= clipLeftPadding && app->playbackTime < clipLeftPadding + mediaClip->width) {
+				printf("inside the new moved location\n");
+				updateThing = true;
+			}
+
 			mediaClip->padding = clipLeftPadding;
 			App_CalculateTimelineEvents(app);
+			if (updateThing) {
+				printf("updating playback thing---------------\n");
+				App_MovePlaybackMarker(app, app->playbackTime);
+				//App_MovePlaybackMarker(app, 120);
+			}
+			
 		}
 	}
 

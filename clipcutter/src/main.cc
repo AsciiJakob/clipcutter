@@ -4,6 +4,7 @@
 #include "ui.h"
 #include "mediaSource.h"
 #include "mediaClip.h"
+#include "playback.h"
 
 
 static void die(const char* msg) {
@@ -20,20 +21,6 @@ static void die(const char* msg) {
 //    }
 //}
 
-void setMultipleAudioTracks(App* app) {
-    // https://mpv.io/manual/stable/#options-lavfi-complex
-
-    assert(app->loadedMediaSource != nullptr && "loadedMediaSource was null");
-    if (app->loadedMediaSource->audioTracks == 2) {
-        printf("two audiotracks\n");
-		const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2]amix[ao]", NULL };
-		mpv_command_async(app->mpv, 0, cmd);
-    } else if (app->loadedMediaSource->audioTracks == 3) {
-        printf("three audiotracks\n");
-		const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2][aid3]amix=inputs=3[ao]", NULL };
-		mpv_command_async(app->mpv, 0, cmd);
-    } 
-}
 
 
 #if defined(CC_PLATFORM_WINDOWS)
@@ -70,18 +57,17 @@ int main(int argc, char* argv[]) {
         die("failed to initialize window, shutting down");
     }
 
-    //setMultipleAudioTracks(mpv);
+    // we have to reset the lavfi option every time we load a new video.
+    // Otherwise it might try to load too many audio tracks, causing the video to not load
+	const char* cmd[] = { "set", "options/reset-on-next-file", "lavfi-complex", NULL };
+	mpv_command_async(app->mpv, 0, cmd);
+
+
 
     // Main loop
     bool done = false;
 
     App_InitNewMediaSource(app, argv[1]);
-    //app->isLoadingNewSource = true;
-    //const char* cmd[] = { "loadfile", argv[1], NULL };
-    //if (mpv_command_async(app->mpv, (uint64_t) 43278, cmd) != MPV_ERROR_SUCCESS) {
-    //    printf("Error: Failed loading file");
-    //    return false;
-    //}
 
 
     bool mpvRedraw = false;
@@ -187,7 +173,7 @@ int main(int argc, char* argv[]) {
                                 // (unless what we just loaded is what is supposed to be playing at this time marker location)
                                 App_MovePlaybackMarker(app, app->playbackTime);
 
-                                setMultipleAudioTracks(app);
+                                Playback_SetMultipleAudioTracks(app);
 							};
 
                             callbackData->remainingRetrievals = 4; // TODO: dangerous to do manually, add to func
@@ -197,7 +183,13 @@ int main(int argc, char* argv[]) {
                             mpv_get_property_async(app->mpv, (uint64_t)callbackData, "track-list/count", MPV_FORMAT_INT64);
                         } else {
                             app->playbackActive = true;
-                            setMultipleAudioTracks(app);
+
+                            TimelineEvent* timelineEvent = &app->timelineEvents[app->timelineEventIndex];
+                            if (app->playbackTime > timelineEvent->start+0.05) {
+                                //printf("is ahead. time: %.6f; event: %.6f\n", app->playbackTime, timelineEvent->start);
+								App_MovePlaybackMarker(app, app->playbackTime);
+                            }
+                            Playback_SetMultipleAudioTracks(app);
                         }
                     }
                     if (mp_event->event_id == MPV_EVENT_GET_PROPERTY_REPLY) {
