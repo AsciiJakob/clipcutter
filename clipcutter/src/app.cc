@@ -10,6 +10,7 @@ void App_Init(App* app) {
 	app->mpv = nullptr;
 	app->mpv_gl = nullptr;
 
+	app->playbackBlocked = false;
 	app->playbackActive = false;
 	app->timeline.clipHeight = 30;
 	app->timeline.scaleX = 1.5;
@@ -44,7 +45,7 @@ void App_Free(App* app) {
 void App_InitNewMediaSource(App* app, char* path) {
 	//char* pathP = (char*) malloc(strlen(path) + 1);
 	//strcpy(pathP, path);
-	app->playbackActive = false;
+	app->playbackBlocked = true;
 	app->isLoadingVideo = true;
 	app->isLoadingNewSource = true;
 	Playback_LoadVideo(app, path);

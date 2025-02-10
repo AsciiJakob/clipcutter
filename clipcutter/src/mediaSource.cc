@@ -12,7 +12,7 @@ void MediaSource_Init(MediaSource* mediaSource) {
 }
 
 void MediaSource_Load(App* app, MediaSource* source) {
-	app->playbackActive = false;
+	app->playbackBlocked = true;
 	app->isLoadingVideo = true;
 	app->loadedMediaSource = source;
 	Playback_LoadVideo(app, source->path);

@@ -50,8 +50,9 @@ typedef struct App {
 	int mpv_width; 
 	int mpv_height;
 
+	bool playbackBlocked;
 	bool playbackActive;
-	float playbackTime;
+	double playbackTime;
 	MediaClip* selectedTrack;
 	MediaSource* loadedMediaSource;
 	bool isLoadingVideo;
