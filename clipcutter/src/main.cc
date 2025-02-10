@@ -47,7 +47,6 @@ int main(int argc, char* argv[]) {
 
 	App* app = (App*) malloc(sizeof App);
     App_Init(app);
-    //app->playbackActive = true;
 	App_CalculateTimelineEvents(app);
 
 
@@ -62,12 +61,17 @@ int main(int argc, char* argv[]) {
 	const char* cmd[] = { "set", "options/reset-on-next-file", "lavfi-complex", NULL };
 	mpv_command_async(app->mpv, 0, cmd);
 
+    mpv_observe_property(app->mpv, 0, "playback-time", MPV_FORMAT_DOUBLE);
+
 
 
     // Main loop
     bool done = false;
 
-    App_InitNewMediaSource(app, argv[1]);
+	//printf("creating video");
+
+	App_InitNewMediaSource(app, argv[1]);
+
 
 
     bool mpvRedraw = false;
@@ -83,9 +87,15 @@ int main(int argc, char* argv[]) {
             if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_EXPOSED)
                 mpvRedraw = true;
 			if (event.type == SDL_KEYDOWN) {
+                if (event.key.keysym.sym == SDLK_END) {
+					printf("pressing deubg key\n");
+					Playback_SetMultipleAudioTracks(app);
+                }
+
 				if (event.key.keysym.sym == SDLK_SPACE) {
 					const char* cmd_pause[] = { "cycle", "pause", NULL };
 					mpv_command_async(app->mpv, 0, cmd_pause);
+                    // TODO 
                     app->playbackActive = !app->playbackActive;
 				}
 				if (event.key.keysym.sym == SDLK_s) {
@@ -165,15 +175,21 @@ int main(int argc, char* argv[]) {
                                 App_CalculateTimelineEvents(app);
 
                                 app->loadedMediaSource = callbackData->mediaSource;
-                                app->playbackActive = true;
+                                app->playbackBlocked = false;
                                 app->isLoadingNewSource = false;
                                 printf("setting playback to active again\n");
+
 
                                 // this will load the video we were playing before loading the new one
                                 // (unless what we just loaded is what is supposed to be playing at this time marker location)
                                 App_MovePlaybackMarker(app, app->playbackTime);
 
                                 Playback_SetMultipleAudioTracks(app);
+
+
+                                //// hack. TODO: elaborate
+                                //app->isLoadingVideo = true;
+                                //Playback_LoadVideo(app, callbackData->mediaSource->path);
 							};
 
                             callbackData->remainingRetrievals = 4; // TODO: dangerous to do manually, add to func
@@ -182,9 +198,10 @@ int main(int argc, char* argv[]) {
                             mpv_get_property_async(app->mpv, (uint64_t)callbackData, "path", MPV_FORMAT_STRING);
                             mpv_get_property_async(app->mpv, (uint64_t)callbackData, "track-list/count", MPV_FORMAT_INT64);
                         } else {
-                            app->playbackActive = true;
+                            app->playbackBlocked = false;
 
                             TimelineEvent* timelineEvent = &app->timelineEvents[app->timelineEventIndex];
+                            // if we're not meant to play the video from the beginning, skip forward to where we're meant to be
                             if (app->playbackTime > timelineEvent->start+0.05) {
                                 //printf("is ahead. time: %.6f; event: %.6f\n", app->playbackTime, timelineEvent->start);
 								App_MovePlaybackMarker(app, app->playbackTime);
@@ -223,6 +240,18 @@ int main(int argc, char* argv[]) {
                             callbackData->callback(callbackData, app);
                         }
                     }
+
+                    if (mp_event->event_id == MPV_EVENT_PROPERTY_CHANGE) {
+                        mpv_event_property* prop = (mpv_event_property*) mp_event->data;
+                        if (strcmp(prop->name, "playback-time") == 0) {
+                            if (prop->data != nullptr) {
+								double playtime = *(double*) prop->data;
+								printf("Playtime: %.2f\n", playtime);
+                                app->playbackTime = playtime;
+                            }
+
+                        }
+                    }
                 }
             }
         }
@@ -238,7 +267,7 @@ int main(int argc, char* argv[]) {
 			printf("not redraw");
         }
 
-		if (app->playbackActive) {
+		if (!app->playbackBlocked && app->playbackActive) {
 			app->playbackTime += ImGui::GetIO().DeltaTime;
 
             // handle events

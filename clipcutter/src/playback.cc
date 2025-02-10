@@ -25,6 +25,7 @@ void Playback_SetPlaybackPos(App* app, float secs) {
 }
 
 void Playback_LoadVideo(App* app, char* path) {
+	printf("calling loadfile\n");
 	const char* cmd[] = { "loadfile", path, NULL };
 	if (mpv_command_async(app->mpv, 0, cmd) != MPV_ERROR_SUCCESS) {
 		printf("Error: Failed loading file");
