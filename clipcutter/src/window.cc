@@ -1,8 +1,13 @@
 #include "pch.h"
 #include "app.h"
 
+static void* get_proc_address_func(void* fn_ctx, const char* name) {
+    return SDL_GL_GetProcAddress(name);
+}
+
 bool initWindow(App* app) {
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
+    //if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER)) {
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
         printf("Error: %s\n", SDL_GetError());
         return -1;
     }
@@ -22,8 +27,9 @@ bool initWindow(App* app) {
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-        SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-        window = SDL_CreateWindow("Voixchat", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
+        SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+        //window = SDL_CreateWindow("Voixchat", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
+        window = SDL_CreateWindow("Voixchat", 1280, 720, window_flags);
         if (window == nullptr) {
             printf("Error: SDL_CreateWindow(): %s\n", SDL_GetError());
             return false;
@@ -65,18 +71,16 @@ bool initWindow(App* app) {
 		mpv_request_log_messages(mpv, "debug");
 
         mpv_opengl_init_params opengl_init_params = {
-			.get_proc_address = [](void* fn_ctx, const char* name) {
-				return SDL_GL_GetProcAddress(name);
-			}
+			.get_proc_address = get_proc_address_func
         };
 
         s32 advancedControl = 1;
 
         mpv_render_param params[] = {
-            {MPV_RENDER_PARAM_API_TYPE, const_cast<void*>(static_cast<const void*>(MPV_RENDER_API_TYPE_OPENGL))},
+            {MPV_RENDER_PARAM_API_TYPE, (void*) MPV_RENDER_API_TYPE_OPENGL},
             {MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &opengl_init_params},
             {MPV_RENDER_PARAM_ADVANCED_CONTROL, &advancedControl},
-            {static_cast<mpv_render_param_type>(0), nullptr}  // Correct termination for the array
+            {(mpv_render_param_type) 0, nullptr}  // Correct termination for the array
         };
 
         if (mpv_render_context_create(&app->mpv_gl, mpv, params) < 0) {
@@ -118,7 +122,7 @@ bool initWindow(App* app) {
         // Setup Dear ImGui style
         ImGui::StyleColorsDark();
 
-        ImGui_ImplSDL2_InitForOpenGL(window, *gl_context);
+        ImGui_ImplSDL3_InitForOpenGL(window, *gl_context);
         ImGui_ImplOpenGL3_Init(glsl_version);
     }
 }

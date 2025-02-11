@@ -79,26 +79,26 @@ int main(int argc, char* argv[]) {
     while (!done) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            ImGui_ImplSDL2_ProcessEvent(&event);
-            if (event.type == SDL_QUIT)
+            ImGui_ImplSDL3_ProcessEvent(&event);
+            if (event.type == SDL_EVENT_QUIT) {
                 done = true;
-            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(app->window))
+            } else if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && event.window.windowID == SDL_GetWindowID(app->window)) {
                 done = true;
-            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_EXPOSED)
+            } else if (event.type == SDL_EVENT_WINDOW_EXPOSED) {
                 mpvRedraw = true;
-			if (event.type == SDL_KEYDOWN) {
-                if (event.key.keysym.sym == SDLK_END) {
+            } else if (event.type == SDL_EVENT_KEY_DOWN) {
+                if (event.key.key == SDLK_END) {
 					printf("pressing deubg key\n");
 					Playback_SetMultipleAudioTracks(app);
                 }
 
-				if (event.key.keysym.sym == SDLK_SPACE) {
+				if (event.key.key == SDLK_SPACE) {
 					const char* cmd_pause[] = { "cycle", "pause", NULL };
 					mpv_command_async(app->mpv, 0, cmd_pause);
                     // TODO 
                     app->playbackActive = !app->playbackActive;
 				}
-				if (event.key.keysym.sym == SDLK_s) {
+				if (event.key.key == SDLK_S) {
 					const char* cmd_scr[] = { "screenshot-to-file",
 											 "screenshot.png",
 											 "window",
@@ -109,21 +109,17 @@ int main(int argc, char* argv[]) {
 				//if (event.key.keysym.sym == SDLK_RIGHT) {
 					//setPositionRelative(app->mpv, 5);
 				//}
-            }
-            if (event.type == SDL_DROPFILE) {
+            } else if (event.type == SDL_EVENT_DROP_FILE) {
                 printf("drop event\n");
                 // TODO: check if already loaded
-                App_InitNewMediaSource(app, event.drop.file);
-                printf("%s\n", event.drop.file);
-            }
-
-			if (event.type == app->events.wakeupOnMpvRenderUpdate) {
+                //App_InitNewMediaSource(app, event.drop.file);
+                //printf("%s\n", event.drop.file);
+            } else if (event.type == app->events.wakeupOnMpvRenderUpdate) {
 				uint64_t flags = mpv_render_context_update(app->mpv_gl);
 				if (flags & MPV_RENDER_UPDATE_FRAME) {
 					mpvRedraw = true;
 				}
-			}
-            if (event.type == app->events.wakeupOnMpvEvents) {
+			} else if (event.type == app->events.wakeupOnMpvEvents) {
                 while (1) {
                     mpv_event* mp_event = mpv_wait_event(app->mpv, 0);
                     if (mp_event->event_id == MPV_EVENT_NONE) {
@@ -283,7 +279,7 @@ int main(int argc, char* argv[]) {
 
         // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplSDL2_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
         UI_DrawEditor(app);
@@ -303,10 +299,10 @@ int main(int argc, char* argv[]) {
     mpv_destroy(app->mpv);
 
     ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
 
-    SDL_GL_DeleteContext(app->gl_context);
+    SDL_GL_DestroyContext(app->gl_context);
     SDL_DestroyWindow(app->window);
     SDL_Quit();
 
