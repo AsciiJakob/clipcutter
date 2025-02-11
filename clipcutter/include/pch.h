@@ -12,11 +12,12 @@
 #include "assert.h"
 
 #include "imgui.h"
-#include "imgui_impl_sdl2.h"
+#include "imgui_impl_sdl3.h"
 #include "imgui_impl_opengl3.h"
 
-#include "SDL.h"
-#include "SDL_opengl.h"
+//#include "SDL3/SDL_main.h"
+#include "SDL3/SDL.h"
+#include "SDL3/SDL_opengl.h"
 
 #include <mpv/client.h>
 #include <mpv/render_gl.h>

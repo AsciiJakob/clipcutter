@@ -256,7 +256,8 @@ void UI_DrawEditor(App* app) {
 			// Center the image
 			//ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2((contentRegion.x - displaySize.x) * 0.5f, (contentRegion.y - displaySize.y) * 0.5f));
 
-			ImGui::Image((void*)(intptr_t)app->mpv_texture, displaySize);
+			//ImGui::Image((void*)(intptr_t)app->mpv_texture, displaySize);
+			ImGui::Image((ImTextureID)app->mpv_texture, displaySize);
 		}
 		ImGui::End();
 	}

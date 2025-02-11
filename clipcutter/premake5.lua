@@ -6,16 +6,16 @@ project "clipcutter"
     cppdialect "C++20"
     warnings "Extra"
 
-    linkoptions "/L libmpv.dll.a"
+    linkoptions "libmpv.dll.a"
 
     files {
         "src/**.cc", "include/**.h",
-        "deps/imgui/*.cpp", "deps/imgui/backends/imgui_impl_opengl3.cpp", "deps/imgui/backends/imgui_impl_sdl2.cpp"
+        "deps/imgui/*.cpp", "deps/imgui/backends/imgui_impl_opengl3.cpp", "deps/imgui/backends/imgui_impl_sdl3.cpp"
     }
 
-    includedirs { "include", "deps/sdl2/include", "deps/imgui", "deps/imgui/backends", "deps/libmpv/include" }
-    libdirs { "deps/sdl2/lib/x64", "deps/libmpv/lib" }
-    links { "sdl2", "opengl32" }
+    includedirs { "include", "deps/sdl3/include", "deps/imgui", "deps/imgui/backends", "deps/libmpv/include" }
+    libdirs { "deps/sdl3/lib/x64", "deps/libmpv/lib" }
+    links { "sdl3", "opengl32" }
 
     pchheader "pch.h"
     pchsource "src/pch.cc"
