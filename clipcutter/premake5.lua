@@ -6,7 +6,6 @@ project "clipcutter"
     cppdialect "C++20"
     warnings "Extra"
 
-    linkoptions "libmpv.dll.a"
 
     files {
         "src/**.cc", "include/**.h",
@@ -15,7 +14,7 @@ project "clipcutter"
 
     includedirs { "include", "deps/sdl3/include", "deps/imgui", "deps/imgui/backends", "deps/libmpv/include" }
     libdirs { "deps/sdl3/lib/x64", "deps/libmpv/lib" }
-    links { "sdl3", "opengl32" }
+    links { "libmpv", "sdl3", "opengl32" }
 
     pchheader "pch.h"
     pchsource "src/pch.cc"
