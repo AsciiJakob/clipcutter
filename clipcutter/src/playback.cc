@@ -4,16 +4,16 @@
 void Playback_SetMultipleAudioTracks(App* app) {
     // https://mpv.io/manual/stable/#options-lavfi-complex
 
-    assert(app->loadedMediaSource != nullptr && "loadedMediaSource was null");
-    if (app->loadedMediaSource->audioTracks == 2) {
-        printf("two audiotracks\n");
-		const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2]amix[ao]", NULL };
-		mpv_command_async(app->mpv, 0, cmd);
-    } else if (app->loadedMediaSource->audioTracks == 3) {
-        printf("three audiotracks\n");
-		const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2][aid3]amix=inputs=3[ao]", NULL };
-		mpv_command_async(app->mpv, 0, cmd);
-    } 
+  //  assert(app->loadedMediaSource != nullptr && "loadedMediaSource was null");
+  //  if (app->loadedMediaSource->audioTracks == 2) {
+  //      printf("two audiotracks\n");
+		//const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2]amix[ao]", NULL };
+		//mpv_command_async(app->mpv, 0, cmd);
+  //  } else if (app->loadedMediaSource->audioTracks == 3) {
+  //      printf("three audiotracks\n");
+		//const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2][aid3]amix=inputs=3[ao]", NULL };
+		//mpv_command_async(app->mpv, 0, cmd);
+  //  } 
 }
 
 void Playback_SetPlaybackPos(App* app, float secs) {
