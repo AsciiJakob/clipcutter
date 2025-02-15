@@ -70,6 +70,9 @@ int main(int argc, char* argv[]) {
 
 	//printf("creating video");
 
+	const char* cmd2[] = { "set", "options/lavfi-complex", "[aid1][aid2]amix[ao]", NULL };
+	mpv_command_async(app->mpv, 0, cmd2);
+
 	App_InitNewMediaSource(app, argv[1]);
 
 
@@ -109,11 +112,29 @@ int main(int argc, char* argv[]) {
 				//if (event.key.keysym.sym == SDLK_RIGHT) {
 					//setPositionRelative(app->mpv, 5);
 				//}
+            } else if (event.type == SDL_EVENT_DROP_BEGIN) {
+                printf("file hovering\n");
             } else if (event.type == SDL_EVENT_DROP_FILE) {
-                printf("drop event\n");
+                printf("file dropped: %s\n", event.drop.data);
+
+                char* url = (char*) malloc(strlen(event.drop.data) + sizeof("file:") + 1);
+                sprintf(url, "file:%s", event.drop.data);
+                AVFormatContext* s = NULL;
+                int ret = avformat_open_input(&s, url, NULL, NULL);
+                if (ret < 0) {
+                    printf("Error: ffmpeg failed to retrieve information about video source\n");
+                    exit(1);
+                }
+                else printf("yay\n");
+                avformat_find_stream_info(s, nullptr);
+                printf("streams:%d", s->nb_streams);
+                printf("duration:%.2f", s->duration/1000000.0);
+                avformat_close_input(&s);
+
                 // TODO: check if already loaded
                 //App_InitNewMediaSource(app, event.drop.file);
                 //printf("%s\n", event.drop.file);
+
             } else if (event.type == app->events.wakeupOnMpvRenderUpdate) {
 				uint64_t flags = mpv_render_context_update(app->mpv_gl);
 				if (flags & MPV_RENDER_UPDATE_FRAME) {
@@ -242,7 +263,7 @@ int main(int argc, char* argv[]) {
                         if (strcmp(prop->name, "playback-time") == 0) {
                             if (prop->data != nullptr) {
 								double playtime = *(double*) prop->data;
-								printf("Playtime: %.2f\n", playtime);
+								//printf("Playtime: %.2f\n", playtime);
                                 app->playbackTime = playtime;
                             }
 

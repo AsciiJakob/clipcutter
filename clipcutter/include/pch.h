@@ -22,6 +22,10 @@
 #include <mpv/client.h>
 #include <mpv/render_gl.h>
 
+extern "C" {
+#include <libavformat/avformat.h>
+}
+
 
 #define cc_unused(x) x
 

@@ -1,7 +1,7 @@
-include("premake-ecc/ecc.lua")
+require "premake-ecc/ecc"
 
 workspace "clipcutter"
     configurations { "Debug", "Release" }
     architecture "x86_64"
-
-    include "clipcutter"
+	
+	include "clipcutter"
