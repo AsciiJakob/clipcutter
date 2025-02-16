@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <string>
 #include <vector>
-#include "assert.h"
+#include <assert.h>
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"

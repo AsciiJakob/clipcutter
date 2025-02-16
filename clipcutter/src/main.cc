@@ -40,9 +40,6 @@ int main(int argc, char* argv[]) {
     }
 #endif
 
-    if (argc != 2) {
-        die("pass a single media file as argument");
-    }
 
 
 	App* app = (App*) malloc(sizeof App);
@@ -68,12 +65,19 @@ int main(int argc, char* argv[]) {
     // Main loop
     bool done = false;
 
-	//printf("creating video");
+    if (argc > 1) {
+		const char* cmd2[] = { "set", "options/lavfi-complex", "[aid1][aid2]amix[ao]", NULL };
+		mpv_command_async(app->mpv, 0, cmd2);
 
-	const char* cmd2[] = { "set", "options/lavfi-complex", "[aid1][aid2]amix[ao]", NULL };
-	mpv_command_async(app->mpv, 0, cmd2);
+		MediaSource* argVideo = App_CreateMediaSource(app, argv[1]);
+        MediaClip* argClip = App_CreateMediaClip(app, argVideo);
 
-	App_InitNewMediaSource(app, argv[1]);
+		App_CalculateTimelineEvents(app);
+		App_MovePlaybackMarker(app, 0);
+		//App_InitNewMediaSource(app, argv[1]);
+    } else {
+
+    }
 
 
 
@@ -163,6 +167,7 @@ int main(int argc, char* argv[]) {
                     if (mp_event->event_id == MPV_EVENT_FILE_LOADED) {
                         app->isLoadingVideo = false;
 
+                        #if 0
                         printf("file loaded event\n");
                         if (app->isLoadingNewSource) {
                             int avail_index = App_FindFirstNullptr((void**) &app->mediaSources, MEDIASOURCES_SIZE);
@@ -225,6 +230,8 @@ int main(int argc, char* argv[]) {
                             }
                             Playback_SetMultipleAudioTracks(app);
                         }
+
+#endif
                     }
                     if (mp_event->event_id == MPV_EVENT_GET_PROPERTY_REPLY) {
                         if (mp_event->error < 0) {
