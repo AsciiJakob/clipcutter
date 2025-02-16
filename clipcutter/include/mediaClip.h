@@ -7,7 +7,7 @@
 typedef struct App App;
 typedef struct MediaSource MediaSource;
 
-typedef struct MediaClip {
+struct MediaClip {
 	MediaSource* source;
 
 	// UI
@@ -24,7 +24,7 @@ typedef struct MediaClip {
 	float drawEndCutoff; 
 
 
-} MediaClip;
+};
 
 void MediaClip_Init(MediaClip* mediaClip, MediaSource* mediaSource);
 void MediaClip_Draw(App* app, MediaClip* mediaClip);

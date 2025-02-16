@@ -11,25 +11,25 @@
 typedef struct MediaClip MediaClip;
 typedef struct MediaSource MediaSource;
 
-typedef struct Events {
+struct Events {
 	u32 wakeupOnMpvRenderUpdate, wakeupOnMpvEvents;
 };
 
-typedef enum TimelineEventType {
+enum TimelineEventType {
 	TIMELINE_EVENT_BLANKSPACE, TIMELINE_EVENT_END, TIMELINE_EVENT_VIDEO
 };
 
-typedef struct TimelineEvent {
+struct TimelineEvent {
 	MediaClip* clip;
 	TimelineEventType type;
 	float start;
-} TimelineEvent;
+};
 
-typedef struct AppRender {
+struct AppRender {
 	// put rendering things in here instead and make a part of App
-} AppRender;
+};
 
-typedef struct Timeline {
+struct Timeline {
 	float scaleX;
 	bool snappingEnabled;
 	float snappingPrecision;
@@ -39,7 +39,7 @@ typedef struct Timeline {
 };
 
 
-typedef struct App {
+struct App {
 	SDL_Window* window;
     SDL_GLContext gl_context;
 	mpv_handle* mpv;
@@ -63,13 +63,13 @@ typedef struct App {
 	TimelineEvent timelineEvents[TIMELINE_EVENTS_SIZE];
 	MediaSource* mediaSources[MEDIASOURCES_SIZE];
 	MediaClip* mediaClips[MEDIACLIPS_SIZE];
-} app;
+};
 
-typedef struct GetPropertyCallback {
+struct GetPropertyCallback {
 	MediaSource* mediaSource;
 	int remainingRetrievals;
 	void(*callback)(GetPropertyCallback*, App*);
-} GetPropertyCallback;
+};
 
 void App_Init(App* app);
 void App_Free(App* app);

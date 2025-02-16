@@ -27,22 +27,28 @@ static void die(const char* msg) {
 int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
     const int argc = __argc;
     char** argv = __argv;
+cc_unused(hInstance);
+cc_unused(hPrevInstance);
+cc_unused(lpCmdLine);
+cc_unused(nShowCmd);
 #else
 int main(int argc, char* argv[]) {
 #endif // _WIN32
 
 #if defined(CC_PLATFORM_WINDOWS) && defined(CC_BUILD_DEBUG)
-    if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
-        AllocConsole();
-        FILE* f;
-        freopen_s(&f, "conout$", "w", stdout);
-        freopen_s(&f, "conout$", "w", stderr);
-    }
+    // if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
+    AllocConsole();
+    FILE* f;
+    freopen_s(&f, "conout$", "w", stdout);
+    freopen_s(&f, "conout$", "w", stderr);
+    // }
+
 #endif
+    printf("Clipcutter v0.0.1\n");
 
 
 
-	App* app = (App*) malloc(sizeof App);
+	App* app = (App*) malloc(sizeof(App));
     App_Init(app);
 	App_CalculateTimelineEvents(app);
 
@@ -70,7 +76,8 @@ int main(int argc, char* argv[]) {
 		mpv_command_async(app->mpv, 0, cmd2);
 
 		MediaSource* argVideo = App_CreateMediaSource(app, argv[1]);
-        MediaClip* argClip = App_CreateMediaClip(app, argVideo);
+        // MediaClip* argClip = App_CreateMediaClip(app, argVideo);
+        App_CreateMediaClip(app, argVideo);
 
 		App_CalculateTimelineEvents(app);
 		App_MovePlaybackMarker(app, 0);
@@ -175,11 +182,11 @@ int main(int argc, char* argv[]) {
                                 printf("Error: not enough space for a new media source\n");
                                 exit(1);
                             }
-							MediaSource* mediaSource = (MediaSource*) malloc(sizeof MediaSource);
+							MediaSource* mediaSource = (MediaSource*) malloc(sizeof(MediaSource));
 							MediaSource_Init(mediaSource);
 							app->mediaSources[avail_index] = mediaSource;
 
-                            GetPropertyCallback* callbackData = (GetPropertyCallback*)malloc(sizeof GetPropertyCallback);
+                            GetPropertyCallback* callbackData = (GetPropertyCallback*)malloc(sizeof(GetPropertyCallback));
                             callbackData->mediaSource = mediaSource;
                             callbackData->callback = [](GetPropertyCallback* callbackData, App* app) {
 								int avail_index = App_FindFirstNullptr((void**) &app->mediaClips, MEDIACLIPS_SIZE);
@@ -188,7 +195,7 @@ int main(int argc, char* argv[]) {
 									exit(1);
 								}
 
-                                MediaClip* mediaClip = (MediaClip*)malloc(sizeof MediaClip);
+                                MediaClip* mediaClip = (MediaClip*)malloc(sizeof(MediaClip));
                                 MediaClip_Init(mediaClip, callbackData->mediaSource);
                                 app->mediaClips[avail_index] = mediaClip;
 

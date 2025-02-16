@@ -2,14 +2,15 @@
 #include "app.h"
 
 static void* get_proc_address_func(void* fn_ctx, const char* name) {
-    return SDL_GL_GetProcAddress(name);
+    cc_unused(fn_ctx);
+    return (void*) SDL_GL_GetProcAddress(name);
 }
 
 bool initWindow(App* app) {
     //if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER)) {
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
         printf("Error: %s\n", SDL_GetError());
-        return -1;
+        return false;
     }
 
     SDL_Window* window = nullptr;
@@ -71,7 +72,8 @@ bool initWindow(App* app) {
 		mpv_request_log_messages(mpv, "debug");
 
         mpv_opengl_init_params opengl_init_params = {
-			.get_proc_address = get_proc_address_func
+			.get_proc_address = get_proc_address_func,
+            .get_proc_address_ctx = NULL
         };
 
         s32 advancedControl = 1;
@@ -125,18 +127,15 @@ bool initWindow(App* app) {
         ImGui_ImplSDL3_InitForOpenGL(window, *gl_context);
         ImGui_ImplOpenGL3_Init(glsl_version);
     }
+    return true;
 }
 
 
 void renderMpvTexture(App* app) {
             int w, h;
-            int flipY = 1;
 
             SDL_GetWindowSize(app->window, &w, &h);
-            mpv_opengl_fbo opengl_fbo = { 0 }; // default framebuffer
-            opengl_fbo.fbo = 0;
-            opengl_fbo.w = w;
-            opengl_fbo.h = h;
+            mpv_opengl_fbo opengl_fbo = { 0, w, h, 0}; // default framebuffer
 
             mpv_render_param params[] = {
                 {MPV_RENDER_PARAM_OPENGL_FBO, &opengl_fbo},

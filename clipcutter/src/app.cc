@@ -4,7 +4,7 @@
 #include "playback.h"
 
 void App_Init(App* app) {
-	memset(app, 0, sizeof App);
+	memset(app, 0, sizeof(App));
 	app->mpv_width = 1280;
 	app->mpv_height = 720;
 	app->mpv = nullptr;
@@ -49,7 +49,7 @@ MediaSource* App_CreateMediaSource(App* app, char* path) {
 		exit(1);
 	}
 
-	MediaSource* mediaSource = (MediaSource*) malloc(sizeof MediaSource);
+	MediaSource* mediaSource = (MediaSource*) malloc(sizeof(MediaSource));
 	MediaSource_Init(mediaSource, path);
 	app->mediaSources[avail_index] = mediaSource;
 	return mediaSource;
@@ -62,17 +62,19 @@ MediaClip* App_CreateMediaClip(App* app, MediaSource* mediaSource) {
 		exit(1);
 	}
 
-	MediaClip* mediaClip = (MediaClip*)malloc(sizeof MediaClip);
+	MediaClip* mediaClip = (MediaClip*)malloc(sizeof(MediaClip));
 	MediaClip_Init(mediaClip, mediaSource);
 	app->mediaClips[avail_index] = mediaClip;
 
 	mediaClip->padding = App_GetTimelineEventsEnd(app)->start+20;
 	if (avail_index == 0) mediaClip->padding = 0;
 
+	return mediaClip;
 }
 
 // deprecated. TODO: remove
 void App_InitNewMediaSource(App* app, char* path) {
+	cc_unused(path);
 
 	//char* pathP = (char*) malloc(strlen(path) + 1);
 	//strcpy(pathP, path);
@@ -93,8 +95,7 @@ int App_FindFirstNullptr(void** array, int maxLength) {
 
 void App_CalculateTimelineEvents(App* app) {
 	MediaClip** mediaClips = app->mediaClips;
-	TimelineEvent* timelineEvents = app->timelineEvents;
-	//MediaClip* mediaClipsSorted = (MediaClip*) malloc(sizeof MediaClip);
+	//MediaClip* mediaClipsSorted = (MediaClip*) malloc(sizeof(MediaClip));
 
 	
 	{ // sort array
@@ -117,7 +118,6 @@ void App_CalculateTimelineEvents(App* app) {
 		MediaClip* clip = mediaClips[i];
 
 		TimelineEvent* event = &app->timelineEvents[eventI];
-		TimelineEvent* eventAfter = &app->timelineEvents[eventI+1];
 		if (clip == nullptr) {
 			event->type = TIMELINE_EVENT_END;
 			MediaClip* clipBefore = app->timelineEvents[eventI - 1].clip;
@@ -237,7 +237,6 @@ TimelineEvent* App_GetNextTimelineEvent(App* app) {
 TimelineEvent* App_GetTimelineEventsEnd(App* app) {
 	for (int i = 0; i < TIMELINE_EVENTS_SIZE; i++) {
 		TimelineEvent* event = &app->timelineEvents[i];
-		printf("pointer: %p\n", event);
 		if (event == nullptr) {
 			printf("is nullptr\n");
 		}
@@ -248,5 +247,6 @@ TimelineEvent* App_GetTimelineEventsEnd(App* app) {
 		}
 	}
 	assert(true && "failed to get timeline events end. went through whole array");
+	return nullptr;
 }
 

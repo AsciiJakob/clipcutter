@@ -4,7 +4,7 @@
 
 
 void MediaClip_Init(MediaClip* mediaClip, MediaSource* mediaSource) {
-	memset(mediaClip, 0, sizeof MediaClip);
+	memset(mediaClip, 0, sizeof(MediaClip));
 	mediaClip->source = mediaSource;
 
 	mediaClip->width = mediaSource->length;
@@ -33,7 +33,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 		if (mouseLetGo) {
 			mediaClip->isBeingMoved = false;
 			// TODO: update playback in case we're currently playing that clip
-			MediaClip* currentClip = app->timelineEvents[app->timelineEventIndex].clip;
+			// MediaClip* currentClip = app->timelineEvents[app->timelineEventIndex].clip;
 			// if currently playing this clip
 			bool updateThing = false;
 			if (app->playbackTime >= mediaClip->padding && app->playbackTime < mediaClip->padding + mediaClip->width) {

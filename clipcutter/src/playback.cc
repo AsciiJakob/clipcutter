@@ -2,6 +2,7 @@
 #include "app.h"
 
 void Playback_SetMultipleAudioTracks(App* app) {
+	cc_unused(app);
     // https://mpv.io/manual/stable/#options-lavfi-complex
 
   //  assert(app->loadedMediaSource != nullptr && "loadedMediaSource was null");
