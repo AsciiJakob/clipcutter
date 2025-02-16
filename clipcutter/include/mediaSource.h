@@ -5,13 +5,13 @@
 
 typedef struct App App;
 
-typedef struct MediaSource {
+ struct MediaSource {
 	char* path;
 	char* filename;
 	// for videos
 	float length; 
 	int audioTracks;
-} MediaSource;
+};
 
 void MediaSource_Init(MediaSource* mediaSource, char* path);
 void MediaSource_Load(App* app, MediaSource* source);

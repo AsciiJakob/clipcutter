@@ -17,7 +17,7 @@
 }
 
 void MediaSource_Init(MediaSource* mediaSource, char* path) {
-	memset(mediaSource, 0, sizeof MediaSource);
+	memset(mediaSource, 0, sizeof(MediaSource));
 
 	mediaSource->filename = nullptr;
 	//strcpy(mediaSource->path, path);

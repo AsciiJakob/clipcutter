@@ -129,7 +129,6 @@ void UI_DrawEditor(App* app) {
 
 			ImVec2 r_min = ImGui::GetItemRectMin();
 			ImVec2 r_max = ImGui::GetItemRectMax();
-			ImVec2 cursorTimelineAfter = ImGui::GetCursorScreenPos();
 			ImGui::GetWindowDrawList()->AddRectFilled(r_min, r_max, timeline_color);
 
 			bool timelineClicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
@@ -236,8 +235,6 @@ void UI_DrawEditor(App* app) {
 
 	// 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
 	{
-		static float f = 0.0f;
-		static int counter = 0;
 
 		ImGui::Begin("Video Player");
 		{
