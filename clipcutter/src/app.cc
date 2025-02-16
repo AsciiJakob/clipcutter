@@ -42,13 +42,44 @@ void App_Free(App* app) {
 	free(app);
 }
 
+MediaSource* App_CreateMediaSource(App* app, char* path) {
+	int avail_index = App_FindFirstNullptr((void**) &app->mediaSources, MEDIASOURCES_SIZE);
+	if (avail_index == -1) {
+		printf("Error: not enough space for a new media source\n");
+		exit(1);
+	}
+
+	MediaSource* mediaSource = (MediaSource*) malloc(sizeof MediaSource);
+	MediaSource_Init(mediaSource, path);
+	app->mediaSources[avail_index] = mediaSource;
+	return mediaSource;
+}
+
+MediaClip* App_CreateMediaClip(App* app, MediaSource* mediaSource) {
+	int avail_index = App_FindFirstNullptr((void**) &app->mediaClips, MEDIACLIPS_SIZE);
+	if (avail_index == -1) {
+		printf("Error: not enough space for a new media clip\n");
+		exit(1);
+	}
+
+	MediaClip* mediaClip = (MediaClip*)malloc(sizeof MediaClip);
+	MediaClip_Init(mediaClip, mediaSource);
+	app->mediaClips[avail_index] = mediaClip;
+
+	mediaClip->padding = App_GetTimelineEventsEnd(app)->start+20;
+	if (avail_index == 0) mediaClip->padding = 0;
+
+}
+
+// deprecated. TODO: remove
 void App_InitNewMediaSource(App* app, char* path) {
+
 	//char* pathP = (char*) malloc(strlen(path) + 1);
 	//strcpy(pathP, path);
 	app->playbackBlocked = true;
 	app->isLoadingVideo = true;
 	app->isLoadingNewSource = true;
-	Playback_LoadVideo(app, path);
+	//Playback_LoadVideo(app, path);
 }
 
 int App_FindFirstNullptr(void** array, int maxLength) {
