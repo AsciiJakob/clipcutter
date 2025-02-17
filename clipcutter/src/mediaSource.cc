@@ -22,7 +22,7 @@ void MediaSource_Init(MediaSource* mediaSource, char* path) {
 	mediaSource->filename = nullptr;
 	//strcpy(mediaSource->path, path);
 	mediaSource->path = strdup(path);
-	mediaSource->filename = GetFileNameFromPath(path);
+	mediaSource->filename = strdup(GetFileNameFromPath(path));
 	if (mediaSource->filename == nullptr) {
 		printf("Error: Failed to get filename from path\n");
 		exit(1);
