@@ -3,6 +3,7 @@
 #include "mediaSource.h"
 #include "playback.h"
 
+
 void App_Init(App* app) {
 	memset(app, 0, sizeof(App));
 	app->mpv_width = 1280;
@@ -15,6 +16,8 @@ void App_Init(App* app) {
 	app->timeline.clipHeight = 30;
 	app->timeline.scaleX = 1.5;
 	app->timeline.snappingPrecision = 5.0;
+
+    log_error("test!");
 }
 
 void App_Free(App* app) {
@@ -45,7 +48,7 @@ void App_Free(App* app) {
 MediaSource* App_CreateMediaSource(App* app, char* path) {
 	int avail_index = App_FindFirstNullptr((void**) &app->mediaSources, MEDIASOURCES_SIZE);
 	if (avail_index == -1) {
-		printf("Error: not enough space for a new media source\n");
+		log_fatal("not enough space for a new media source");
 		exit(1);
 	}
 
@@ -58,7 +61,7 @@ MediaSource* App_CreateMediaSource(App* app, char* path) {
 MediaClip* App_CreateMediaClip(App* app, MediaSource* mediaSource) {
 	int avail_index = App_FindFirstNullptr((void**) &app->mediaClips, MEDIACLIPS_SIZE);
 	if (avail_index == -1) {
-		printf("Error: not enough space for a new media clip\n");
+		log_fatal("not enough space for a new media clip");
 		exit(1);
 	}
 
@@ -185,7 +188,7 @@ void App_LoadEvent(App* app, TimelineEvent* event) {
 		const char* cmd[] = { "stop", NULL };
 		// TODO: async
 		if (int result = mpv_command(app->mpv, cmd); result != MPV_ERROR_SUCCESS) {
-			fprintf(stderr, "stopping playback failed, reason: %s\n", mpv_error_string(result));
+			log_error("stopping playback failed, reason: %s", mpv_error_string(result));
 		}
 	} else if (event->type == TIMELINE_EVENT_END) {
 
@@ -221,7 +224,7 @@ void App_MovePlaybackMarker(App* app, float secs) {
 
 	if (currentEvent->type == TIMELINE_EVENT_VIDEO) {
 		int seekPos = secs-currentEvent->start;
-		printf("seeking to: %d\n", seekPos);
+		log_info("seeking to: %d\n", seekPos);
 		Playback_SetPlaybackPos(app, seekPos);
 	}
 }
@@ -238,7 +241,7 @@ TimelineEvent* App_GetTimelineEventsEnd(App* app) {
 	for (int i = 0; i < TIMELINE_EVENTS_SIZE; i++) {
 		TimelineEvent* event = &app->timelineEvents[i];
 		if (event == nullptr) {
-			printf("is nullptr\n");
+			log_fatal("timelineEvent is nullptr");
 		}
 		assert(event != nullptr && "failed to get timeline events end. encountered nullptr");
 

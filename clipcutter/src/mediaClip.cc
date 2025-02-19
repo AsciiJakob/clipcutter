@@ -37,18 +37,18 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 			// if currently playing this clip
 			bool updateThing = false;
 			if (app->playbackTime >= mediaClip->padding && app->playbackTime < mediaClip->padding + mediaClip->width) {
-				printf("Old location was where marker is\n");
+				log_debug("Old location was where marker is\n");
 				updateThing = true;
 			}
 			if (app->playbackTime >= clipLeftPadding && app->playbackTime < clipLeftPadding + mediaClip->width) {
-				printf("inside the new moved location\n");
+				log_debug("inside the new moved location\n");
 				updateThing = true;
 			}
 
 			mediaClip->padding = clipLeftPadding;
 			App_CalculateTimelineEvents(app);
 			if (updateThing) {
-				printf("updating playback thing---------------\n");
+				log_debug("updating playback thing---------------\n");
 				App_MovePlaybackMarker(app, app->playbackTime);
 				//App_MovePlaybackMarker(app, 120);
 			}
@@ -104,7 +104,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 		if (mouseLetGo) {
 			*endCutoff = totalCutOffvalue;
 			mediaClip->isResizingRight = false;
-			printf("cut away time: %f\n", totalCutOffvalue);
+			log_debug("cut away time: %f", totalCutOffvalue);
 			App_CalculateTimelineEvents(app);
 		}
 	}
@@ -191,7 +191,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 				ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
 				if (!mediaClip->isResizingLeft && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
 					mediaClip->resizeStartPos = ImGui::GetMousePos();
-					printf("set: %f\n", mediaClip->resizeStartPos.x);
+					log_debug("set: %f", mediaClip->resizeStartPos.x);
 					mediaClip->isResizingLeft = true;
 				}
 			}
@@ -199,7 +199,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 				ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
 				if (!mediaClip->isResizingRight && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
 					mediaClip->resizeStartPos = ImGui::GetMousePos();
-					printf("set: %f\n", mediaClip->resizeStartPos.x);
+					log_debug("set: %f", mediaClip->resizeStartPos.x);
 					mediaClip->isResizingRight = true;
 				}
 			}

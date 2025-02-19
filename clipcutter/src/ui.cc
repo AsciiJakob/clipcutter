@@ -7,11 +7,11 @@ int tracklistWidth = 100;
 int trackCount = 5; // Todo: make function to get the max tracks of all the clips
 
 void setPlaybackPos(mpv_handle* mpv, double seconds) {
-	printf("fuc\n");
+	log_debug("fuc\n");
 	std::string timeStr = std::to_string(seconds);
 	const char* cmd[] = { "seek", timeStr.data(), "absolute", NULL };
 	if (int result = mpv_command(mpv, cmd); result != MPV_ERROR_SUCCESS) {
-		fprintf(stderr, "Fast forward failed, reason: %s\n", mpv_error_string(result));
+		log_error("Fast forward failed, reason: %s", mpv_error_string(result));
 	}
 }
 
@@ -215,7 +215,6 @@ void UI_DrawEditor(App* app) {
 
 			if (ImGui::IsKeyPressed(ImGuiKey_RightCtrl)) {
 				App_CalculateTimelineEvents(app);
-				printf("");
 			}
 
 			ImGui::EndChild();

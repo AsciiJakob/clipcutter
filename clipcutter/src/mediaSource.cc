@@ -24,7 +24,7 @@ void MediaSource_Init(MediaSource* mediaSource, char* path) {
 	mediaSource->path = strdup(path);
 	mediaSource->filename = strdup(GetFileNameFromPath(path));
 	if (mediaSource->filename == nullptr) {
-		printf("Error: Failed to get filename from path\n");
+		log_fatal("Failed to get filename from path");
 		exit(1);
 	}
 
@@ -34,13 +34,13 @@ void MediaSource_Init(MediaSource* mediaSource, char* path) {
 	AVFormatContext* s = NULL;
 	int ret = avformat_open_input(&s, url, NULL, NULL);
 	if (ret < 0) {
-		printf("Error: ffmpeg failed to retrieve information about video source\n");
+		log_fatal("ffmpeg failed to retrieve information about video source");
 		exit(1);
-	} else printf("yay\n");
+	} else log_debug("yay\n");
 
 	avformat_find_stream_info(s, nullptr);
-	printf("streams:%d", s->nb_streams);
-	printf("duration:%.2f", s->duration/1000000.0);
+	log_debug("streams:%d", s->nb_streams);
+	log_debug("duration:%.2f", s->duration/1000000.0);
 
 	mediaSource->audioTracks = s->nb_streams - 1; // TODO: account for multiple video track
 	mediaSource->length = s->duration / 1000000.0;
@@ -55,5 +55,6 @@ void MediaSource_Load(App* app, MediaSource* source) {
 	app->playbackBlocked = true;
 	app->isLoadingVideo = true;
 	app->loadedMediaSource = source;
+    Playback_SetAudioTracks(app, app->loadedMediaSource->audioTracks);
 	Playback_LoadVideo(app, source->path);
 }
