@@ -1,6 +1,8 @@
 #ifndef PCH_H
 #define PCH_H
 
+#include "log.h"
+
 #include <Windows.h>
 
 #include <cstdlib>

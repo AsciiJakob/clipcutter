@@ -9,7 +9,7 @@ static void* get_proc_address_func(void* fn_ctx, const char* name) {
 bool initWindow(App* app) {
     //if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER)) {
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
-        printf("Error: %s\n", SDL_GetError());
+        log_fatal("SDL failed to init: %s", SDL_GetError());
         return false;
     }
 
@@ -32,7 +32,7 @@ bool initWindow(App* app) {
         //window = SDL_CreateWindow("Voixchat", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
         window = SDL_CreateWindow("Voixchat", 1280, 720, window_flags);
         if (window == nullptr) {
-            printf("Error: SDL_CreateWindow(): %s\n", SDL_GetError());
+            log_fatal("SDL_CreateWindow(): %s\n", SDL_GetError());
             return false;
         }
         app->window = window;
@@ -55,7 +55,7 @@ bool initWindow(App* app) {
         mpv_handle* mpv = nullptr;
 		mpv = mpv_create();
 		if (!mpv) {
-            printf("Error: mpv_create()");
+            log_fatal("mpv_create()");
 			return false;
 		}
         app->mpv = mpv;
@@ -65,7 +65,7 @@ bool initWindow(App* app) {
 
 		// Some few options can only be set before mpv_initialize().
 		if (mpv_initialize(mpv) < 0) {
-            printf("Error: mpv_initialize()");
+            log_fatal("mpv_initialize()");
             return false;
 		}
 
@@ -86,14 +86,14 @@ bool initWindow(App* app) {
         };
 
         if (mpv_render_context_create(&app->mpv_gl, mpv, params) < 0) {
-            printf("Error: mpv_render_context_create()");
+            log_fatal("mpv_render_context_create()");
 			return false;
         }
 
         app->events.wakeupOnMpvRenderUpdate = SDL_RegisterEvents(1);
         app->events.wakeupOnMpvEvents = SDL_RegisterEvents(1);
         if (app->events.wakeupOnMpvRenderUpdate == (Uint32)-1 || app->events.wakeupOnMpvEvents == (Uint32)-1) {
-            printf("Error: could not register events");
+            log_fatal("could not register required MPV events");
 			return false;
         }
 
