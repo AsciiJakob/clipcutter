@@ -52,8 +52,6 @@ int main(int argc, char* argv[]) {
 
 
 
-    // Main loop
-    bool done = false;
 
     if (argc > 1) {
         /*const char* cmd2[] = { "set", "options/lavfi-complex", "[aid1][aid2]amix[ao]", NULL };*/
@@ -66,7 +64,6 @@ int main(int argc, char* argv[]) {
         // Calling these two will start playback of the video
         App_CalculateTimelineEvents(app);
         App_MovePlaybackMarker(app, 0);
-        //App_InitNewMediaSource(app, argv[1]);
 
 
         MediaSource* secondVid = App_CreateMediaSource(app, (char*) "D:/notCDrive/Videos/cc_debug/another-2-AT.mp4");
@@ -78,6 +75,8 @@ int main(int argc, char* argv[]) {
     }
 
 
+    // Main loop
+    bool done = false;
 
     bool mpvRedraw = false;
 
@@ -116,8 +115,6 @@ int main(int argc, char* argv[]) {
 
                 App_CalculateTimelineEvents(app);
 
-                //App_InitNewMediaSource(app, event.drop.file);
-
             } else if (event.type == app->events.wakeupOnMpvRenderUpdate) {
                 uint64_t flags = mpv_render_context_update(app->mpv_gl);
                 if (flags & MPV_RENDER_UPDATE_FRAME) {
@@ -145,6 +142,7 @@ int main(int argc, char* argv[]) {
                     }
                     if (mp_event->event_id == MPV_EVENT_FILE_LOADED) {
                         app->isLoadingVideo = false;
+                        app->playbackBlocked = false;
                         if (app->playbackActive == false) {
                             // todo: put into function
                             const char* cmd_pause[] = { "cycle", "pause", NULL };
@@ -200,7 +198,8 @@ int main(int argc, char* argv[]) {
 			log_debug("not redraw");
         }
 
-		if (!app->playbackBlocked && app->playbackActive) {
+        // increment app->playbackTime if blank space is being played (with videos we set it based on the mpv value from the MPV_EVENT_PROPERTY_CHANGE event)
+		if (app->loadedMediaSource == nullptr && !app->playbackBlocked && app->playbackActive) {
 			app->playbackTime += ImGui::GetIO().DeltaTime;
 
             // handle events

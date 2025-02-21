@@ -76,17 +76,6 @@ MediaClip* App_CreateMediaClip(App* app, MediaSource* mediaSource) {
 	return mediaClip;
 }
 
-// deprecated. TODO: remove
-void App_InitNewMediaSource(App* app, char* path) {
-	cc_unused(path);
-
-	//char* pathP = (char*) malloc(strlen(path) + 1);
-	//strcpy(pathP, path);
-	app->playbackBlocked = true;
-	app->isLoadingVideo = true;
-	app->isLoadingNewSource = true;
-	//Playback_LoadVideo(app, path);
-}
 
 int App_FindFirstNullptr(void** array, int maxLength) {
 	for (int i = 0; i < maxLength; i++) {

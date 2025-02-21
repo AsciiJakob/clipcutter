@@ -21,7 +21,6 @@ void UI_DrawEditor(App* app) {
 		}
 		if (ImGui::Button("test")) {
 			MediaSource_Load(app, app->mediaSources[0]);
-			//App_InitNewMediaSource(app, app->mediaSources[0]->path);
 		}
 
 		ImGui::EndMainMenuBar();
