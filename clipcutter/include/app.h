@@ -82,5 +82,6 @@ void App_CalculateTimelineEvents(App* app);
 TimelineEvent* App_GetNextTimelineEvent(App* app);
 TimelineEvent* App_GetTimelineEventsEnd(App* app);
 void App_LoadEvent(App* app, TimelineEvent* event);
+void App_Die();
 
 #endif

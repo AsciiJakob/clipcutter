@@ -2,6 +2,7 @@
 #include "app.h"
 
 void Playback_SetAudioTracks(App* app, int count) {
+    log_trace("Playback_SetAudioTracks()");
 	cc_unused(app);
     // https://mpv.io/manual/stable/#options-lavfi-complex
 
@@ -27,7 +28,7 @@ void Playback_SetPlaybackPos(App* app, float secs) {
 }
 
 void Playback_LoadVideo(App* app, char* path) {
-	log_trace("calling loadfile\n");
+	log_trace("Playback_LoadVideo()");
 	const char* cmd[] = { "loadfile", path, NULL };
 	if (mpv_command_async(app->mpv, 0, cmd) != MPV_ERROR_SUCCESS) {
 		log_error("Failed loading file");

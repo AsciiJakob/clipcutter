@@ -7,7 +7,6 @@ static void* get_proc_address_func(void* fn_ctx, const char* name) {
 }
 
 bool initWindow(App* app) {
-    //if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER)) {
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
         log_fatal("SDL failed to init: %s", SDL_GetError());
         return false;
@@ -29,7 +28,6 @@ bool initWindow(App* app) {
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
         SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
-        //window = SDL_CreateWindow("Voixchat", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
         window = SDL_CreateWindow("Voixchat", 1280, 720, window_flags);
         if (window == nullptr) {
             log_fatal("SDL_CreateWindow(): %s\n", SDL_GetError());

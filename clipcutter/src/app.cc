@@ -2,6 +2,7 @@
 #include "app.h"
 #include "mediaSource.h"
 #include "playback.h"
+#include <iostream>
 
 
 void App_Init(App* app) {
@@ -49,7 +50,7 @@ MediaSource* App_CreateMediaSource(App* app, char* path) {
 	int avail_index = App_FindFirstNullptr((void**) &app->mediaSources, MEDIASOURCES_SIZE);
 	if (avail_index == -1) {
 		log_fatal("not enough space for a new media source");
-		exit(1);
+		App_Die();
 	}
 
 	MediaSource* mediaSource = (MediaSource*) malloc(sizeof(MediaSource));
@@ -62,7 +63,7 @@ MediaClip* App_CreateMediaClip(App* app, MediaSource* mediaSource) {
 	int avail_index = App_FindFirstNullptr((void**) &app->mediaClips, MEDIACLIPS_SIZE);
 	if (avail_index == -1) {
 		log_fatal("not enough space for a new media clip");
-		exit(1);
+		App_Die();
 	}
 
 	MediaClip* mediaClip = (MediaClip*)malloc(sizeof(MediaClip));
@@ -179,12 +180,15 @@ void App_CalculateTimelineEvents(App* app) {
 // * playback marker is moved somewhere
 // * new video file has been loaded
 void App_LoadEvent(App* app, TimelineEvent* event) {
+    log_trace("App_LoadEvent: called");
 	if (event->type == TIMELINE_EVENT_VIDEO) {
 		if (event->clip->source != app->loadedMediaSource) {
+            log_trace("App_LoadEvent: video source is not loaded. Loading now");
 			MediaSource_Load(app, event->clip->source);
 			app->loadedMediaSource = event->clip->source;
 		}
 	} else if (event->type == TIMELINE_EVENT_BLANKSPACE) {
+        log_trace("App_LoadEvent: loading blank space");
 		const char* cmd[] = { "stop", NULL };
 		// TODO: async
 		if (int result = mpv_command(app->mpv, cmd); result != MPV_ERROR_SUCCESS) {
@@ -251,5 +255,11 @@ TimelineEvent* App_GetTimelineEventsEnd(App* app) {
 	}
 	assert(true && "failed to get timeline events end. went through whole array");
 	return nullptr;
+}
+
+
+void App_Die() {
+    log_fatal("Clipcutter is exiting.");
+    exit(1);
 }
 

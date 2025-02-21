@@ -7,16 +7,6 @@
 #include "playback.h"
 
 
-//void setPositionRelative(mpv_handle* mpv, double seconds) {
-//    std::string timeStr = std::to_string(seconds);
-//    const char* cmd[] = { "seek", timeStr.prop(), "relative", NULL };
-//    if (int result = mpv_command(mpv, cmd); result != MPV_ERROR_SUCCESS) {
-//        log_error("Fast forward failed, reason: %s", mpv_error_string(result));
-//    }
-//}
-
-
-
 #if defined(CC_PLATFORM_WINDOWS)
 int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
     const int argc = __argc;
@@ -42,6 +32,7 @@ int main(int argc, char* argv[]) {
 
     App* app = (App*) malloc(sizeof(App));
     App_Init(app);
+    app->playbackActive = true;
     App_CalculateTimelineEvents(app);
 
 
@@ -49,7 +40,7 @@ int main(int argc, char* argv[]) {
 
     if (!initWindow(app)) {
         log_fatal("failed to initialize window, shutting down");
-        exit(1);
+        App_Die();
     }
 
     // we have to reset the lavfi option every time we load a new video.
@@ -76,6 +67,12 @@ int main(int argc, char* argv[]) {
         App_CalculateTimelineEvents(app);
         App_MovePlaybackMarker(app, 0);
         //App_InitNewMediaSource(app, argv[1]);
+
+
+        MediaSource* secondVid = App_CreateMediaSource(app, (char*) "D:/notCDrive/Videos/cc_debug/another-2-AT.mp4");
+        App_CreateMediaClip(app, secondVid);
+        App_CalculateTimelineEvents(app);
+
     } else {
 
     }
@@ -136,7 +133,7 @@ int main(int argc, char* argv[]) {
                     if (mp_event->event_id == MPV_EVENT_LOG_MESSAGE) {
                         mpv_event_log_message* msg = static_cast<mpv_event_log_message*>(mp_event->data);
                         if (strstr(msg->text, "DR image"))
-                            log_info("MPV: %s", msg->text);
+                            /*log_info("MPV: %s", msg->text);*/
                         continue;
                     }
                     //log_debug("event: %s", mpv_event_name(mp_event->event_id));
@@ -154,7 +151,7 @@ int main(int argc, char* argv[]) {
                             mpv_command_async(app->mpv, 0, cmd_pause);
                         }
 
-                        //Playback_SetAudioTracks(app, app->loadedMediaSource->audioTracks);
+                        Playback_SetAudioTracks(app, app->loadedMediaSource->audioTracks);
 
                     }
                     if (mp_event->event_id == MPV_EVENT_GET_PROPERTY_REPLY) {
@@ -169,13 +166,25 @@ int main(int argc, char* argv[]) {
                         if (strcmp(prop->name, "playback-time") == 0) {
                             if (prop->data != nullptr) {
 								double playtime = *(double*) prop->data;
-								//log_debug("Playtime: %.2f", playtime);
-                                app->playbackTime = app->timelineEvents[app->timelineEventIndex].start+playtime;
+                                /*log_debug("playback: %.9f", playtime);*/
+                                if (playtime == 0.0 && app->playbackTime != 0.0) {
+                                    double seekTime = app->playbackTime-app->timelineEvents[app->timelineEventIndex].start;
+                                    Playback_SetPlaybackPos(app, seekTime);
+                                    log_debug("seeking too %.6f", seekTime);
+                                } else {
+                                    app->playbackTime = app->timelineEvents[app->timelineEventIndex].start+playtime;
+                                }
                                 /*app->playbackTime = playtime;*/
                             }
 
                         }
                     }
+                    if (mp_event->event_id == MPV_EVENT_COMMAND_REPLY) {
+                        // TODO: implement queuing system. ignoring for now since it is not actually necessary.
+                        /*log_debug("Recieved event reply");*/
+                    }
+
+
                 }
             }
         }
