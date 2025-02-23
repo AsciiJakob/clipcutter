@@ -56,4 +56,5 @@ void MediaSource_Load(App* app, MediaSource* source) {
 	app->isLoadingVideo = true;
 	app->loadedMediaSource = source;
 	Playback_LoadVideo(app, source->path);
+    Playback_SetAudioTracks(app, app->loadedMediaSource->audioTracks);
 }
