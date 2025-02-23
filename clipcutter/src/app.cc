@@ -246,7 +246,7 @@ TimelineEvent* App_GetTimelineEventsEnd(App* app) {
 	return nullptr;
 }
 
-// takes same input as the cmd in mpv_command() from libmpv
+// input is equivalent to the cmd arg in mpv_command_async()
 bool App_Queue_AddCommand(App* app, const char** input) {
 
     #if CC_BUILD_DEBUG
@@ -263,7 +263,7 @@ bool App_Queue_AddCommand(App* app, const char** input) {
 
     bool queueEmpty = false;
     if (app->MpvCmdQueue[app->mpvCmdQueueReadIndex].unsent == false) {
-        log_debug("Queue empty. Event will be sent immediately");
+        /*log_debug("Queue empty. Event will be sent immediately");*/
         queueEmpty = true;
     }
 
@@ -315,7 +315,7 @@ void App_Queue_SendNext(App* app) {
     char* cmdStr = cmd->command;
 
     if (cmd->unsent == false) {
-        log_debug("No remaining events");
+        /*log_debug("No remaining events");*/
         return;
     }
 
@@ -338,10 +338,11 @@ void App_Queue_SendNext(App* app) {
     }
     sendCmd[sendCmdIndx] = NULL;
 
-    /*const char* cmd_pause[] = { "cycle", "pause", NULL };*/
     //                                              using +1 to avoid having zero
-    log_debug("Sending command to MPV of type: %s", cmdStr);
-    mpv_command_async(app->mpv, app->mpvCmdQueueReadIndex+1, (const char**) sendCmd);
+    if (mpv_command_async(app->mpv, app->mpvCmdQueueReadIndex+1, (const char**) sendCmd) != MPV_ERROR_SUCCESS) {
+        log_error("Failed sending command to MPV of type: %s", cmdStr);
+        // TODO: set unsent to right value and increment readIndex so we don't get stuck
+    }
 }
 
 

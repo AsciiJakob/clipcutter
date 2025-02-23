@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
     // we have to reset the lavfi option every time we load a new video.
     // Otherwise it might try to load too many audio tracks, causing the video to not load
     const char* cmd[] = { "set", "options/reset-on-next-file", "lavfi-complex", NULL };
-    mpv_command_async(app->mpv, 0, cmd);
+    App_Queue_AddCommand(app, cmd);
 
     mpv_observe_property(app->mpv, 0, "playback-time", MPV_FORMAT_DOUBLE);
 
@@ -157,10 +157,10 @@ int main(int argc, char* argv[]) {
                         if (app->playbackActive == false) {
                             // todo: put into function
                             const char* cmd_pause[] = { "cycle", "pause", NULL };
-                            mpv_command_async(app->mpv, 0, cmd_pause);
+                            App_Queue_AddCommand(app, cmd_pause);
                         }
 
-                        Playback_SetAudioTracks(app, app->loadedMediaSource->audioTracks);
+                        /*Playback_SetAudioTracks(app, app->loadedMediaSource->audioTracks);*/
 
                     }
                     if (mp_event->event_id == MPV_EVENT_GET_PROPERTY_REPLY) {
@@ -189,10 +189,9 @@ int main(int argc, char* argv[]) {
                         }
                     }
                     if (mp_event->event_id == MPV_EVENT_COMMAND_REPLY) {
-                        log_debug("Recieved event reply: %d", mp_event->reply_userdata);
                         if ((int) mp_event->reply_userdata == app->mpvCmdQueueReadIndex+1) {
                             if (app->MpvCmdQueue[app->mpvCmdQueueReadIndex].unsent == false) {
-                                log_debug("Id for mpv command matched, but we haven't written to it yet. odd.")
+                                log_error("Id for mpv command matched, but we haven't written to it yet. odd.")
                             } else {
                                 app->MpvCmdQueue[app->mpvCmdQueueReadIndex].unsent = false;
 
