@@ -38,6 +38,13 @@ struct Timeline {
 	ImVec2 cursTopLeft;
 };
 
+// double-null-terminated list of commands
+struct MpvCommand {
+    bool unsent;
+    int id;
+    #define MPVCOMMAND_STR_SIZE 512 
+    char command[MPVCOMMAND_STR_SIZE];
+};
 
 struct App {
 	SDL_Window* window;
@@ -59,10 +66,16 @@ struct App {
 	bool isLoadingNewSource;
 
 	Timeline timeline;
+
 	int timelineEventIndex;
 	TimelineEvent timelineEvents[TIMELINE_EVENTS_SIZE];
 	MediaSource* mediaSources[MEDIASOURCES_SIZE];
 	MediaClip* mediaClips[MEDIACLIPS_SIZE];
+
+    int mpvCmdQueueWriteIndex;
+    int mpvCmdQueueReadIndex;
+    #define MPV_CMD_QUEUE_SIZE 30
+    MpvCommand MpvCmdQueue[MPV_CMD_QUEUE_SIZE];
 };
 
 struct GetPropertyCallback {
@@ -82,6 +95,8 @@ void App_CalculateTimelineEvents(App* app);
 TimelineEvent* App_GetNextTimelineEvent(App* app);
 TimelineEvent* App_GetTimelineEventsEnd(App* app);
 void App_LoadEvent(App* app, TimelineEvent* event);
+bool App_Queue_AddCommand(App* app, const char** input);
+void App_Queue_SendNext(App* app);
 void App_Die();
 
 #endif
