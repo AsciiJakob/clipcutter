@@ -246,6 +246,104 @@ TimelineEvent* App_GetTimelineEventsEnd(App* app) {
 	return nullptr;
 }
 
+// takes same input as the cmd in mpv_command() from libmpv
+bool App_Queue_AddCommand(App* app, const char** input) {
+
+    #if CC_BUILD_DEBUG
+
+        char str[MPVCOMMAND_STR_SIZE];
+        str[0] = '\0';
+        for (int i = 0; input[i] != NULL; i++) {
+            if (i > 0) strcat(str, " ");
+            strcat(str, input[i]);
+        }
+        log_debug("Request to add MPV command to queue: %s", str);
+
+    #endif
+
+    bool queueEmpty = false;
+    if (app->MpvCmdQueue[app->mpvCmdQueueReadIndex].unsent == false) {
+        log_debug("Queue empty. Event will be sent immediately");
+        queueEmpty = true;
+    }
+
+    int* writeI = &app->mpvCmdQueueWriteIndex;
+
+    if (*writeI > MPV_CMD_QUEUE_SIZE-1) {
+        *writeI = 0;
+    }
+    MpvCommand* cmd = &app->MpvCmdQueue[*writeI];
+    // we always want the id 1 higher so that it is never zero
+    // since that's the default userdata value.
+    (*writeI)++;
+    cmd->id == *writeI;
+
+    if (cmd->unsent) {
+        log_fatal("MPV command queue overflowed");
+        App_Die();
+    }
+    cmd->unsent = true;
+
+
+    // command name and arguments seperated by null terminated character.
+    // terminated by double null character.
+    int offset = 0;
+    for (int i=0; i < 20; i++) {
+        if (input[i] == NULL) break;
+        //                         +2 for string end null char & array end null char
+        if (offset+strlen(input[i])+2 > MPVCOMMAND_STR_SIZE) {
+            log_fatal("Not enough storage for mpv command arguments");
+            return false;
+        }
+        strcpy(cmd->command+offset, input[i]);
+        offset += strlen(input[i])+1;
+    }
+    // end is marked with two NULL characters. one for last str and one for end of data
+    /*cmd.command[offset+2] = NULL;*/
+    cmd->command[offset] = NULL;
+
+    if (queueEmpty) {
+        App_Queue_SendNext(app);
+    }
+
+    return true;
+}
+
+
+void App_Queue_SendNext(App* app) {
+    MpvCommand* cmd = &app->MpvCmdQueue[app->mpvCmdQueueReadIndex];
+    char* cmdStr = cmd->command;
+
+    if (cmd->unsent == false) {
+        log_debug("No remaining events");
+        return;
+    }
+
+
+    char* sendCmd[20];
+    int sendCmdIndx = 0;
+
+    // first string starts from zero until first NULL
+    sendCmd[sendCmdIndx++] = cmdStr;
+
+    for (int i=0; i < MPVCOMMAND_STR_SIZE; i++) {
+        char c = cmdStr[i];
+        if (c == NULL) {
+            // the array is terminated by two NULL signs after each other
+            if (cmdStr[i+1] == NULL) {
+                break;
+            }
+            sendCmd[sendCmdIndx++] = cmdStr+i+1;
+        }
+    }
+    sendCmd[sendCmdIndx] = NULL;
+
+    /*const char* cmd_pause[] = { "cycle", "pause", NULL };*/
+    //                                              using +1 to avoid having zero
+    log_debug("Sending command to MPV of type: %s", cmdStr);
+    mpv_command_async(app->mpv, app->mpvCmdQueueReadIndex+1, (const char**) sendCmd);
+}
+
 
 void App_Die() {
     log_fatal("Clipcutter is exiting.");

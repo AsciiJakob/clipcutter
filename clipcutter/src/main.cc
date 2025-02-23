@@ -75,6 +75,16 @@ int main(int argc, char* argv[]) {
     }
 
 
+    /*for (int i=0; i < 200; i++) {*/
+    /*    log_debug("I: %d", i);*/
+    /*    if (i== 27) {*/
+    /*        log_debug("27!!!!!!!!!!!!!!");*/
+    /*    }*/
+    /*    const char* cmd[] = { "set", "options/reset-on-next-file", "lavfi-complex", NULL };*/
+    /*    App_QueueCommand(app, cmd);*/
+    /*}*/
+
+
     // Main loop
     bool done = false;
 
@@ -97,7 +107,8 @@ int main(int argc, char* argv[]) {
 
                 if (event.key.key == SDLK_SPACE) {
                     const char* cmd_pause[] = { "cycle", "pause", NULL };
-                    mpv_command_async(app->mpv, 0, cmd_pause);
+                    /*mpv_command_async(app->mpv, 0, cmd_pause);*/
+                    App_Queue_AddCommand(app, cmd_pause);
                     // TODO 
                     app->playbackActive = !app->playbackActive;
                 }
@@ -178,11 +189,23 @@ int main(int argc, char* argv[]) {
                         }
                     }
                     if (mp_event->event_id == MPV_EVENT_COMMAND_REPLY) {
-                        // TODO: implement queuing system. ignoring for now since it is not actually necessary.
-                        /*log_debug("Recieved event reply");*/
+                        log_debug("Recieved event reply: %d", mp_event->reply_userdata);
+                        if ((int) mp_event->reply_userdata == app->mpvCmdQueueReadIndex+1) {
+                            if (app->MpvCmdQueue[app->mpvCmdQueueReadIndex].unsent == false) {
+                                log_debug("Id for mpv command matched, but we haven't written to it yet. odd.")
+                            } else {
+                                app->MpvCmdQueue[app->mpvCmdQueueReadIndex].unsent = false;
+
+                                log_debug("Recived Confirmation of MPV command of type: %s", app->MpvCmdQueue[app->mpvCmdQueueReadIndex].command);
+
+                                app->mpvCmdQueueReadIndex++;
+                                if (app->mpvCmdQueueReadIndex > MPV_CMD_QUEUE_SIZE-1) {
+                                    app->mpvCmdQueueReadIndex = 0;
+                                }
+                                App_Queue_SendNext(app);
+                            }
+                        }
                     }
-
-
                 }
             }
         }
@@ -198,7 +221,7 @@ int main(int argc, char* argv[]) {
 			log_debug("not redraw");
         }
 
-        // increment app->playbackTime if blank space is being played (with videos we set it based on the mpv value from the MPV_EVENT_PROPERTY_CHANGE event)
+        // increment app->playbackTime if blank space is being played (if a video is loaded we set it based on the mpv value from the MPV_EVENT_PROPERTY_CHANGE event)
 		if (app->loadedMediaSource == nullptr && !app->playbackBlocked && app->playbackActive) {
 			app->playbackTime += ImGui::GetIO().DeltaTime;
 
