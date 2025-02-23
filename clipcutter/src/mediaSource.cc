@@ -16,13 +16,13 @@
 	return nullptr;
 }
 
-void MediaSource_Init(MediaSource* mediaSource, char* path) {
+void MediaSource_Init(MediaSource* mediaSource, const char* path) {
 	memset(mediaSource, 0, sizeof(MediaSource));
 
 	mediaSource->filename = nullptr;
 	//strcpy(mediaSource->path, path);
 	mediaSource->path = strdup(path);
-	mediaSource->filename = strdup(GetFileNameFromPath(path));
+	mediaSource->filename = GetFileNameFromPath(strdup(path));
 	if (mediaSource->filename == nullptr) {
 		log_fatal("Failed to get filename from path");
 		App_Die();

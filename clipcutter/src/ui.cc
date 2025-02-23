@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "app.h"
+#include <SDL3/SDL_dialog.h>
+#include <SDL3/SDL_error.h>
 //#include "mediaClip.h"
 
 int tracklistWidth = 100;
@@ -18,6 +20,45 @@ void setPlaybackPos(mpv_handle* mpv, double seconds) {
 void UI_DrawEditor(App* app) {
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::Button("Load File")) {
+
+            static const SDL_DialogFileFilter filters[] = {
+                { "Video files (mp4;avi)", "mp4;avi" }, // todo full list of supported formats
+                { "All images", "png;jpg;jpeg" },
+                { "All files", "*" }
+            };
+
+            void (*callback)(void* userdata, const char* const* filelist, int count) =
+            [](void* userdata, const char* const* filelist, int count) -> void {
+                App* app = (App*) userdata;
+                cc_unused(count);
+                cc_unused(userdata);
+                cc_unused(filelist);
+                if (!filelist) {
+                    log_error("File dialog error: %s", SDL_GetError());
+                    return;
+                } else if (!*filelist) {
+                    log_info("User cancelled file dialog");
+                    return;
+                }
+
+                while (*filelist != NULL) {
+                    const char* filePath = *filelist;
+                    log_info("User is opening file '%s' through file dialog", filePath);
+
+
+                    // TODO: check if media source is already loaded
+                    MediaSource* src = App_CreateMediaSource(app, filePath);
+                    MediaClip* clip = App_CreateMediaClip(app, src);
+                    App_CalculateTimelineEvents(app);
+                    cc_unused(clip);
+
+                    filelist++;
+                }
+
+            };
+
+
+            SDL_ShowOpenFileDialog(callback, app, app->window, filters, 3, NULL, true);
 		}
 		if (ImGui::Button("test")) {
 			MediaSource_Load(app, app->mediaSources[0]);
