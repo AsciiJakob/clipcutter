@@ -86,9 +86,8 @@ struct GetPropertyCallback {
 
 void App_Init(App* app);
 void App_Free(App* app);
-MediaSource* App_CreateMediaSource(App* app, char* path);
+MediaSource* App_CreateMediaSource(App* app, const char* path);
 MediaClip* App_CreateMediaClip(App* app, MediaSource* mediaSource);
-void App_InitNewMediaSource(App* app, char* path);
 int App_FindFirstNullptr(void** array, int maxLength);
 void App_MovePlaybackMarker(App* app, float secs);
 void App_CalculateTimelineEvents(App* app);
