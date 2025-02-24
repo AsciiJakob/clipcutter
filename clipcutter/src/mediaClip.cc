@@ -12,7 +12,7 @@ void MediaClip_Init(MediaClip* mediaClip, MediaSource* mediaSource) {
 
 //void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 
-void MediaClip_Draw(App* app, MediaClip* mediaClip) {
+void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 	bool mouseLetGo = !ImGui::IsMouseDown(ImGuiMouseButton_Left);
 	ImVec2 mousePos = ImGui::GetMousePos();
 
@@ -22,7 +22,67 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 	if (mediaClip->isBeingMoved) {
 		float diff = (mousePos.x - mediaClip->moveStartPos.x) / app->timeline.scaleX;
 		if (app->timeline.snappingEnabled) {
-			clipLeftPadding += ceilf((diff) / app->timeline.snappingPrecision) * app->timeline.snappingPrecision;
+
+            TimelineEvent* leftClipEvent = nullptr;
+            TimelineEvent* rightClipEvent = nullptr;
+            { // Get neighbouring video clips
+                
+                int eventIndex = mediaClip->timelineEventsIndex;
+                TimelineEvent* timelineEvents = app->timelineEvents;
+                
+                // get closest clip on left
+                if (eventIndex != 0) {
+                    TimelineEvent* leftEvent = &timelineEvents[eventIndex-1];
+                    if (leftEvent->type == TIMELINE_EVENT_BLANKSPACE) {
+                        if (eventIndex-1 != 0) {
+                            TimelineEvent* leftLeftEvent = &timelineEvents[eventIndex-2];
+                            if (leftLeftEvent->type == TIMELINE_EVENT_VIDEO) {
+                                leftClipEvent = leftLeftEvent;
+                            }
+                        }
+                    } else {
+                        leftClipEvent = leftEvent;
+                    }
+                }
+
+
+                // get closest clip on right
+                if (eventIndex != TIMELINE_EVENTS_SIZE-1) {
+                    TimelineEvent* rightEvent = &timelineEvents[eventIndex+1];
+                    if (rightEvent->type != TIMELINE_EVENT_VIDEO) {
+                        if (eventIndex+1 != TIMELINE_EVENTS_SIZE-1) {
+                            TimelineEvent* rightRightEvent = &timelineEvents[eventIndex+2];
+                            if (rightRightEvent->type == TIMELINE_EVENT_VIDEO) {
+                                rightClipEvent = rightRightEvent;
+                            }
+                        }
+                    } else {
+                        if (rightEvent->type != TIMELINE_EVENT_END)
+                            rightClipEvent = rightEvent;
+                    }
+                }
+            }
+
+            float leftDist;
+            if (leftClipEvent != nullptr)
+                leftDist = (clipLeftPadding+diff)-(leftClipEvent->start+leftClipEvent->clip->width);
+
+            float rightDist;
+            if (rightClipEvent != nullptr)
+                rightDist = rightClipEvent->start-(clipLeftPadding+diff+mediaClip->width);
+
+
+            if (leftClipEvent != nullptr && leftDist < 1.0) {
+                clipLeftPadding = leftClipEvent->start+leftClipEvent->clip->width;
+            } else if (rightClipEvent != nullptr && rightDist < 1.0) {
+                log_debug("dist: %.2f", rightClipEvent->start-(clipLeftPadding+diff+mediaClip->width));
+
+                clipLeftPadding = rightClipEvent->start-mediaClip->width;
+            } else {
+                log_debug("not snapping to neighbour");
+                clipLeftPadding += ceilf((diff) / app->timeline.snappingPrecision) * app->timeline.snappingPrecision;
+            }
+
 		} else {
 			clipLeftPadding += diff;
 		}
@@ -127,7 +187,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 			ImVec2 tracNamePos = ImGui::GetCursorScreenPos();
 			if (i <= mediaClip->source->audioTracks) {
-				ImGui::InvisibleButton(("track1Button#" + std::to_string(i)).c_str(), track_size);
+				ImGui::InvisibleButton(("track" + std::to_string(clipIndex) + "Button#" + std::to_string(i)).c_str(), track_size);
 			} else {
 				ImGui::Dummy(track_size);
 			}
