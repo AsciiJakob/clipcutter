@@ -175,10 +175,10 @@ void UI_DrawEditor(App* app) {
 
 			ImGui::SetCursorScreenPos(cursorTimelineBefore);
 
-			for (int i = 0; i < 200; i++) { // draw clips
+			for (int i = 0; i < MEDIACLIPS_SIZE; i++) { // draw clips
 				MediaClip* mediaClip = app->mediaClips[i];
 				if (mediaClip == nullptr) break;
-				MediaClip_Draw(app, mediaClip);
+				MediaClip_Draw(app, mediaClip, i);
 			}
 
 			{ // timeMarker

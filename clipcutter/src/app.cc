@@ -93,7 +93,7 @@ void App_CalculateTimelineEvents(App* app) {
 	
 	{ // sort array
 		MediaClip* current;
-		for (int i = 0; i < 200; i++) {
+		for (int i = 0; i < MEDIACLIPS_SIZE; i++) {
 			current = app->mediaClips[i];
 			if (current == nullptr) break;
 			int backI = i - 1;
@@ -106,6 +106,7 @@ void App_CalculateTimelineEvents(App* app) {
 
 	}
 
+    // todo: could use a refactor
 	int eventI = 0;
 	for (int i = 0; i < MEDIACLIPS_SIZE; i++, eventI++) {
 		MediaClip* clip = mediaClips[i];
@@ -126,6 +127,7 @@ void App_CalculateTimelineEvents(App* app) {
 			if (clip->padding == 0) {
 				event->type = TIMELINE_EVENT_VIDEO;
 				event->clip = clip;
+                event->clip->timelineEventsIndex = eventI;
 				event->start = 0;
 
 			} else {
@@ -136,6 +138,7 @@ void App_CalculateTimelineEvents(App* app) {
 				TimelineEvent* eventAfter = &app->timelineEvents[eventI];
 				eventAfter->type = TIMELINE_EVENT_VIDEO;
 				eventAfter->clip = clip;
+                eventAfter->clip->timelineEventsIndex = eventI;
 				eventAfter->start = clip->padding;
 			}
 			continue;
@@ -144,6 +147,7 @@ void App_CalculateTimelineEvents(App* app) {
 			if (clip->padding == clipBefore->width + clipBefore->padding) {
 				event->type = TIMELINE_EVENT_VIDEO;
 				event->clip = clip;
+                event->clip->timelineEventsIndex = eventI;
 				event->start = clip->padding;
 			} else {
 				event->type = TIMELINE_EVENT_BLANKSPACE;
@@ -153,6 +157,7 @@ void App_CalculateTimelineEvents(App* app) {
 				TimelineEvent* eventAfter = &app->timelineEvents[eventI];
 				eventAfter->type = TIMELINE_EVENT_VIDEO;
 				eventAfter->clip = clip;
+                eventAfter->clip->timelineEventsIndex = eventI;
 				eventAfter->start = clip->padding;
 
 			}
@@ -163,11 +168,7 @@ void App_CalculateTimelineEvents(App* app) {
 	//app->timelineEvents[TIMELINE_EVENTS_SIZE-1].type = TIMELINE_EVENT_END;
 	//mediaClip* mediaClipBefore = app->timelineEvents[TIMELINE_EVENTS_SIZE-2].type = TIMELINE_EVENT_END;
 }
-// TODO: make sure this is actually true
-// called when: 
-// * playback is active and has reached a new event
-// * playback marker is moved somewhere
-// * new video file has been loaded
+
 void App_LoadEvent(App* app, TimelineEvent* event) {
     log_trace("App_LoadEvent: called");
 	if (event->type == TIMELINE_EVENT_VIDEO) {

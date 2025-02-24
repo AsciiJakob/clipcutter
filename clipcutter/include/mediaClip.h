@@ -10,6 +10,8 @@ typedef struct MediaSource MediaSource;
 struct MediaClip {
 	MediaSource* source;
 
+    int timelineEventsIndex;
+
 	// UI
 	bool isResizingLeft;
 	bool isResizingRight;
@@ -27,6 +29,6 @@ struct MediaClip {
 };
 
 void MediaClip_Init(MediaClip* mediaClip, MediaSource* mediaSource);
-void MediaClip_Draw(App* app, MediaClip* mediaClip);
+void MediaClip_Draw(App* app, MediaClip* mediaClip, int index);
 
 #endif
