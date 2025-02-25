@@ -45,8 +45,8 @@ int main(int argc, char* argv[]) {
 
     // we have to reset the lavfi option every time we load a new video.
     // Otherwise it might try to load too many audio tracks, causing the video to not load
-    const char* cmd[] = { "set", "options/reset-on-next-file", "lavfi-complex", NULL };
-    App_Queue_AddCommand(app, cmd);
+    /*const char* cmd[] = { "set", "options/reset-on-next-file", "lavfi-complex", NULL };*/
+    /*App_Queue_AddCommand(app, cmd);*/
 
     mpv_observe_property(app->mpv, 0, "playback-time", MPV_FORMAT_DOUBLE);
 
@@ -74,6 +74,10 @@ int main(int argc, char* argv[]) {
         App_CreateMediaClip(app, thirdVid);
         App_CalculateTimelineEvents(app);
 
+
+        MediaSource* fourthVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/3-audiotracks.mp4");
+        App_CreateMediaClip(app, fourthVid);
+        App_CalculateTimelineEvents(app);
     } else {
 
     }
@@ -182,8 +186,10 @@ int main(int argc, char* argv[]) {
                                 /*log_debug("playback: %.9f", playtime);*/
                                 if (playtime == 0.0 && app->playbackTime != 0.0) {
                                     double seekTime = app->playbackTime-app->timelineEvents[app->timelineEventIndex].start;
-                                    Playback_SetPlaybackPos(app, seekTime);
-                                    log_debug("seeking too %.6f", seekTime);
+                                    if (seekTime > 0.1) {
+                                        Playback_SetPlaybackPos(app, seekTime);
+                                        log_trace("Syncing MPV playback time with cursor. Seeking to: %.6f", seekTime);
+                                    }
                                 } else {
                                     app->playbackTime = app->timelineEvents[app->timelineEventIndex].start+playtime;
                                 }
