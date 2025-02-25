@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "mediaClip.h"
 #include "app.h"
+#include <imgui.h>
 
 
 void MediaClip_Init(MediaClip* mediaClip, MediaSource* mediaSource) {
@@ -8,6 +9,44 @@ void MediaClip_Init(MediaClip* mediaClip, MediaSource* mediaSource) {
 	mediaClip->source = mediaSource;
 
 	mediaClip->width = mediaSource->length;
+}
+
+TimelineEvent* findNeighbourClipLeft(TimelineEvent* timelineEvents, int eventIndex) {
+    if (eventIndex != 0) {
+        TimelineEvent* leftEvent = &timelineEvents[eventIndex-1];
+        if (leftEvent->type == TIMELINE_EVENT_BLANKSPACE) {
+            if (eventIndex-1 != 0) {
+                TimelineEvent* leftLeftEvent = &timelineEvents[eventIndex-2];
+                if (leftLeftEvent->type == TIMELINE_EVENT_VIDEO) {
+                    return leftLeftEvent;
+                }
+            }
+        } else {
+            return leftEvent;
+        }
+    }
+
+    return nullptr;
+}
+
+
+TimelineEvent* findNeighbourClipRight(TimelineEvent* timelineEvents, int eventIndex) {
+    if (eventIndex != TIMELINE_EVENTS_SIZE-1) {
+        TimelineEvent* rightEvent = &timelineEvents[eventIndex+1];
+        if (rightEvent->type != TIMELINE_EVENT_VIDEO) {
+            if (eventIndex+1 != TIMELINE_EVENTS_SIZE-1) {
+                TimelineEvent* rightRightEvent = &timelineEvents[eventIndex+2];
+                if (rightRightEvent->type == TIMELINE_EVENT_VIDEO) {
+                    return rightRightEvent;
+                }
+            }
+        } else {
+            if (rightEvent->type != TIMELINE_EVENT_END)
+                return rightEvent;
+        }
+    }
+
+    return nullptr;
 }
 
 //void MediaClip_Draw(App* app, MediaClip* mediaClip) {
@@ -23,63 +62,66 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 		float diff = (mousePos.x - mediaClip->moveStartPos.x) / app->timeline.scaleX;
 		if (app->timeline.snappingEnabled) {
 
+            if (ImGui::IsKeyPressed(ImGuiKey_Space))
+                log_debug("debug key pressed");
+
+
+
+            float leftDist;
+            float rightDist;
             TimelineEvent* leftClipEvent = nullptr;
             TimelineEvent* rightClipEvent = nullptr;
-            { // Get neighbouring video clips
-                
-                int eventIndex = mediaClip->timelineEventsIndex;
-                TimelineEvent* timelineEvents = app->timelineEvents;
-                
-                // get closest clip on left
-                if (eventIndex != 0) {
-                    TimelineEvent* leftEvent = &timelineEvents[eventIndex-1];
-                    if (leftEvent->type == TIMELINE_EVENT_BLANKSPACE) {
-                        if (eventIndex-1 != 0) {
-                            TimelineEvent* leftLeftEvent = &timelineEvents[eventIndex-2];
-                            if (leftLeftEvent->type == TIMELINE_EVENT_VIDEO) {
-                                leftClipEvent = leftLeftEvent;
-                            }
-                        }
-                    } else {
-                        leftClipEvent = leftEvent;
-                    }
+            int searchFromIndex = mediaClip->timelineEventsIndex;
+            /*bool movedThroughOtherClip = false;*/
+
+            leftClipEvent = findNeighbourClipLeft(app->timelineEvents, searchFromIndex);
+            rightClipEvent = findNeighbourClipRight(app->timelineEvents, searchFromIndex);
+            unsigned int i=0;
+            while (true) {
+                if (i++ > MEDIACLIPS_SIZE) {
+                    // TODO: come back and fix this bug. it's really annoying
+                    log_warn("Hung on snapping to neighbour clip, most likely positioned right in the middle of a clip");
+                    rightDist = 0.0;
+                    break;
+                }
+
+                if (leftClipEvent) {
+                    leftDist = (clipLeftPadding+diff)-(leftClipEvent->start+leftClipEvent->clip->width);
+                }
+                if (rightClipEvent) {
+                    rightDist = rightClipEvent->start-(clipLeftPadding+diff+mediaClip->width);
                 }
 
 
-                // get closest clip on right
-                if (eventIndex != TIMELINE_EVENTS_SIZE-1) {
-                    TimelineEvent* rightEvent = &timelineEvents[eventIndex+1];
-                    if (rightEvent->type != TIMELINE_EVENT_VIDEO) {
-                        if (eventIndex+1 != TIMELINE_EVENTS_SIZE-1) {
-                            TimelineEvent* rightRightEvent = &timelineEvents[eventIndex+2];
-                            if (rightRightEvent->type == TIMELINE_EVENT_VIDEO) {
-                                rightClipEvent = rightRightEvent;
-                            }
-                        }
-                    } else {
-                        if (rightEvent->type != TIMELINE_EVENT_END)
-                            rightClipEvent = rightEvent;
-                    }
+                if (leftClipEvent && leftDist < -leftClipEvent->clip->width) {
+                    rightClipEvent = leftClipEvent;
+                    leftClipEvent = findNeighbourClipLeft(app->timelineEvents, leftClipEvent->clip->timelineEventsIndex);
+
+                } else if (rightClipEvent && rightDist < -rightClipEvent->clip->width) {
+                    leftClipEvent = rightClipEvent;
+                    rightClipEvent = findNeighbourClipRight(app->timelineEvents, rightClipEvent->clip->timelineEventsIndex);
+                } else {
+                    break;
+                }
+
+            }
+
+
+            bool snappingToClip = false;
+            if (leftClipEvent != nullptr) {
+                if (leftDist < 1) {
+                    clipLeftPadding = leftClipEvent->start+leftClipEvent->clip->width;
+                    snappingToClip = true;
+                }
+            }
+            if (rightClipEvent != nullptr) {
+                if (rightDist < 1 && rightDist < leftDist) {
+                    clipLeftPadding = rightClipEvent->start-mediaClip->width;
+                    snappingToClip = true;
                 }
             }
 
-            float leftDist;
-            if (leftClipEvent != nullptr)
-                leftDist = (clipLeftPadding+diff)-(leftClipEvent->start+leftClipEvent->clip->width);
-
-            float rightDist;
-            if (rightClipEvent != nullptr)
-                rightDist = rightClipEvent->start-(clipLeftPadding+diff+mediaClip->width);
-
-
-            if (leftClipEvent != nullptr && leftDist < 1.0) {
-                clipLeftPadding = leftClipEvent->start+leftClipEvent->clip->width;
-            } else if (rightClipEvent != nullptr && rightDist < 1.0) {
-                log_debug("dist: %.2f", rightClipEvent->start-(clipLeftPadding+diff+mediaClip->width));
-
-                clipLeftPadding = rightClipEvent->start-mediaClip->width;
-            } else {
-                log_debug("not snapping to neighbour");
+            if (!snappingToClip) {
                 clipLeftPadding += ceilf((diff) / app->timeline.snappingPrecision) * app->timeline.snappingPrecision;
             }
 
