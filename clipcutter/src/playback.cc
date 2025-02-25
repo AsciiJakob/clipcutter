@@ -29,6 +29,7 @@ void Playback_SetPlaybackPos(App* app, float secs) {
 }
 
 void Playback_LoadVideo(App* app, char* path) {
+    // TODO: maybe there is a better way for the program to load a video when we already know it's going to be offset to play after a certain amount of time. Like when you're resuming a movie. Might make it load a little faster, who knows. not a major problem though
 	log_trace("Playback_LoadVideo()");
 	const char* cmd[] = { "loadfile", path, NULL };
     App_Queue_AddCommand(app, cmd);
