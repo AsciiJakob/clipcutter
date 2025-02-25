@@ -66,8 +66,12 @@ int main(int argc, char* argv[]) {
         App_MovePlaybackMarker(app, 0);
 
 
-        MediaSource* secondVid = App_CreateMediaSource(app, (char*) "D:/notCDrive/Videos/cc_debug/another-2-AT.mp4");
+        MediaSource* secondVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/another-2-AT.mp4");
         App_CreateMediaClip(app, secondVid);
+        App_CalculateTimelineEvents(app);
+
+        MediaSource* thirdVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/yetanother-2-AT.mp4");
+        App_CreateMediaClip(app, thirdVid);
         App_CalculateTimelineEvents(app);
 
     } else {
