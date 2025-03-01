@@ -58,8 +58,10 @@ target_link_directories(${PROJECT_NAME} PRIVATE
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     sdl3
-	libmpv
-	avformat
+    libmpv
+    avformat
+    avcodec
+    avutil
     opengl32
     kernel32
     user32
