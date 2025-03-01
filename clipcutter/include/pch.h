@@ -25,6 +25,8 @@
 
 extern "C" {
 #include <libavformat/avformat.h>
+#include <libavutil/mem.h>
+#include <libavutil/timestamp.h>
 }
 
 

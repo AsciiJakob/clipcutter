@@ -5,6 +5,7 @@
 #include "mediaSource.h"
 #include "mediaClip.h"
 #include "playback.h"
+#include "export.h"
 
 
 #if defined(CC_PLATFORM_WINDOWS)
@@ -111,6 +112,7 @@ int main(int argc, char* argv[]) {
             } else if (event.type == SDL_EVENT_KEY_DOWN) {
                 if (event.key.key == SDLK_END) {
                     log_debug("Pressing debug key");
+                    exportVideo(app);
                 }
 
                 if (event.key.key == SDLK_SPACE) {
