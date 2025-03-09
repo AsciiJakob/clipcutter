@@ -19,14 +19,25 @@
 #include "SDL3/SDL.h"
 #include "SDL3/SDL_opengl.h"
 #include "SDL3/SDL_dialog.h"
+#include <SDL3/SDL_messagebox.h>
 
 #include <mpv/client.h>
 #include <mpv/render_gl.h>
 
 extern "C" {
 #include <libavformat/avformat.h>
+#include <libavfilter/avfilter.h>
+#include <libavfilter/buffersrc.h>
+#include <libavfilter/buffersink.h>
+#include <libavcodec/avcodec.h>
 #include <libavutil/mem.h>
+#include <libavutil/opt.h>
 #include <libavutil/timestamp.h>
+
+#include "libavutil/samplefmt.h"
+#include "libavutil/channel_layout.h"
+#include "libavutil/md5.h"
+#include "libavutil/mem.h"
 }
 
 

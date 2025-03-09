@@ -28,7 +28,7 @@ bool initWindow(App* app) {
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
         SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
-        window = SDL_CreateWindow("Voixchat", 1280, 720, window_flags);
+        window = SDL_CreateWindow("Clipcutter", 1280, 720, window_flags);
         if (window == nullptr) {
             log_fatal("SDL_CreateWindow(): %s\n", SDL_GetError());
             return false;
