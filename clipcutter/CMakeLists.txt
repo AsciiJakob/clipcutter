@@ -62,6 +62,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     avformat
     avcodec
     avutil
+    avfilter
     opengl32
     kernel32
     user32
