@@ -184,7 +184,7 @@ void App_LoadEvent(App* app, TimelineEvent* event) {
 			log_error("stopping playback failed, reason: %s", mpv_error_string(result));
 		}
 	} else if (event->type == TIMELINE_EVENT_END) {
-
+        Playback_Stop(app);
 	}
 }
 
@@ -224,7 +224,7 @@ void App_MovePlaybackMarker(App* app, float secs) {
 
 TimelineEvent* App_GetNextTimelineEvent(App* app) {
 	int indx = app->timelineEventIndex + 1;
-	if (indx == TIMELINE_EVENTS_SIZE - 1) {
+	if (indx == TIMELINE_EVENTS_SIZE - 1 || app->timelineEvents[app->timelineEventIndex].type == TIMELINE_EVENT_END) {
 		return nullptr;
 	}
 	return &app->timelineEvents[indx];

@@ -39,3 +39,9 @@ void Playback_LoadVideo(App* app, char* path) {
 	/*	return;*/
 	/*}*/
 }
+
+void Playback_Stop(App* app) {
+	log_trace("Playback_Stop()");
+    const char* cmd[] = { "stop", NULL };
+    App_Queue_AddCommand(app, cmd);
+}
