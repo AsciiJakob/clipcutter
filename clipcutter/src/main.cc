@@ -247,8 +247,6 @@ int main(int argc, char* argv[]) {
             log_debug("new event! Type: %d\n", nextEvent->type);
             app->timelineEventIndex++;
             App_LoadEvent(app, nextEvent);
-
-            // TODO: handle end event (don't increment)
         }
 
         // Start the Dear ImGui frame
