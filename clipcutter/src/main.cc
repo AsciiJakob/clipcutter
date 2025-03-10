@@ -149,7 +149,7 @@ int main(int argc, char* argv[]) {
                     }
 
                     if (mp_event->event_id == MPV_EVENT_LOG_MESSAGE) {
-                        mpv_event_log_message* msg = static_cast<mpv_event_log_message*>(mp_event->data);
+                        mpv_event_log_message* msg = (mpv_event_log_message*) (mp_event->data);
                         if (strstr(msg->text, "DR image"))
                             /*log_info("MPV: %s", msg->text);*/
                         continue;
@@ -236,16 +236,20 @@ int main(int argc, char* argv[]) {
 		if (app->loadedMediaSource == nullptr && !app->playbackBlocked && app->playbackActive) {
 			app->playbackTime += ImGui::GetIO().DeltaTime;
 
-            // handle events
-            TimelineEvent* nextEvent = App_GetNextTimelineEvent(app);
-            if (nextEvent != nullptr && app->playbackTime >= nextEvent->start) {
-                log_debug("new event!\n");
-                app->timelineEventIndex++;
-                App_LoadEvent(app, nextEvent);
-
-                // TODO: handle end event (don't increment)
-            }
 		}
+
+        // handle events
+        TimelineEvent* nextEvent = App_GetNextTimelineEvent(app);
+        if (ImGui::IsKeyDown(ImGuiKey_DownArrow)) {
+            log_debug("holding down test key");
+        }
+        if (nextEvent != nullptr && app->playbackTime >= nextEvent->start) {
+            log_debug("new event! Type: %d\n", nextEvent->type);
+            app->timelineEventIndex++;
+            App_LoadEvent(app, nextEvent);
+
+            // TODO: handle end event (don't increment)
+        }
 
         // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();

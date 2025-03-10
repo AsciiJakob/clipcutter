@@ -79,6 +79,7 @@ void UI_DrawEditor(App* app) {
 		MediaClip* testClip = app->mediaClips[0];
 		if (testClip != nullptr) {
 			ImGui::Text("length: %.2f", testClip->source->length);
+			ImGui::Text("width: %.2f", testClip->width);
 			ImGui::Text("padding: %.2f", testClip->padding);
 			ImGui::Text("cutoffstart: %.2f", testClip->drawStartCutoff);
 			ImGui::Text("cutoffend: %.2f", testClip->drawEndCutoff);

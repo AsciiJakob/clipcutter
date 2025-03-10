@@ -4,7 +4,6 @@
 #include "playback.h"
 #include <iostream>
 
-
 void App_Init(App* app) {
 	memset(app, 0, sizeof(App));
 	app->mpv_width = 1280;
