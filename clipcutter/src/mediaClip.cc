@@ -178,7 +178,8 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 			mediaClip->padding = clipLeftPadding;
 			*startCutoff = totalCutOffvalue;
 			mediaClip->isResizingLeft = false;
-			App_CalculateTimelineEvents(app);
+            mediaClip->width = trackWidth;
+            App_CalculateTimelineEvents(app);
 		}
 	}
 	else if (mediaClip->isResizingRight) {
@@ -199,12 +200,10 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 		if (mouseLetGo) {
 			*endCutoff = totalCutOffvalue;
 			mediaClip->isResizingRight = false;
+            mediaClip->width = trackWidth;
+            App_CalculateTimelineEvents(app);
 			log_debug("cut away time: %f", totalCutOffvalue);
-			App_CalculateTimelineEvents(app);
 		}
-	}
-	if (mouseLetGo) {
-		mediaClip->width = trackWidth;
 	}
 
 	ImVec2 cursor_trackclip(0, 0);
