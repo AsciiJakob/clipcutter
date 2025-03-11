@@ -49,14 +49,27 @@ TimelineEvent* findClipNeighbourRight(TimelineEvent* timelineEvents, int eventIn
     return nullptr;
 }
 
+
+bool clipWasOrWillBePlayed(App* app, MediaClip* mediaClip, float drawClipLeftPadding, float drawTrackWidth) {
+    if (app->playbackTime >= mediaClip->padding && app->playbackTime < mediaClip->padding + mediaClip->width) {
+        log_debug("Old location was where marker is\n");
+        return true;
+    }
+    if (app->playbackTime >= drawClipLeftPadding && app->playbackTime < drawClipLeftPadding + drawTrackWidth) {
+        log_debug("inside the new moved location\n");
+        return true;
+    }
+    return false;
+}
+
 //void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 
 void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 	bool mouseLetGo = !ImGui::IsMouseDown(ImGuiMouseButton_Left);
 	ImVec2 mousePos = ImGui::GetMousePos();
 
-	float trackWidth = mediaClip->width;
-	float clipLeftPadding = mediaClip->padding;
+	float drawTrackWidth = mediaClip->width;
+	float drawClipLeftPadding = mediaClip->padding;
 
 	if (mediaClip->isBeingMoved) {
 		float diff = (mousePos.x - mediaClip->moveStartPos.x) / app->timeline.scaleX;
@@ -84,10 +97,10 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
                 }
 
                 if (leftClipEvent) {
-                    leftDist = (clipLeftPadding+diff)-(leftClipEvent->start+leftClipEvent->clip->width);
+                    leftDist = (drawClipLeftPadding+diff)-(leftClipEvent->start+leftClipEvent->clip->width);
                 }
                 if (rightClipEvent) {
-                    rightDist = rightClipEvent->start-(clipLeftPadding+diff+mediaClip->width);
+                    rightDist = rightClipEvent->start-(drawClipLeftPadding+diff+mediaClip->width);
                 }
 
 
@@ -108,43 +121,35 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
             bool snappingToClip = false;
             if (leftClipEvent != nullptr) {
                 if (leftDist < 1) {
-                    clipLeftPadding = leftClipEvent->start+leftClipEvent->clip->width;
+                    drawClipLeftPadding = leftClipEvent->start+leftClipEvent->clip->width;
                     snappingToClip = true;
                 }
             }
             if (rightClipEvent != nullptr) {
                 if (rightDist < 1 && rightDist < leftDist) {
-                    clipLeftPadding = rightClipEvent->start-mediaClip->width;
+                    drawClipLeftPadding = rightClipEvent->start-mediaClip->width;
                     snappingToClip = true;
                 }
             }
 
             if (!snappingToClip) {
-                clipLeftPadding += ceilf((diff) / app->timeline.snappingPrecision) * app->timeline.snappingPrecision;
+                drawClipLeftPadding += ceilf((diff) / app->timeline.snappingPrecision) * app->timeline.snappingPrecision;
             }
 
 		} else {
-			clipLeftPadding += diff;
+			drawClipLeftPadding += diff;
 		}
-		if (clipLeftPadding < 0) {
-			clipLeftPadding = 0;
+		if (drawClipLeftPadding < 0) {
+			drawClipLeftPadding = 0;
 		}
 
 		if (mouseLetGo) {
 			mediaClip->isBeingMoved = false;
-			bool clipWasOrWillBePlayed = false;
-			if (app->playbackTime >= mediaClip->padding && app->playbackTime < mediaClip->padding + mediaClip->width) {
-				log_debug("Old location was where marker is\n");
-				clipWasOrWillBePlayed = true;
-			}
-			if (app->playbackTime >= clipLeftPadding && app->playbackTime < clipLeftPadding + mediaClip->width) {
-				log_debug("inside the new moved location\n");
-				clipWasOrWillBePlayed = true;
-			}
-
-			mediaClip->padding = clipLeftPadding;
+			bool updatePlayback = clipWasOrWillBePlayed(app, mediaClip, drawClipLeftPadding, drawTrackWidth);
+			mediaClip->padding = drawClipLeftPadding;
 			App_CalculateTimelineEvents(app);
-			if (clipWasOrWillBePlayed) {
+
+			if (updatePlayback) {
 				log_debug("updating playback thing---------------\n");
 				App_MovePlaybackMarker(app, app->playbackTime);
 			}
@@ -157,29 +162,35 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 		if (app->timeline.snappingEnabled) {
 			cutoffOffset = floorf(cutoffOffset / app->timeline.snappingPrecision) * app->timeline.snappingPrecision;
 		}
-		clipLeftPadding = mediaClip->padding + cutoffOffset;
+		drawClipLeftPadding = mediaClip->padding + cutoffOffset;
 		float* startCutoff = &mediaClip->drawStartCutoff;
 		float totalCutOffvalue = cutoffOffset + *startCutoff;
 
 		if (totalCutOffvalue < 0) {
 			cutoffOffset = -*startCutoff;
 			totalCutOffvalue = cutoffOffset + *startCutoff;
-			clipLeftPadding = mediaClip->padding + cutoffOffset;
+			drawClipLeftPadding = mediaClip->padding + cutoffOffset;
 		}
-		if (clipLeftPadding < 0) {
+		if (drawClipLeftPadding < 0) {
 			cutoffOffset = -mediaClip->padding;
 			totalCutOffvalue = cutoffOffset + *startCutoff;
-			clipLeftPadding = 0;
+			drawClipLeftPadding = 0;
 		}
 
-		trackWidth -= cutoffOffset;
+		drawTrackWidth -= cutoffOffset;
 
 		if (mouseLetGo) {
-			mediaClip->padding = clipLeftPadding;
+			bool updatePlayback = clipWasOrWillBePlayed(app, mediaClip, drawClipLeftPadding, drawTrackWidth);
+			mediaClip->padding = drawClipLeftPadding;
 			*startCutoff = totalCutOffvalue;
 			mediaClip->isResizingLeft = false;
-            mediaClip->width = trackWidth;
+            mediaClip->width = drawTrackWidth;
             App_CalculateTimelineEvents(app);
+
+			if (updatePlayback) {
+				log_debug("updating playback thing---------------\n");
+				App_MovePlaybackMarker(app, app->playbackTime);
+			}
 		}
 	}
 	else if (mediaClip->isResizingRight) {
@@ -195,14 +206,19 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 			cutoffOffset = -*endCutoff;
 			totalCutOffvalue = cutoffOffset + *endCutoff;
 		}
-		trackWidth -= cutoffOffset;
+		drawTrackWidth -= cutoffOffset;
 
 		if (mouseLetGo) {
+			bool updatePlayback = clipWasOrWillBePlayed(app, mediaClip, drawClipLeftPadding, drawTrackWidth);
 			*endCutoff = totalCutOffvalue;
 			mediaClip->isResizingRight = false;
-            mediaClip->width = trackWidth;
+            mediaClip->width = drawTrackWidth;
             App_CalculateTimelineEvents(app);
-			log_debug("cut away time: %f", totalCutOffvalue);
+
+			if (updatePlayback) {
+				log_debug("updating playback thing---------------\n");
+				App_MovePlaybackMarker(app, app->playbackTime);
+			}
 		}
 	}
 
@@ -213,8 +229,8 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
     for (int i = 0; i <= mediaClip->source->audioTracks; i++) {
         cursor_trackclip = ImGui::GetCursorScreenPos();
         ImVec2 cursor_trackclip_padded = ImGui::GetCursorScreenPos();
-        cursor_trackclip_padded.x = (cursor_trackclip_padded.x + clipLeftPadding * app->timeline.scaleX);
-        ImVec2 track_size(trackWidth * app->timeline.scaleX, app->timeline.clipHeight);
+        cursor_trackclip_padded.x = (cursor_trackclip_padded.x + drawClipLeftPadding * app->timeline.scaleX);
+        ImVec2 track_size(drawTrackWidth * app->timeline.scaleX, app->timeline.clipHeight);
 
         ImGui::SetCursorScreenPos(cursor_trackclip_padded);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
@@ -267,19 +283,19 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
     
     if (app->selectedTrack == mediaClip) { // ########### clip selection
         ImU32 border_color = ImGui::GetColorU32(ImVec4(1, 1, 1, 1));
-        ImVec2 posStart(app->timeline.cursTopLeft.x + clipLeftPadding * app->timeline.scaleX, app->timeline.cursTopLeft.y);
-        ImVec2 posEnd(app->timeline.cursTopLeft.x + (clipLeftPadding + trackWidth) * app->timeline.scaleX, app->timeline.cursTopLeft.y + app->timeline.clipHeight * (mediaClip->source->audioTracks+1));
+        ImVec2 posStart(app->timeline.cursTopLeft.x + drawClipLeftPadding * app->timeline.scaleX, app->timeline.cursTopLeft.y);
+        ImVec2 posEnd(app->timeline.cursTopLeft.x + (drawClipLeftPadding + drawTrackWidth) * app->timeline.scaleX, app->timeline.cursTopLeft.y + app->timeline.clipHeight * (mediaClip->source->audioTracks+1));
         ImGui::GetWindowDrawList()->AddRect(posStart, posEnd, border_color, 0.0f, 0, 1.0f);
     } else { // ########### clip left & right borders
         ImU32 border_color = ImGui::GetColorU32(ImVec4(0, 0, 0, 1));
-        ImVec2 posStart(app->timeline.cursTopLeft.x + clipLeftPadding * app->timeline.scaleX, app->timeline.cursTopLeft.y);
-        ImVec2 posEnd(app->timeline.cursTopLeft.x + (clipLeftPadding + trackWidth) * app->timeline.scaleX, app->timeline.cursTopLeft.y + app->timeline.clipHeight * (mediaClip->source->audioTracks+1));
+        ImVec2 posStart(app->timeline.cursTopLeft.x + drawClipLeftPadding * app->timeline.scaleX, app->timeline.cursTopLeft.y);
+        ImVec2 posEnd(app->timeline.cursTopLeft.x + (drawClipLeftPadding + drawTrackWidth) * app->timeline.scaleX, app->timeline.cursTopLeft.y + app->timeline.clipHeight * (mediaClip->source->audioTracks+1));
         ImGui::GetWindowDrawList()->AddRect(posStart, posEnd, border_color, 0.0f, 0, 1.0f);
     }
 
     if (mediaClip->isHovered) {
-        float edgeLeft = (cursor_trackclip.x + clipLeftPadding * app->timeline.scaleX);
-        float edgeRight = (cursor_trackclip.x + (trackWidth + clipLeftPadding) * app->timeline.scaleX);
+        float edgeLeft = (cursor_trackclip.x + drawClipLeftPadding * app->timeline.scaleX);
+        float edgeRight = (cursor_trackclip.x + (drawTrackWidth + drawClipLeftPadding) * app->timeline.scaleX);
 
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             app->selectedTrack = mediaClip;
