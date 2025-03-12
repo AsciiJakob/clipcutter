@@ -51,12 +51,16 @@ TimelineEvent* findClipNeighbourRight(TimelineEvent* timelineEvents, int eventIn
 
 
 bool clipWasOrWillBePlayed(App* app, MediaClip* mediaClip, float drawClipLeftPadding, float drawTrackWidth) {
+    if (mediaClip->width == drawTrackWidth && mediaClip->padding == drawClipLeftPadding) { 
+        return false;
+    }
+
+    // clip was positioned where the marker is before it was moved
     if (app->playbackTime >= mediaClip->padding && app->playbackTime < mediaClip->padding + mediaClip->width) {
-        log_debug("Old location was where marker is\n");
         return true;
     }
+    // clip will now be positioned where the marker is
     if (app->playbackTime >= drawClipLeftPadding && app->playbackTime < drawClipLeftPadding + drawTrackWidth) {
-        log_debug("inside the new moved location\n");
         return true;
     }
     return false;
@@ -144,6 +148,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 		}
 
 		if (mouseLetGo) {
+            // todo: figure out a way to calculate difference so that we don't refresh if we don't have to
 			mediaClip->isBeingMoved = false;
 			bool updatePlayback = clipWasOrWillBePlayed(app, mediaClip, drawClipLeftPadding, drawTrackWidth);
 			mediaClip->padding = drawClipLeftPadding;
