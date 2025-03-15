@@ -33,10 +33,13 @@ char* remux(MediaClip* mediaClip, const char* out_filename) {
     int inVideoStreamIdx = -1;
     int outAudioStreamIdx = -1;
     int audioStreamIdx[MAX_SUPPORTED_AUDIO_TRACKS];
-    int audioStreamCount = 0;
     memset(audioStreamIdx, -1, sizeof(audioStreamIdx));
+    int audioStreamCount = 0;
+    int streamRescaledStartSeconds[MAX_SUPPORTED_AUDIO_TRACKS+1];
+    int streamRescaledEndSeconds[MAX_SUPPORTED_AUDIO_TRACKS+1];
     int ret;
     char* err = nullptr;
+    int64_t last_audio_dts;
 
     AVFilterGraph* filter_graph = avfilter_graph_alloc();
     if (!filter_graph) {
@@ -67,8 +70,11 @@ char* remux(MediaClip* mediaClip, const char* out_filename) {
         bool foundVideo = false;
         log_debug("modified nb sttream is: %d", ifmt_ctx->nb_streams);
         for (unsigned int i = 0; i < ifmt_ctx->nb_streams; i++) {
-            AVStream *in_stream = ifmt_ctx->streams[i];
-            AVCodecParameters *in_codecpar = in_stream->codecpar;
+            AVStream *inStream = ifmt_ctx->streams[i];
+            AVCodecParameters *in_codecpar = inStream->codecpar;
+
+            streamRescaledStartSeconds[i] = av_rescale_q(mediaClip->drawStartCutoff * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
+            streamRescaledEndSeconds[i] = av_rescale_q((mediaClip->source->length-mediaClip->drawEndCutoff) * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
 
             if (in_codecpar->codec_type != AVMEDIA_TYPE_AUDIO &&
                 in_codecpar->codec_type != AVMEDIA_TYPE_VIDEO) {
@@ -89,6 +95,7 @@ char* remux(MediaClip* mediaClip, const char* out_filename) {
                 audioStreamIdx[audioStreamCount++] = i;
             }
         }
+
         if (audioStreamIdx[0] == -1) {
             err = alloc_error("found no audio sources");
             goto cleanup;
@@ -341,6 +348,14 @@ char* remux(MediaClip* mediaClip, const char* out_filename) {
             goto cleanup;
         }
 
+        ret = avformat_seek_file(ifmt_ctx, -1, INT64_MIN, mediaClip->drawStartCutoff * AV_TIME_BASE, mediaClip->drawStartCutoff * AV_TIME_BASE, 0);
+        if (ret < 0) {
+            err = alloc_error("Failed to seek forward to cutting start in source file");
+            goto cleanup;
+        }
+
+        // only necessary after seek if we are encoding video.
+        /*avcodec_flush_buffers( inVideoStream->codec );*/
 
 
         av_dump_format(ofmt_ctx, 0, out_filename, 1);
@@ -375,6 +390,7 @@ char* remux(MediaClip* mediaClip, const char* out_filename) {
 
         
 
+    last_audio_dts = 0;
     // main decoding/encoding loop
     while (1) {
         AVStream *in_stream, *out_stream;
@@ -382,14 +398,27 @@ char* remux(MediaClip* mediaClip, const char* out_filename) {
         if (ret < 0)
             break;
 
-        in_stream  = ifmt_ctx->streams[pkt->stream_index];
-        out_stream = ofmt_ctx->streams[pkt->stream_index];
+        if (pkt->pts > streamRescaledEndSeconds[pkt->stream_index]) {
+            av_packet_unref(pkt);
+            continue;
+        }
 
-        // if stream is video
-        if (pkt->stream_index == inVideoStreamIdx) {
+
+        int in_index = pkt->stream_index;
+        in_stream  = ifmt_ctx->streams[pkt->stream_index];
+
+        
+        if (in_index == inVideoStreamIdx) {
             pkt->stream_index = 0; // write video output to first stream
+            out_stream = ofmt_ctx->streams[pkt->stream_index];
+
+            // shift the packet to its new position by subtracting the rescaled start seconds.
+            pkt->pts -= streamRescaledStartSeconds[in_index];
+            pkt->dts -= streamRescaledStartSeconds[in_index];
+
             /* copy packet */
             av_packet_rescale_ts(pkt, in_stream->time_base, out_stream->time_base);
+            pkt->pos = -1;
 
             ret = av_interleaved_write_frame(ofmt_ctx, pkt);
             if (ret < 0) {
@@ -398,10 +427,19 @@ char* remux(MediaClip* mediaClip, const char* out_filename) {
             }
 
         } else { // if stream is audio
+            pkt->stream_index = outAudioStreamIdx;
+            out_stream = ofmt_ctx->streams[pkt->stream_index];
+
+            // shift the packet to its new position by subtracting the rescaled start seconds.
+            pkt->pts -= streamRescaledStartSeconds[in_index];
+            pkt->dts -= streamRescaledStartSeconds[in_index];
+
+            pkt->pos = -1;
+
             int idx = -1;
 
             for (int i=0; i < audioStreamCount; i++) {
-                if (pkt->stream_index == audioStreamIdx[i]) {
+                if (in_index == audioStreamIdx[i]) {
                     idx = i;
                     break;
                 }
@@ -417,8 +455,10 @@ char* remux(MediaClip* mediaClip, const char* out_filename) {
             if (idx != -1) {
                 ret = avcodec_receive_frame(audioDecCtx[idx], frame);
                 if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-                    if (ret == AVERROR(EAGAIN))
+                    if (ret == AVERROR(EAGAIN)) {
+                        av_packet_unref(pkt);
                         continue;
+                    }
                     break;
                 } else if (ret < 0) {
                     err = alloc_error("error during decoding audio");
@@ -452,6 +492,7 @@ char* remux(MediaClip* mediaClip, const char* out_filename) {
 
                     while (ret >= 0) {
                         ret = avcodec_receive_packet(enc_ctx, pkt);
+                        pkt->stream_index = outAudioStreamIdx; // as calling avcodec_receive_packet resets it
                         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
                             break;
                         } else if (ret < 0) {
@@ -459,8 +500,20 @@ char* remux(MediaClip* mediaClip, const char* out_filename) {
                             goto cleanup;
                         }
 
-                        pkt->stream_index = outAudioStreamIdx;
-                        av_packet_rescale_ts(pkt, enc_ctx->time_base, out_audio_stream->time_base);
+                        av_packet_rescale_ts(pkt, enc_ctx->time_base, out_stream->time_base);
+
+                        // we have to ensure monotonically increasing DTS
+                        // the last_audio_dts > 0 condition is because last_audio_dts is 0 for the very first audio frame
+                        if (pkt->dts <= last_audio_dts && last_audio_dts > 0) {
+                            pkt->dts = last_audio_dts + 1;
+                            // if PTS should be after DTS, adjust it accordingly
+                            if (pkt->pts <= pkt->dts) {
+                                pkt->pts = pkt->dts;
+                            }
+                        }
+                        
+                        last_audio_dts = pkt->dts;
+                        cc_unused(last_audio_dts);
 
 
                         ret = av_interleaved_write_frame(ofmt_ctx, pkt);
@@ -498,7 +551,8 @@ cleanup:
         avio_closep(&ofmt_ctx->pb);
     avformat_free_context(ofmt_ctx);
 
-    if (err != nullptr && ret < 0 && ret != AVERROR_EOF) {
+    // TODO: ability to get multiple error messages
+    if (err == nullptr && ret < 0 && ret != AVERROR_EOF) {
         char* errbuf = (char*) malloc(MAX_ERROR_LENGTH);
         av_strerror(ret, errbuf, MAX_ERROR_LENGTH);
         err = errbuf;
@@ -506,7 +560,7 @@ cleanup:
 
     log_debug("finished remuxing with errored as: %d", err);
 
-    return nullptr;
+    return err;
 }
 
 int remux_keepMultipleAudioTracks(MediaClip* mediaClip, const char* out_filename);
