@@ -216,7 +216,7 @@ void App_MovePlaybackMarker(App* app, float secs) {
 	App_LoadEvent(app, currentEvent);
 
 	if (currentEvent->type == TIMELINE_EVENT_VIDEO) {
-		int seekPos = secs-currentEvent->start;
+		int seekPos = secs-currentEvent->start+currentEvent->clip->drawStartCutoff;
 		log_info("seeking to: %d\n", seekPos);
 		Playback_SetPlaybackPos(app, seekPos);
 	}
