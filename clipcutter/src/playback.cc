@@ -44,13 +44,6 @@ void Playback_SetPaused(App* app, bool pause) {
     const char* state = pause ? "yes" : "no";
     const char* cmd_pause[] = { "set", "pause", state, NULL };
     App_Queue_AddCommand(app, cmd_pause);
-    /*if (pause) {*/
-    /*    const char* cmd_pause[] = { "set", "pause", "true", NULL };*/
-    /*    App_Queue_AddCommand(app, cmd_pause);*/
-    /*} else {*/
-    /*    const char* cmd_pause[] = { "set", "pause", "false", NULL };*/
-    /*    App_Queue_AddCommand(app, cmd_pause);*/
-    /*}*/
 }
 
 void Playback_Stop(App* app) {
