@@ -8,14 +8,6 @@ int tracklistWidth = 100;
 
 int trackCount = 5; // Todo: make function to get the max tracks of all the clips
 
-void setPlaybackPos(mpv_handle* mpv, double seconds) {
-	std::string timeStr = std::to_string(seconds);
-	const char* cmd[] = { "seek", timeStr.data(), "absolute", NULL };
-	if (int result = mpv_command(mpv, cmd); result != MPV_ERROR_SUCCESS) {
-		log_error("Fast forward failed, reason: %s", mpv_error_string(result));
-	}
-}
-
 void UI_DrawEditor(App* app) {
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::Button("Load File")) {
@@ -65,6 +57,29 @@ void UI_DrawEditor(App* app) {
 
 		ImGui::EndMainMenuBar();
 	}
+
+
+    static bool dockBuilderHasInitialized = false;
+    ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(0);
+    if (!dockBuilderHasInitialized) {
+        dockBuilderHasInitialized = true;
+        ImGui::DockBuilderRemoveNode(dockspace_id); // Clear out existing layout
+        ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace); // Add empty node
+        ImGui::DockBuilderSetNodeSize(dockspace_id, ImGui::GetWindowSize());
+
+        ImGuiID dock_main_id = dockspace_id;
+        /*ImGuiID dock_id_left = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.80f, NULL, &dock_main_id);*/
+        /*ImGuiID dock_id_bottom = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.00f, NULL, &dock_main_id);*/
+        ImGuiID dock_id_up = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Up, 2.20f, NULL, &dock_main_id);
+        ImGuiID dock_id_up_left= ImGui::DockBuilderSplitNode(dock_id_up, ImGuiDir_Left, 0.3f, nullptr, &dock_id_up);
+
+
+        ImGui::DockBuilderDockWindow("Timeline", dock_main_id); // dock_main_id docks it to the center of the main docking thing
+        ImGui::DockBuilderDockWindow("DebugThingies", dock_id_up_left);
+        ImGui::DockBuilderDockWindow("Video Player", dock_id_up);
+
+        ImGui::DockBuilderFinish(dockspace_id);
+    }
 
 	if (ImGui::Begin("DebugThingies")) {
 		ImGui::Text("playbacktime: %.2f", app->playbackTime);
