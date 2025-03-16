@@ -186,14 +186,16 @@ int main(int argc, char* argv[]) {
                             if (prop->data != nullptr) {
 								double playtime = *(double*) prop->data;
                                 /*log_debug("playback: %.9f", playtime);*/
+                                TimelineEvent* currentEvent = &app->timelineEvents[app->timelineEventIndex];
                                 if (playtime == 0.0 && app->playbackTime != 0.0) {
-                                    double seekTime = app->playbackTime-app->timelineEvents[app->timelineEventIndex].start;
+                                    double seekTime = app->playbackTime-currentEvent->start+currentEvent->clip->drawStartCutoff;
+                                    /*double seekTime = app->playbackTime-currentEvent->start;*/
                                     if (seekTime > 0.1) {
                                         Playback_SetPlaybackPos(app, seekTime);
                                         log_trace("Syncing MPV playback time with cursor. Seeking to: %.6f", seekTime);
                                     }
                                 } else {
-                                    app->playbackTime = app->timelineEvents[app->timelineEventIndex].start+playtime;
+                                    app->playbackTime = currentEvent->start+playtime-currentEvent->clip->drawStartCutoff;
                                 }
                                 /*app->playbackTime = playtime;*/
                             }
