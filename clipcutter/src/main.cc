@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
 
                 if (event.key.key == SDLK_SPACE) {
                     app->playbackActive = !app->playbackActive;
-                    Playback_SetPaused(app, app->playbackActive);
+                    Playback_SetPaused(app, !app->playbackActive);
                 }
                 //if (event.key.keysym.sym == SDLK_RIGHT) {
                     //setPositionRelative(app->mpv, 5);
@@ -162,7 +162,7 @@ int main(int argc, char* argv[]) {
                         app->isLoadingVideo = false;
                         app->playbackBlocked = false;
                         if (app->playbackActive == false) {
-                            Playback_SetPaused(app, app->playbackActive);
+                            Playback_SetPaused(app, !app->playbackActive);
                         }
 
                         /*Playback_SetAudioTracks(app, app->loadedMediaSource->audioTracks);*/
