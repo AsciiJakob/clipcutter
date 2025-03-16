@@ -95,10 +95,9 @@ int main(int argc, char* argv[]) {
 
 
     // Main loop
+
     bool done = false;
-
     bool mpvRedraw = false;
-
     while (!done) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
