@@ -581,7 +581,13 @@ bool exportVideo(App* app) {
         }
         free(errMsg);
     } else {
-        remux_keepMultipleAudioTracks(firstClip, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");
+        int err = remux_keepMultipleAudioTracks(firstClip, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");
+        log_debug("err: %d", err);
+        if (err) {
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Exporting Failed", "check logs for error", app->window);
+        } else {
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Export", "Sucessfully exported video", app->window);
+        }
     }
 
     return true;
@@ -599,6 +605,8 @@ int remux_keepMultipleAudioTracks(MediaClip* mediaClip, const char* out_filename
     memset(audioDecCtx, NULL, sizeof(audioDecCtx));
     int audioStreamIdx[MAX_SUPPORTED_AUDIO_TRACKS];
     memset(audioStreamIdx, -1, sizeof(audioStreamIdx));
+    int streamRescaledStartSeconds[MAX_SUPPORTED_AUDIO_TRACKS+1];
+    int streamRescaledEndSeconds[MAX_SUPPORTED_AUDIO_TRACKS+1];
     int ret;
     int *stream_mapping = NULL;
     int stream_mapping_size = 0;
@@ -646,8 +654,11 @@ int remux_keepMultipleAudioTracks(MediaClip* mediaClip, const char* out_filename
 
     log_debug("default nb sttream is: %d", ifmt_ctx->nb_streams);
     for (unsigned int i = 0; i < ifmt_ctx->nb_streams; i++) {
-        AVStream *in_stream = ifmt_ctx->streams[i];
-        AVCodecParameters *in_codecpar = in_stream->codecpar;
+        AVStream *inStream = ifmt_ctx->streams[i];
+        AVCodecParameters *in_codecpar = inStream->codecpar;
+
+        streamRescaledStartSeconds[i] = av_rescale_q(mediaClip->drawStartCutoff * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
+        streamRescaledEndSeconds[i] = av_rescale_q((mediaClip->source->length-mediaClip->drawEndCutoff) * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
 
         if (in_codecpar->codec_type != AVMEDIA_TYPE_AUDIO &&
             in_codecpar->codec_type != AVMEDIA_TYPE_VIDEO &&
@@ -710,6 +721,15 @@ int remux_keepMultipleAudioTracks(MediaClip* mediaClip, const char* out_filename
     }
 
         
+    ret = avformat_seek_file(ifmt_ctx, -1, INT64_MIN, mediaClip->drawStartCutoff * AV_TIME_BASE, mediaClip->drawStartCutoff * AV_TIME_BASE, 0);
+    if (ret < 0) {
+        log_error("Failed to seek forward to cutting start in source file");
+        errored = true;
+        goto end;
+    }
+
+    // only necessary after seek if we are encoding video.
+    /*avcodec_flush_buffers( inVideoStream->codec );*/
 
     while (1) {
         AVStream *in_stream, *out_stream;
@@ -718,6 +738,13 @@ int remux_keepMultipleAudioTracks(MediaClip* mediaClip, const char* out_filename
         if (ret < 0)
             break;
 
+
+        if (pkt->pts > streamRescaledEndSeconds[pkt->stream_index]) {
+            av_packet_unref(pkt);
+            continue;
+        }
+
+        int in_index = pkt->stream_index;
         in_stream  = ifmt_ctx->streams[pkt->stream_index];
         if (pkt->stream_index >= stream_mapping_size ||
             stream_mapping[pkt->stream_index] < 0) {
@@ -728,6 +755,10 @@ int remux_keepMultipleAudioTracks(MediaClip* mediaClip, const char* out_filename
         pkt->stream_index = stream_mapping[pkt->stream_index];
         out_stream = ofmt_ctx->streams[pkt->stream_index];
         /*log_packet(ifmt_ctx, pkt, "in");*/
+
+
+        pkt->pts -= streamRescaledStartSeconds[in_index];
+        pkt->dts -= streamRescaledStartSeconds[in_index];
 
         /* copy packet */
         av_packet_rescale_ts(pkt, in_stream->time_base, out_stream->time_base);
@@ -743,6 +774,7 @@ int remux_keepMultipleAudioTracks(MediaClip* mediaClip, const char* out_filename
             break;
         }
 
+        av_packet_unref(pkt);
     }
 
     av_write_trailer(ofmt_ctx);
@@ -774,6 +806,6 @@ end:
 
     log_debug("finished remuxing with errored as: %d", errored);
 
-    return !errored;
+    return errored;
 
 }
