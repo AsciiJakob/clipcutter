@@ -116,11 +116,8 @@ int main(int argc, char* argv[]) {
                 }
 
                 if (event.key.key == SDLK_SPACE) {
-                    const char* cmd_pause[] = { "cycle", "pause", NULL };
-                    /*mpv_command_async(app->mpv, 0, cmd_pause);*/
-                    App_Queue_AddCommand(app, cmd_pause);
-                    // TODO 
                     app->playbackActive = !app->playbackActive;
+                    Playback_SetPaused(app, app->playbackActive);
                 }
                 //if (event.key.keysym.sym == SDLK_RIGHT) {
                     //setPositionRelative(app->mpv, 5);
@@ -165,9 +162,7 @@ int main(int argc, char* argv[]) {
                         app->isLoadingVideo = false;
                         app->playbackBlocked = false;
                         if (app->playbackActive == false) {
-                            // todo: put into function
-                            const char* cmd_pause[] = { "cycle", "pause", NULL };
-                            App_Queue_AddCommand(app, cmd_pause);
+                            Playback_SetPaused(app, app->playbackActive);
                         }
 
                         /*Playback_SetAudioTracks(app, app->loadedMediaSource->audioTracks);*/
