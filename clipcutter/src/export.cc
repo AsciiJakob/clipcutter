@@ -565,9 +565,8 @@ cleanup:
 
 int remux_keepMultipleAudioTracks(MediaClip* mediaClip, const char* out_filename);
 
-bool exportVideo(App* app) {
+void exportVideo(App* app, bool combineAudioStreams) {
     /*cc_unused(app);*/
-    bool combineAudioStreams = true;
 
     MediaClip* firstClip = app->mediaClips[1];
 
@@ -589,8 +588,6 @@ bool exportVideo(App* app) {
             SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Export", "Sucessfully exported video", app->window);
         }
     }
-
-    return true;
 }
 
 

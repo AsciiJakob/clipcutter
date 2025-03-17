@@ -3,6 +3,6 @@
 #include "pch.h"
 #include "app.h"
 
-bool exportVideo(App* app);
+void exportVideo(App* app, bool combineAudioStreams);
 
 #endif
