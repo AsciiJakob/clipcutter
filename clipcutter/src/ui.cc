@@ -1,7 +1,6 @@
 #include "pch.h"
+#include "export.h"
 #include "app.h"
-#include <SDL3/SDL_dialog.h>
-#include <SDL3/SDL_error.h>
 //#include "mediaClip.h"
 
 int tracklistWidth = 100;
@@ -9,6 +8,7 @@ int tracklistWidth = 100;
 int trackCount = 5; // Todo: make function to get the max tracks of all the clips
 
 void UI_DrawEditor(App* app) {
+
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::Button("Load File")) {
 
@@ -51,9 +51,27 @@ void UI_DrawEditor(App* app) {
 
             SDL_ShowOpenFileDialog(callback, app, app->window, filters, 3, NULL, true);
 		}
-		if (ImGui::Button("test")) {
-			MediaSource_Load(app, app->mediaSources[0]);
+		if (ImGui::Button("export")) {
+            log_debug("Clicked button for opening export modal");
+            ImGui::OpenPopup("ExportModal");
 		}
+
+        if (ImGui::BeginPopupModal("ExportModal")) {
+            ImGui::Text("Hello");
+
+            if (ImGui::Button("Remux Video, Merge audiotracks")) {
+                exportVideo(app, true);
+            };
+            if (ImGui::Button("Remux")) {
+                exportVideo(app, false);
+            };
+
+            if (ImGui::Button("Close")) {
+                ImGui::ClosePopupToLevel(0, false);
+            }
+
+            ImGui::EndPopup();
+        }
 
 		ImGui::EndMainMenuBar();
 	}
@@ -115,6 +133,7 @@ void UI_DrawEditor(App* app) {
 
 	}
 	ImGui::End();
+
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,  ImVec2(0, 0));
 
@@ -313,4 +332,5 @@ void UI_DrawEditor(App* app) {
 		}
 		ImGui::End();
 	}
+
 }
