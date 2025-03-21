@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "export.h"
 #include "app.h"
+#include <imgui.h>
 //#include "mediaClip.h"
 
 int tracklistWidth = 100;
@@ -135,16 +136,16 @@ void UI_DrawEditor(App* app) {
         dockBuilderHasInitialized = true;
         ImGui::DockBuilderRemoveNode(dockspace_id); // Clear out existing layout
         ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace); // Add empty node
-        ImGui::DockBuilderSetNodeSize(dockspace_id, ImGui::GetWindowSize());
+        ImGui::DockBuilderSetNodeSize(dockspace_id, ImGui::GetMainViewport()->Size);
 
         ImGuiID dock_main_id = dockspace_id;
-        ImGuiID dock_id_up;;
+        ImGuiID dock_id_up;
         /*ImGuiID dock_id_left = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.80f, NULL, &dock_main_id);*/
         /*ImGuiID dock_id_bottom = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.00f, NULL, &dock_main_id);*/
-        ImGuiID dock_id_down = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 2.20f, nullptr, &dock_id_up);
+        ImGuiID dock_id_down = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.35f, nullptr, &dock_id_up);
         /*ImGuiID dock_id_up = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Up, 2.20f, NULL, &dock_main_id);*/
         ImGuiID dock_id_up_right;
-        ImGuiID dock_id_up_left= ImGui::DockBuilderSplitNode(dock_id_up, ImGuiDir_Left, 0.3f, nullptr, &dock_id_up_right);
+        ImGuiID dock_id_up_left = ImGui::DockBuilderSplitNode(dock_id_up, ImGuiDir_Left, 0.20f, nullptr, &dock_id_up_right);
         /*ImGuiID dock_id_up_right = ImGui::DockBuilderSplitNode(dock_id_up, ImGuiDir_Right, 0.3f, nullptr, &dock_id_up);*/
 
 
