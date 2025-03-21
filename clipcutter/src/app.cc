@@ -2,7 +2,6 @@
 #include "app.h"
 #include "mediaSource.h"
 #include "playback.h"
-#include <iostream>
 
 void App_Init(App* app) {
 	memset(app, 0, sizeof(App));
@@ -16,6 +15,8 @@ void App_Init(App* app) {
 	app->timeline.clipHeight = 30;
 	app->timeline.scaleX = 1.5;
 	app->timeline.snappingPrecision = 5.0;
+
+    strcpy(app->exportPath, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");
 
     log_error("test!");
 }
