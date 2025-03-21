@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 
     App* app = (App*) malloc(sizeof(App));
     App_Init(app);
-    app->playbackActive = true;
+    /*app->playbackActive = true;*/
     App_CalculateTimelineEvents(app);
 
 
@@ -55,30 +55,26 @@ int main(int argc, char* argv[]) {
 
 
     if (argc > 1) {
-        /*const char* cmd2[] = { "set", "options/lavfi-complex", "[aid1][aid2]amix[ao]", NULL };*/
-        /*mpv_command_async(app->mpv, 0, cmd2);*/
-
         MediaSource* argVideo = App_CreateMediaSource(app, argv[1]);
         // MediaClip* argClip = App_CreateMediaClip(app, argVideo);
         App_CreateMediaClip(app, argVideo);
 
-        // Calling these two will start playback of the video
         App_CalculateTimelineEvents(app);
         App_MovePlaybackMarker(app, 0);
 
 
-        MediaSource* secondVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/another-2-AT.mp4");
-        App_CreateMediaClip(app, secondVid);
-        App_CalculateTimelineEvents(app);
-
-        MediaSource* thirdVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/yetanother-2-AT.mp4");
-        App_CreateMediaClip(app, thirdVid);
-        App_CalculateTimelineEvents(app);
-
-
-        MediaSource* fourthVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/3-audiotracks.mp4");
-        App_CreateMediaClip(app, fourthVid);
-        App_CalculateTimelineEvents(app);
+        /*MediaSource* secondVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/another-2-AT.mp4");*/
+        /*App_CreateMediaClip(app, secondVid);*/
+        /*App_CalculateTimelineEvents(app);*/
+        /**/
+        /*MediaSource* thirdVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/yetanother-2-AT.mp4");*/
+        /*App_CreateMediaClip(app, thirdVid);*/
+        /*App_CalculateTimelineEvents(app);*/
+        /**/
+        /**/
+        /*MediaSource* fourthVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/3-audiotracks.mp4");*/
+        /*App_CreateMediaClip(app, fourthVid);*/
+        /*App_CalculateTimelineEvents(app);*/
     } else {
 
     }

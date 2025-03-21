@@ -76,6 +76,9 @@ struct App {
     int mpvCmdQueueReadIndex;
     #define MPV_CMD_QUEUE_SIZE 30
     MpvCommand MpvCmdQueue[MPV_CMD_QUEUE_SIZE];
+
+    float exportFrame;
+    char exportPath[1024];
 };
 
 struct GetPropertyCallback {

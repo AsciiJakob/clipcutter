@@ -7,6 +7,14 @@ int tracklistWidth = 100;
 
 int trackCount = 5; // Todo: make function to get the max tracks of all the clips
 
+int exportPathInputCallback(ImGuiInputTextCallbackData data) {
+    /*if (data.EventFlag == ImGuiInputTextFlags_CallbackCompletion) {*/
+    /**/
+    /*}*/
+    log_debug("Buffer: %s", data.Buf);
+    return 0;
+}
+
 void UI_DrawEditor(App* app) {
 
 	if (ImGui::BeginMainMenuBar()) {
@@ -59,12 +67,56 @@ void UI_DrawEditor(App* app) {
         if (ImGui::BeginPopupModal("ExportModal")) {
             ImGui::Text("Hello");
 
+
+            ImGui::InputTextWithHint("Export path", "Path to export to", app->exportPath, sizeof(app->exportPath), ImGuiInputTextFlags_AutoSelectAll, NULL, nullptr);
+
+            if (ImGui::Button("Select in file explorer")) {
+
+                static const SDL_DialogFileFilter filters[] = {
+                    { "Video files (mp4;avi)", "mp4;avi" }, // todo full list of supported formats
+                    { "All images", "png;jpg;jpeg" },
+                    { "All files", "*" }
+                };
+
+                void (*callback)(void* userdata, const char* const* filelist, int count) =
+                [](void* userdata, const char* const* filelist, int count) -> void {
+                    App* app = (App*) userdata;
+                    cc_unused(app);
+                    cc_unused(count);
+                    cc_unused(userdata);
+                    cc_unused(filelist);
+                    if (!filelist) {
+                        log_error("File dialog error: %s", SDL_GetError());
+                        return;
+                    } else if (!*filelist) {
+                        log_info("User cancelled file dialog");
+                        return;
+                    }
+
+                    while (*filelist != NULL) {
+                        const char* filePath = *filelist;
+                        log_info("User is opening file '%s' through file dialog", filePath);
+                        strcpy(app->exportPath, filePath);
+
+                        filelist++;
+                    }
+
+                };
+
+                SDL_ShowSaveFileDialog(callback, app, app->window, filters, 3, app->exportPath);
+            }
+
             if (ImGui::Button("Remux Video, Merge audiotracks")) {
-                exportVideo(app, true);
+                std::thread thread_obj(exportVideo, app, true);
+                thread_obj.detach();
+                /*exportVideo(app, true);*/
             };
             if (ImGui::Button("Remux")) {
                 exportVideo(app, false);
             };
+
+            /*ImGui::Text("Frame: %.2f", app->exportFrame);*/
+            ImGui::ProgressBar(app->exportFrame);
 
             if (ImGui::Button("Close")) {
                 ImGui::ClosePopupToLevel(0, false);
@@ -86,15 +138,19 @@ void UI_DrawEditor(App* app) {
         ImGui::DockBuilderSetNodeSize(dockspace_id, ImGui::GetWindowSize());
 
         ImGuiID dock_main_id = dockspace_id;
+        ImGuiID dock_id_up;;
         /*ImGuiID dock_id_left = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.80f, NULL, &dock_main_id);*/
         /*ImGuiID dock_id_bottom = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.00f, NULL, &dock_main_id);*/
-        ImGuiID dock_id_up = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Up, 2.20f, NULL, &dock_main_id);
-        ImGuiID dock_id_up_left= ImGui::DockBuilderSplitNode(dock_id_up, ImGuiDir_Left, 0.3f, nullptr, &dock_id_up);
+        ImGuiID dock_id_down = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 2.20f, nullptr, &dock_id_up);
+        /*ImGuiID dock_id_up = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Up, 2.20f, NULL, &dock_main_id);*/
+        ImGuiID dock_id_up_right;
+        ImGuiID dock_id_up_left= ImGui::DockBuilderSplitNode(dock_id_up, ImGuiDir_Left, 0.3f, nullptr, &dock_id_up_right);
+        /*ImGuiID dock_id_up_right = ImGui::DockBuilderSplitNode(dock_id_up, ImGuiDir_Right, 0.3f, nullptr, &dock_id_up);*/
 
 
-        ImGui::DockBuilderDockWindow("Timeline", dock_main_id); // dock_main_id docks it to the center of the main docking thing
+        ImGui::DockBuilderDockWindow("Timeline", dock_id_down); // dock_main_id docks it to the center of the main docking thing
         ImGui::DockBuilderDockWindow("DebugThingies", dock_id_up_left);
-        ImGui::DockBuilderDockWindow("Video Player", dock_id_up);
+        ImGui::DockBuilderDockWindow("Video Player", dock_id_up_right);
 
         ImGui::DockBuilderFinish(dockspace_id);
     }

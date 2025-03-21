@@ -17,7 +17,7 @@ char* alloc_error(const char* fmt, ...) {
 }
 
 // returns pointer to error message or nullptr if successful
-char* remux(MediaClip* mediaClip, const char* out_filename) {
+char* remux(MediaClip* mediaClip, float* exportFrame, const char* out_filename) {
     const char* in_filename = mediaClip->source->path;
     const AVOutputFormat *ofmt = NULL;
     AVPacket* pkt = NULL;
@@ -388,7 +388,6 @@ char* remux(MediaClip* mediaClip, const char* out_filename) {
         }
     }
 
-        
 
     last_audio_dts = 0;
     // main decoding/encoding loop
@@ -406,6 +405,13 @@ char* remux(MediaClip* mediaClip, const char* out_filename) {
 
         int in_index = pkt->stream_index;
         in_stream  = ifmt_ctx->streams[pkt->stream_index];
+
+        double duration = (double) (ifmt_ctx->duration) / AV_TIME_BASE -mediaClip->drawStartCutoff-mediaClip->drawEndCutoff;
+        double currentTime = (double) (pkt->pts-streamRescaledStartSeconds[in_index]) * av_q2d(ifmt_ctx->streams[pkt->stream_index]->time_base);
+        log_debug("current: %.2f", currentTime);
+
+        *exportFrame = (float) (currentTime / duration);
+        
 
         
         if (in_index == inVideoStreamIdx) {
@@ -571,7 +577,8 @@ void exportVideo(App* app, bool combineAudioStreams) {
     MediaClip* firstClip = app->mediaClips[1];
 
     if (combineAudioStreams) {
-        char* errMsg = remux(firstClip, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");
+        /*char* errMsg = remux(firstClip, &app->exportFrame, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");*/
+        char* errMsg = remux(firstClip, &app->exportFrame, app->exportPath);
         if (errMsg != nullptr) {
             log_info("Exporting failed with error: %s", errMsg);
             SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Exporting Failed", errMsg, app->window);
@@ -580,7 +587,8 @@ void exportVideo(App* app, bool combineAudioStreams) {
         }
         free(errMsg);
     } else {
-        int err = remux_keepMultipleAudioTracks(firstClip, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");
+        /*int err = remux_keepMultipleAudioTracks(firstClip, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");*/
+        int err = remux_keepMultipleAudioTracks(firstClip,app->exportPath);
         log_debug("err: %d", err);
         if (err) {
             SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Exporting Failed", "check logs for error", app->window);
