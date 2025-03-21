@@ -11,6 +11,38 @@ void MediaClip_Init(MediaClip* mediaClip, MediaSource* mediaSource) {
 	mediaClip->width = mediaSource->length;
 }
 
+void MediaClip_Delete(App* app, MediaClip* mediaClip) {
+    bool isBeingPlayed = MediaClip_IsBeingPlayed(app, mediaClip);
+    
+    // find index of mediaClip in mediaClips array
+    int clipIndex = -1;
+    for (int i=0; i < MEDIACLIPS_SIZE; i++) {
+        if (clipIndex == -1) {
+            if (app->mediaClips[i] == mediaClip)
+                clipIndex = i;
+
+        } else if (i > clipIndex) {
+            // shuffle all elements after the clipIndex back by one index
+            // so that the mediaClip is removed from the array
+            app->mediaClips[i-1] = app->mediaClips[i];
+            if (app->mediaClips[i] == nullptr)
+                break;
+        }
+    }
+
+    if (clipIndex == -1) {
+        log_error("MediaClip to delete not found in app struct");
+        assert(true && "Mediaclip to delete not found in app struct");
+        return;
+    }
+
+    App_CalculateTimelineEvents(app);
+    if (isBeingPlayed) { // if we're playing this clip rn
+        App_MovePlaybackMarker(app, app->playbackTime);
+    }
+
+}
+
 TimelineEvent* findClipNeighbourLeft(TimelineEvent* timelineEvents, int eventIndex) {
     if (eventIndex != 0) {
         TimelineEvent* leftEvent = &timelineEvents[eventIndex-1];
@@ -49,14 +81,26 @@ TimelineEvent* findClipNeighbourRight(TimelineEvent* timelineEvents, int eventIn
     return nullptr;
 }
 
+bool MediaClip_IsBeingPlayed(App* app, MediaClip* mediaClip) {
+    TimelineEvent* currentEvent = &app->timelineEvents[app->timelineEventIndex];
+    if (currentEvent->type == TIMELINE_EVENT_VIDEO && currentEvent->clip == mediaClip) {
+        return true;
+    } else {
+        return false;
+    }
+}
 
-bool clipWasOrWillBePlayed(App* app, MediaClip* mediaClip, float drawClipLeftPadding, float drawTrackWidth) {
+bool shouldUpdatePlaybackAfterMove(App* app, MediaClip* mediaClip, float drawClipLeftPadding, float drawTrackWidth) {
+    // if nothing was changed.
     if (mediaClip->width == drawTrackWidth && mediaClip->padding == drawClipLeftPadding) { 
         return false;
     }
 
     // clip was positioned where the marker is before it was moved
-    if (app->playbackTime >= mediaClip->padding && app->playbackTime < mediaClip->padding + mediaClip->width) {
+    /*if (app->playbackTime >= mediaClip->padding && app->playbackTime < mediaClip->padding + mediaClip->width) {*/
+    /*    return true;*/
+    /*}*/
+    if (MediaClip_IsBeingPlayed(app, mediaClip)) {
         return true;
     }
     // clip will now be positioned where the marker is
@@ -150,7 +194,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 		if (mouseLetGo) {
             // todo: figure out a way to calculate difference so that we don't refresh if we don't have to
 			mediaClip->isBeingMoved = false;
-			bool updatePlayback = clipWasOrWillBePlayed(app, mediaClip, drawClipLeftPadding, drawTrackWidth);
+			bool updatePlayback = shouldUpdatePlaybackAfterMove(app, mediaClip, drawClipLeftPadding, drawTrackWidth);
 			mediaClip->padding = drawClipLeftPadding;
 			App_CalculateTimelineEvents(app);
 
@@ -185,7 +229,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 		drawTrackWidth -= cutoffOffset;
 
 		if (mouseLetGo) {
-			bool updatePlayback = clipWasOrWillBePlayed(app, mediaClip, drawClipLeftPadding, drawTrackWidth);
+			bool updatePlayback = shouldUpdatePlaybackAfterMove(app, mediaClip, drawClipLeftPadding, drawTrackWidth);
 			mediaClip->padding = drawClipLeftPadding;
 			*startCutoff = totalCutOffvalue;
 			mediaClip->isResizingLeft = false;
@@ -214,7 +258,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 		drawTrackWidth -= cutoffOffset;
 
 		if (mouseLetGo) {
-			bool updatePlayback = clipWasOrWillBePlayed(app, mediaClip, drawClipLeftPadding, drawTrackWidth);
+			bool updatePlayback = shouldUpdatePlaybackAfterMove(app, mediaClip, drawClipLeftPadding, drawTrackWidth);
 			*endCutoff = totalCutOffvalue;
 			mediaClip->isResizingRight = false;
             mediaClip->width = drawTrackWidth;

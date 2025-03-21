@@ -575,6 +575,11 @@ void exportVideo(App* app, bool combineAudioStreams) {
     /*cc_unused(app);*/
 
     MediaClip* firstClip = app->mediaClips[1];
+    if (!firstClip) {
+        char errMsg[] = "There is nothing to export";
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Exporting Failed", errMsg, app->window);
+        return;
+    }
 
     if (combineAudioStreams) {
         /*char* errMsg = remux(firstClip, &app->exportFrame, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");*/
