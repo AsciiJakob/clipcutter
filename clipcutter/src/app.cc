@@ -238,10 +238,7 @@ void App_LoadEvent(App* app, TimelineEvent* event) {
 	} else if (event->type == TIMELINE_EVENT_BLANKSPACE) {
         log_trace("App_LoadEvent: loading blank space");
 		const char* cmd[] = { "stop", NULL };
-		// TODO: async
-		if (int result = mpv_command(app->mpv, cmd); result != MPV_ERROR_SUCCESS) {
-			log_error("stopping playback failed, reason: %s", mpv_error_string(result));
-		}
+        App_Queue_AddCommand(app, cmd);
 	} else if (event->type == TIMELINE_EVENT_END) {
         Playback_Stop(app);
 	}

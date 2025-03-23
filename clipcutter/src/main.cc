@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
                 }
 
                 if (event.key.key == SDLK_DELETE) {
-                    MediaClip_Delete(app, app->selectedTrack);
+                    App_DeleteMediaClip(app, app->selectedTrack);
                 }
 
                 // split clip
@@ -215,21 +215,21 @@ int main(int argc, char* argv[]) {
                                 /*log_debug("playback: %.9f", playtime);*/
                                 TimelineEvent* currentEvent = &app->timelineEvents[app->timelineEventIndex];
                                 // TODO COME BACK HERE
-                                if (currentEvent->type != TIMELINE_EVENT_VIDEO) {
+                                if (currentEvent->type == TIMELINE_EVENT_VIDEO) {
+                                    if (playtime == 0.0 && app->playbackTime != 0.0) {
+                                        double seekTime = app->playbackTime-currentEvent->start+currentEvent->clip->drawStartCutoff;
+                                        /*double seekTime = app->playbackTime-currentEvent->start;*/
+                                        if (seekTime > 0.1) {
+                                            Playback_SetPlaybackPos(app, seekTime);
+                                            log_trace("Syncing MPV playback time with cursor. Seeking to: %.6f", seekTime);
+                                        }
+                                    } else {
+                                        app->playbackTime = currentEvent->start+playtime-currentEvent->clip->drawStartCutoff;
+                                    }
+                                } else {
                                     log_error("got playback update with no clip loaded");
                                     /*assert(true && "got playback update with no clip loaded");*/
                                 }
-                                if (playtime == 0.0 && app->playbackTime != 0.0) {
-                                    double seekTime = app->playbackTime-currentEvent->start+currentEvent->clip->drawStartCutoff;
-                                    /*double seekTime = app->playbackTime-currentEvent->start;*/
-                                    if (seekTime > 0.1) {
-                                        Playback_SetPlaybackPos(app, seekTime);
-                                        log_trace("Syncing MPV playback time with cursor. Seeking to: %.6f", seekTime);
-                                    }
-                                } else {
-                                    app->playbackTime = currentEvent->start+playtime-currentEvent->clip->drawStartCutoff;
-                                }
-                                /*app->playbackTime = playtime;*/
                             }
 
                         }
