@@ -87,6 +87,59 @@ int App_FindFirstNullptr(void** array, int maxLength) {
 	return -1;
 }
 
+
+void App_DeleteMediaClip(App* app, MediaClip* mediaClip) {
+    bool isBeingPlayed = MediaClip_IsBeingPlayed(app, mediaClip);
+
+    MediaSource* clipSource = mediaClip->source;
+    bool mediaSourceUsedInOtherClips = false;
+    // find index of mediaClip in mediaClips array
+    int clipIndex = -1;
+    for (int i=0; i < MEDIACLIPS_SIZE; i++) {
+        if (app->mediaClips[i] != mediaClip && app->mediaClips[i] != nullptr && app->mediaClips[i]->source == mediaClip->source) {
+            mediaSourceUsedInOtherClips = true;
+        }
+
+
+        if (clipIndex == -1 && app->mediaClips[i] == mediaClip) {
+            clipIndex = i;
+        } else if (i > clipIndex) {
+            // shuffle all elements after the clipIndex back by one index
+            // so that the mediaClip is removed from the array
+            app->mediaClips[i-1] = app->mediaClips[i];
+            if (app->mediaClips[i] == nullptr)
+                break;
+        }
+    }
+
+    if (clipIndex == -1) {
+        log_error("MediaClip to delete not found in app struct");
+        assert(true && "Mediaclip to delete not found in app struct");
+        return;
+    }
+
+    if (!mediaSourceUsedInOtherClips) {
+        int srcIndex = -1;
+        for (int i=0; i < MEDIASOURCES_SIZE; i++) {
+            if (srcIndex == -1 && app->mediaSources[i] == clipSource) {
+                srcIndex = i;
+            } else {
+                // shuffle all elements after the srcIndex back by one index
+                // so that the mediaSource is removed from the array
+                app->mediaSources[i-1] = app->mediaSources[i];
+                if (app->mediaSources[i] == nullptr)
+                    break;
+            }
+        }
+    }
+
+    App_CalculateTimelineEvents(app);
+    if (isBeingPlayed) {
+        App_MovePlaybackMarker(app, app->playbackTime);
+    }
+    free(mediaClip);
+}
+
 // Updates the timeline events to be up to date.
 // Call this any time you add/remove mediaClips or update their position in the timeline
 void App_CalculateTimelineEvents(App* app) {
@@ -179,7 +232,9 @@ void App_LoadEvent(App* app, TimelineEvent* event) {
             log_trace("App_LoadEvent: video source is not loaded. Loading now");
 			MediaSource_Load(app, event->clip->source);
 			app->loadedMediaSource = event->clip->source;
-		}
+		} else {
+            Playback_SetPlaybackPos(app, event->clip->drawStartCutoff);
+        }
 	} else if (event->type == TIMELINE_EVENT_BLANKSPACE) {
         log_trace("App_LoadEvent: loading blank space");
 		const char* cmd[] = { "stop", NULL };
@@ -195,7 +250,8 @@ void App_LoadEvent(App* app, TimelineEvent* event) {
 
 // moves the playback marker. Commonly called with secs=app->playtime in order to
 // update the playback to reflect what timelineEvents actually looks like in memory
-// after it has been modified
+// after it has been modified.
+// Playback_SetPlaybackPos() only sets the playback within the video in MPV, this function updates the visual marker and loads the appropriate events
 void App_MovePlaybackMarker(App* app, float secs) {
 
 	// set timelineEventIndex

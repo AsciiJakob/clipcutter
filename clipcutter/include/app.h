@@ -4,8 +4,8 @@
 #include "mediaSource.h"
 #include "mediaClip.h"
 
-#define MEDIACLIPS_SIZE 200
-#define MEDIASOURCES_SIZE 200
+#define MEDIACLIPS_SIZE 248
+#define MEDIASOURCES_SIZE 248
 #define TIMELINE_EVENTS_SIZE MEDIACLIPS_SIZE*2+1
 
 typedef struct MediaClip MediaClip;
