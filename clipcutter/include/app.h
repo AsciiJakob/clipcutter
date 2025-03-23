@@ -91,6 +91,7 @@ void App_Init(App* app);
 void App_Free(App* app);
 MediaSource* App_CreateMediaSource(App* app, const char* path);
 MediaClip* App_CreateMediaClip(App* app, MediaSource* mediaSource);
+void App_DeleteMediaClip(App* app, MediaClip* mediaClip);
 int App_FindFirstNullptr(void** array, int maxLength);
 void App_MovePlaybackMarker(App* app, float secs);
 void App_CalculateTimelineEvents(App* app);
