@@ -20,7 +20,7 @@ struct MediaClip {
 	
 	ImVec2 moveStartPos;
 	ImVec2 resizeStartPos;
-	float width;
+	float width; // TODO: This var might be bad practice and could lead to bugs. Must be changed when startCutoff or endCutoff is changed
 	float padding;
 	float drawStartCutoff;
 	float drawEndCutoff; 

@@ -4,6 +4,7 @@
 #include <imgui.h>
 
 
+// use App_CreateMediaClip instead of calling this directly
 void MediaClip_Init(MediaClip* mediaClip, MediaSource* mediaSource) {
 	memset(mediaClip, 0, sizeof(MediaClip));
 	mediaClip->source = mediaSource;
