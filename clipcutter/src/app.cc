@@ -225,6 +225,7 @@ void App_CalculateTimelineEvents(App* app) {
 	//mediaClip* mediaClipBefore = app->timelineEvents[TIMELINE_EVENTS_SIZE-2].type = TIMELINE_EVENT_END;
 }
 
+// onlyLoad is used by App_MovePlaybackMarker() so that this func doesn't set the playback position
 void App_LoadEvent(App* app, TimelineEvent* event) {
     log_trace("App_LoadEvent: called");
 	if (event->type == TIMELINE_EVENT_VIDEO) {
@@ -273,13 +274,18 @@ void App_MovePlaybackMarker(App* app, float secs) {
 
 	TimelineEvent* currentEvent = &app->timelineEvents[app->timelineEventIndex];
 	
-	App_LoadEvent(app, currentEvent);
+    if (currentEvent->type == TIMELINE_EVENT_VIDEO) {
+        if (currentEvent->clip->source != app->loadedMediaSource) {
+            App_LoadEvent(app, currentEvent);
+        }
 
-	if (currentEvent->type == TIMELINE_EVENT_VIDEO) {
-		int seekPos = secs-currentEvent->start+currentEvent->clip->drawStartCutoff;
-		log_info("seeking to: %d\n", seekPos);
-		Playback_SetPlaybackPos(app, seekPos);
-	}
+        int seekPos = secs-currentEvent->start+currentEvent->clip->drawStartCutoff;
+        log_info("seeking to: %d\n", seekPos);
+        Playback_SetPlaybackPos(app, seekPos);
+
+    } else {
+        App_LoadEvent(app, currentEvent);
+    }
 }
 
 TimelineEvent* App_GetNextTimelineEvent(App* app) {
