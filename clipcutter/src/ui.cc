@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "export.h"
 #include "app.h"
-#include <imgui.h>
+#include "imgui_internal.h"
 //#include "mediaClip.h"
 
 int tracklistWidth = 100;

@@ -59,6 +59,7 @@ MediaSource* App_CreateMediaSource(App* app, const char* path) {
 	return mediaSource;
 }
 
+// TODO: return value for succesful or not instead of dying
 MediaClip* App_CreateMediaClip(App* app, MediaSource* mediaSource) {
 	int avail_index = App_FindFirstNullptr((void**) &app->mediaClips, MEDIACLIPS_SIZE);
 	if (avail_index == -1) {
@@ -86,6 +87,8 @@ int App_FindFirstNullptr(void** array, int maxLength) {
 	return -1;
 }
 
+// Updates the timeline events to be up to date.
+// Call this any time you add/remove mediaClips or update their position in the timeline
 void App_CalculateTimelineEvents(App* app) {
 	MediaClip** mediaClips = app->mediaClips;
 	//MediaClip* mediaClipsSorted = (MediaClip*) malloc(sizeof(MediaClip));

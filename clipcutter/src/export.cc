@@ -66,7 +66,7 @@ char* remux(MediaClip* mediaClip, float* exportFrame, const char* out_filename) 
 
     ofmt = ofmt_ctx->oformat;
 
-    if (true) {
+    {
         bool foundVideo = false;
         log_debug("modified nb sttream is: %d", ifmt_ctx->nb_streams);
         for (unsigned int i = 0; i < ifmt_ctx->nb_streams; i++) {
@@ -390,6 +390,7 @@ char* remux(MediaClip* mediaClip, float* exportFrame, const char* out_filename) 
 
 
     last_audio_dts = 0;
+    
     // main decoding/encoding loop
     while (1) {
         AVStream *in_stream, *out_stream;

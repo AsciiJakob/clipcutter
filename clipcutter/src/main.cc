@@ -120,6 +120,33 @@ int main(int argc, char* argv[]) {
                     MediaClip_Delete(app, app->selectedTrack);
                 }
 
+                // split clip
+                if (event.key.key == SDLK_S) {
+                    TimelineEvent* currentEvent = &app->timelineEvents[app->timelineEventIndex];
+                    if (currentEvent->type == TIMELINE_EVENT_VIDEO) {
+                        MediaClip* rightClip = currentEvent->clip;
+                        MediaClip* leftClip = App_CreateMediaClip(app, rightClip->source);
+                        
+                        // make the two clips overlap each other exactly
+                        leftClip->padding = rightClip->padding;
+                        leftClip->drawStartCutoff = rightClip->drawStartCutoff;
+                        leftClip->drawEndCutoff = rightClip->drawEndCutoff;
+                        leftClip->width = rightClip->width;
+
+                        float ClipLengthRightOfMarker = leftClip->padding+leftClip->width-app->playbackTime;
+                        leftClip->drawEndCutoff += ClipLengthRightOfMarker;
+                        leftClip->width -= ClipLengthRightOfMarker;
+
+                        float clipLengthLeftOfMarker = app->playbackTime-rightClip->padding;
+                        rightClip->drawStartCutoff += clipLengthLeftOfMarker;
+                        rightClip->padding += clipLengthLeftOfMarker;
+                        rightClip->width -= clipLengthLeftOfMarker;
+
+                        App_CalculateTimelineEvents(app);
+                    }
+
+                }
+
                 if (event.key.key == SDLK_SPACE) {
                     app->playbackActive = !app->playbackActive;
                     Playback_SetPaused(app, !app->playbackActive);
@@ -187,6 +214,11 @@ int main(int argc, char* argv[]) {
 								double playtime = *(double*) prop->data;
                                 /*log_debug("playback: %.9f", playtime);*/
                                 TimelineEvent* currentEvent = &app->timelineEvents[app->timelineEventIndex];
+                                // TODO COME BACK HERE
+                                if (currentEvent->type != TIMELINE_EVENT_VIDEO) {
+                                    log_error("got playback update with no clip loaded");
+                                    /*assert(true && "got playback update with no clip loaded");*/
+                                }
                                 if (playtime == 0.0 && app->playbackTime != 0.0) {
                                     double seekTime = app->playbackTime-currentEvent->start+currentEvent->clip->drawStartCutoff;
                                     /*double seekTime = app->playbackTime-currentEvent->start;*/
