@@ -31,6 +31,6 @@ struct MediaClip {
 void MediaClip_Init(MediaClip* mediaClip, MediaSource* mediaSource);
 void MediaClip_Draw(App* app, MediaClip* mediaClip, int index);
 bool MediaClip_IsBeingPlayed(App* app, MediaClip* mediaClip);
-void MediaClip_Delete(App* app, MediaClip* mediaClip);
+void App_DeleteMediaClip(App* app, MediaClip* mediaClip);
 
 #endif
