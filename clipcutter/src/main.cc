@@ -108,7 +108,6 @@ int main(int argc, char* argv[]) {
             } else if (event.type == SDL_EVENT_KEY_DOWN) {
                 if (event.key.key == SDLK_END) {
                     log_debug("Pressing debug key");
-                    exportVideo(app, true);
                 }
 
                 if (event.key.key == SDLK_PAGEDOWN) {

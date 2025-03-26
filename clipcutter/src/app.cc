@@ -103,8 +103,8 @@ void App_DeleteMediaClip(App* app, MediaClip* mediaClip) {
 
         if (clipIndex == -1 && app->mediaClips[i] == mediaClip) {
             clipIndex = i;
-        } else if (i > clipIndex) {
-            // shuffle all elements after the clipIndex back by one index
+        } else if (clipIndex != -1 && i > clipIndex) {
+            // shift all elements after the clipIndex back by one index
             // so that the mediaClip is removed from the array
             app->mediaClips[i-1] = app->mediaClips[i];
             if (app->mediaClips[i] == nullptr)
@@ -123,7 +123,7 @@ void App_DeleteMediaClip(App* app, MediaClip* mediaClip) {
         for (int i=0; i < MEDIASOURCES_SIZE; i++) {
             if (srcIndex == -1 && app->mediaSources[i] == clipSource) {
                 srcIndex = i;
-            } else {
+            } else if (srcIndex != -1 && i > srcIndex) {
                 // shuffle all elements after the srcIndex back by one index
                 // so that the mediaSource is removed from the array
                 app->mediaSources[i-1] = app->mediaSources[i];
