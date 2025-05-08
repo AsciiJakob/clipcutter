@@ -140,21 +140,30 @@ void UI_DrawEditor(App* app) {
 
         ImGuiID dock_main_id = dockspace_id;
         ImGuiID dock_id_up;
-        /*ImGuiID dock_id_left = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.80f, NULL, &dock_main_id);*/
-        /*ImGuiID dock_id_bottom = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.00f, NULL, &dock_main_id);*/
         ImGuiID dock_id_down = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.35f, nullptr, &dock_id_up);
-        /*ImGuiID dock_id_up = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Up, 2.20f, NULL, &dock_main_id);*/
-        ImGuiID dock_id_up_right;
-        ImGuiID dock_id_up_left = ImGui::DockBuilderSplitNode(dock_id_up, ImGuiDir_Left, 0.20f, nullptr, &dock_id_up_right);
-        /*ImGuiID dock_id_up_right = ImGui::DockBuilderSplitNode(dock_id_up, ImGuiDir_Right, 0.3f, nullptr, &dock_id_up);*/
+        ImGuiID dock_id_up_middle;
+        ImGuiID dock_id_up_left = ImGui::DockBuilderSplitNode(dock_id_up, ImGuiDir_Left, 0.20f, nullptr, &dock_id_up_middle);
+        ImGuiID dock_id_up_right = ImGui::DockBuilderSplitNode(dock_id_up_middle, ImGuiDir_Right, 0.20f, nullptr, &dock_id_up_middle);
 
 
         ImGui::DockBuilderDockWindow("Timeline", dock_id_down); // dock_main_id docks it to the center of the main docking thing
         ImGui::DockBuilderDockWindow("DebugThingies", dock_id_up_left);
-        ImGui::DockBuilderDockWindow("Video Player", dock_id_up_right);
+        ImGui::DockBuilderDockWindow("Video Player", dock_id_up_middle);
+        ImGui::DockBuilderDockWindow("Help", dock_id_up_right);
 
         ImGui::DockBuilderFinish(dockspace_id);
     }
+
+    if (ImGui::Begin("Help")) {
+        ImGui::TextWrapped("Welcome to Clipcutter!");
+        ImGui::TextWrapped("Some basic controls are:");
+        ImGui::TextWrapped("DEL - delete selected clip");
+        ImGui::TextWrapped("s - split clip at marker");
+        ImGui::TextWrapped("SPACE - toggle pause of video playback");
+        ImGui::TextWrapped("Scroll wheel - zoom in and out");
+        ImGui::TextWrapped("Shift + Scroll wheel - scroll the timeline view horizontally");
+    }
+    ImGui::End();
 
 	if (ImGui::Begin("DebugThingies")) {
 		ImGui::Text("playbacktime: %.2f", app->playbackTime);
@@ -345,10 +354,6 @@ void UI_DrawEditor(App* app) {
 				}
 			}
 
-			if (ImGui::IsKeyPressed(ImGuiKey_RightCtrl)) {
-				App_CalculateTimelineEvents(app);
-			}
-
 			ImGui::EndChild();
 			ImGui::EndGroup();
 		}
@@ -382,9 +387,8 @@ void UI_DrawEditor(App* app) {
 			}
 
 			// Center the image
-			//ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2((contentRegion.x - displaySize.x) * 0.5f, (contentRegion.y - displaySize.y) * 0.5f));
+			ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2((contentRegion.x - displaySize.x) * 0.5f, (contentRegion.y - displaySize.y) * 0.5f));
 
-			//ImGui::Image((void*)(intptr_t)app->mpv_texture, displaySize);
 			ImGui::Image((ImTextureID)app->mpv_texture, displaySize);
 		}
 		ImGui::End();
