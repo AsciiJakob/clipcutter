@@ -116,7 +116,8 @@ int main(int argc, char* argv[]) {
                 }
 
                 if (event.key.key == SDLK_DELETE) {
-                    App_DeleteMediaClip(app, app->selectedTrack);
+                    if (app->selectedTrack != nullptr)
+                        App_DeleteMediaClip(app, app->selectedTrack);
                 }
 
                 // split clip
