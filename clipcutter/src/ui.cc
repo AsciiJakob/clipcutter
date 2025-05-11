@@ -6,7 +6,6 @@
 
 int tracklistWidth = 100;
 
-int trackCount = 5; // Todo: make function to get the max tracks of all the clips
 
 int exportPathInputCallback(ImGuiInputTextCallbackData data) {
     /*if (data.EventFlag == ImGuiInputTextFlags_CallbackCompletion) {*/
@@ -210,7 +209,7 @@ void UI_DrawEditor(App* app) {
 			ImGui::BeginGroup();
 			ImU32 tracklistColor = ImGui::GetColorU32(ImVec4(0.15, 0.15, 0.15, 1));
 			//ImVec2 tracklistSize = ImVec2(tracklistWidth, std::max(ImGui::GetContentRegionAvail().y, (trackCount + 3) * track1Height));
-			ImVec2 tracklistSize = ImVec2(tracklistWidth, fmax(ImGui::GetContentRegionAvail().y, (float)((trackCount + 3) * app->timeline.clipHeight)));
+			ImVec2 tracklistSize = ImVec2(tracklistWidth, fmax(ImGui::GetContentRegionAvail().y, (float)((app->timeline.highestTrackCount) * app->timeline.clipHeight)));
 
 			cursorTrackListBefore = ImGui::GetCursorScreenPos();
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
@@ -225,7 +224,9 @@ void UI_DrawEditor(App* app) {
 			ImGui::SetCursorScreenPos(cursorTrackListBefore);
 
 			ImVec2 trackCursor = cursorTrackListBefore;
-			for (int i = 0; i < trackCount+2; i++) {
+			for (int i = 0; i < app->timeline.highestTrackCount+1; i++) {
+                if (i==0) i=1; // start indexing at 1
+
 				ImGui::Text("Track %d", i);
 				ImGui::SameLine(tracklistWidth - 40);
 				ImGui::SmallButton("Mute");
@@ -255,7 +256,7 @@ void UI_DrawEditor(App* app) {
 
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 			ImGui::SameLine();
-			ImVec2 childSize = ImVec2(ImGui::GetContentRegionAvail().x, fmax(ImGui::GetContentRegionAvail().y, (trackCount + 3) * app->timeline.clipHeight));
+			ImVec2 childSize = ImVec2(ImGui::GetContentRegionAvail().x, fmax(ImGui::GetContentRegionAvail().y, (app->timeline.highestTrackCount) * app->timeline.clipHeight));
 			// create child window so that we can have a horizontal scrollbar for the timeline
 			ImGui::BeginChild("TimelineWindowChild", childSize, false, ImGuiWindowFlags_HorizontalScrollbar);
 

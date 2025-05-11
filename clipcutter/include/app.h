@@ -31,6 +31,7 @@ struct AppRender {
 
 struct Timeline {
 	float scaleX;
+    int highestTrackCount;
 	bool snappingEnabled;
 	float snappingPrecision;
 	float clipHeight;
