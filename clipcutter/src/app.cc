@@ -15,6 +15,7 @@ void App_Init(App* app) {
 	app->timeline.clipHeight = 30;
 	app->timeline.scaleX = 1.5;
 	app->timeline.snappingPrecision = 5.0;
+    app->timeline.highestTrackCount = 0;
 
     strcpy(app->exportPath, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");
 
@@ -147,11 +148,15 @@ void App_CalculateTimelineEvents(App* app) {
 	//MediaClip* mediaClipsSorted = (MediaClip*) malloc(sizeof(MediaClip));
 
 	
+    app->timeline.highestTrackCount = 0;
 	{ // sort array
 		MediaClip* current;
 		for (int i = 0; i < MEDIACLIPS_SIZE; i++) {
 			current = app->mediaClips[i];
 			if (current == nullptr) break;
+            if (current->source->audioTracks+1 > app->timeline.highestTrackCount)
+                app->timeline.highestTrackCount = current->source->audioTracks+1;
+
 			int backI = i - 1;
 			while (backI >= 0 && app->mediaClips[backI]->padding > current->padding) {
 				mediaClips[backI + 1] = mediaClips[backI];
