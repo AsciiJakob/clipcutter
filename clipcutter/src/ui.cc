@@ -332,9 +332,11 @@ void UI_DrawEditor(App* app) {
 				if (!hoveringOverTrack && timelineClicked) {
 					ImVec2 mousePos = ImGui::GetMousePos();
 					if (mousePos.x > cursorTimelineBefore.x) {
-						MediaClip* clip = app->mediaClips[0];
+						float secs = (mousePos.x - cursorTimelineBefore.x)/app->timeline.scaleX;
+						MediaClip* clip = App_FindClosestMediaClip(app, secs);
+                        log_debug("CLOSEST MEDIA CLIP IS: %s", clip->source->filename);
 						if (app->timeline.snappingEnabled && clip != nullptr) {
-							float snapSensitivity = 8;
+							float snapSensitivity = 10;
 							float track1LeftmostPos = cursorTimelineBefore.x + clip->padding * app->timeline.scaleX;
 							float track1RightmostPos = cursorTimelineBefore.x + (clip->padding + clip->width) * app->timeline.scaleX;
 
@@ -347,10 +349,10 @@ void UI_DrawEditor(App* app) {
 						}
 
 						
+						float newSecs = (mousePos.x - cursorTimelineBefore.x)/app->timeline.scaleX;
 						app->selectedTrack = nullptr;
-						float secs = (mousePos.x - cursorTimelineBefore.x)/app->timeline.scaleX;
-						app->playbackTime = secs;
-						App_MovePlaybackMarker(app, secs);
+						app->playbackTime = newSecs;
+						App_MovePlaybackMarker(app, newSecs);
 					}
 				}
 			}
