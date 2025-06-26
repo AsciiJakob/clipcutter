@@ -98,6 +98,7 @@ void App_MovePlaybackMarker(App* app, float secs);
 void App_CalculateTimelineEvents(App* app);
 TimelineEvent* App_GetNextTimelineEvent(App* app);
 TimelineEvent* App_GetTimelineEventsEnd(App* app);
+MediaClip* App_FindClosestMediaClip(App* app, double timeToLookFrom);
 void App_LoadEvent(App* app, TimelineEvent* event);
 bool App_Queue_AddCommand(App* app, const char** input);
 void App_Queue_SendNext(App* app);

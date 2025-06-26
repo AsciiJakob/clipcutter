@@ -317,6 +317,30 @@ TimelineEvent* App_GetTimelineEventsEnd(App* app) {
 	return nullptr;
 }
 
+MediaClip* App_FindClosestMediaClip(App* app, double timeToLookFrom) {
+    float previousDist = 0;
+    for  (int i=0; i < MEDIACLIPS_SIZE; i++) {
+        MediaClip* clip = app->mediaClips[i];
+        if (clip == nullptr) {
+            if (i==0) {
+                return nullptr;
+            } else {
+                return app->mediaClips[i-1];
+            }
+        }
+
+        float distStart = clip->padding-timeToLookFrom;
+        float distEnd = clip->padding+clip->width-timeToLookFrom;
+        float dist = fmin(fabs(distStart), fabs(distEnd));
+
+        if (i != 0 && dist > previousDist) {
+            return app->mediaClips[i-1];
+        }
+        previousDist = dist;
+    }
+    return nullptr;
+}
+
 // input is equivalent to the cmd arg in mpv_command_async()
 bool App_Queue_AddCommand(App* app, const char** input) {
 
