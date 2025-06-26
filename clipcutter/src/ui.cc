@@ -303,6 +303,17 @@ void UI_DrawEditor(App* app) {
 				ImGui::GetWindowDrawList()->AddRectFilled(r_min, r_max, timeline_color);
 			}
 
+            { // panning around with middle mouse button
+              if (timelineHovered && ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
+                float timelineMousePos = ImGui::GetMousePos().x - cursorTimelineBefore.x;
+                cc_unused(timelineMousePos);
+                float panDelta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 0.0).x;
+                float currentScrollPos = ImGui::GetScrollX();
+                ImGui::SetScrollX(currentScrollPos + panDelta);
+                ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
+              }
+            }
+
 			{ // zooming in and out of the timeline
 				if (timelineHovered && !ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
 					float mw = ImGui::GetIO().MouseWheel; // -1 for downwards, 1 for upwards
