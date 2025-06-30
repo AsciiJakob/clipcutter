@@ -47,6 +47,7 @@ void App_Free(App* app) {
 	free(app);
 }
 
+// creates a new MediaSource and adds it to app megastruct, if failed returns nullpointer
 MediaSource* App_CreateMediaSource(App* app, const char* path) {
 	int avail_index = App_FindFirstNullptr((void**) &app->mediaSources, MEDIASOURCES_SIZE);
 	if (avail_index == -1) {
@@ -55,8 +56,10 @@ MediaSource* App_CreateMediaSource(App* app, const char* path) {
 	}
 
 	MediaSource* mediaSource = (MediaSource*) malloc(sizeof(MediaSource));
-	MediaSource_Init(mediaSource, path);
-	app->mediaSources[avail_index] = mediaSource;
+	MediaSource_Init(&mediaSource, path);
+    if (mediaSource == nullptr)
+        return nullptr;
+    app->mediaSources[avail_index] = mediaSource;
 	return mediaSource;
 }
 

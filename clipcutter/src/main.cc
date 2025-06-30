@@ -30,6 +30,7 @@ int main(int argc, char* argv[]) {
         // }
         
     #endif
+    // __debugbreak();
     log_info("Clipcutter v0.0.1");
 
     App* app = (App*) malloc(sizeof(App));
@@ -56,17 +57,21 @@ int main(int argc, char* argv[]) {
 
 
     if (argc > 1) {
+        cc_unused(argv);
         MediaSource* argVideo = App_CreateMediaSource(app, argv[1]);
-        // MediaClip* argClip = App_CreateMediaClip(app, argVideo);
-        App_CreateMediaClip(app, argVideo);
+        if (argVideo != nullptr)  {
+            App_CreateMediaClip(app, argVideo);
+            App_CalculateTimelineEvents(app);
+            App_MovePlaybackMarker(app, 0);
+        } else {
+            log_error("Failed to import video source");
+        }
 
-        App_CalculateTimelineEvents(app);
-        App_MovePlaybackMarker(app, 0);
-
-
-        MediaSource* secondVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/another-2-AT.mp4");
-        App_CreateMediaClip(app, secondVid);
-        App_CalculateTimelineEvents(app);
+        //
+        //
+        // MediaSource* secondVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/another-2-AT.mp4");
+        // App_CreateMediaClip(app, secondVid);
+        // App_CalculateTimelineEvents(app);
 
         /*MediaSource* thirdVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/yetanother-2-AT.mp4");*/
         /*App_CreateMediaClip(app, thirdVid);*/
@@ -161,9 +166,12 @@ int main(int argc, char* argv[]) {
 
                 // TODO: check if already loaded
                 MediaSource* mediaSource = App_CreateMediaSource(app, (char*) event.drop.data);
-                App_CreateMediaClip(app, mediaSource);
-
-                App_CalculateTimelineEvents(app);
+                if (mediaSource == nullptr) {
+                    log_fatal("Failed to import media clip");
+                } else {
+                    App_CreateMediaClip(app, mediaSource);
+                    App_CalculateTimelineEvents(app);
+                }
 
             } else if (event.type == app->events.wakeupOnMpvRenderUpdate) {
                 uint64_t flags = mpv_render_context_update(app->mpv_gl);

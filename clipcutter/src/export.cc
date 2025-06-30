@@ -1,8 +1,8 @@
 #include "pch.h"
 #include "app.h"
+#include "mediaSource.h"
 #include <SDL3/SDL_messagebox.h>
 
-#define MAX_SUPPORTED_AUDIO_TRACKS 50
 #define MAX_ERROR_LENGTH 4096
 
 char* alloc_error(const char* fmt, ...) {
