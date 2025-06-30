@@ -2,21 +2,33 @@
 #include "app.h"
 
 void Playback_SetAudioTracks(App* app, int count) {
-    log_trace("Playback_SetAudioTracks()");
+    log_trace("Playback_SetAudioTracks() with %d as count", count);
 	cc_unused(app);
     // https://mpv.io/manual/stable/#options-lavfi-complex
 
     assert(app->loadedMediaSource != nullptr && "loadedMediaSource was null");
-    /*if (app->loadedMediaSource->audioTracks == 2) {*/
-    if (count == 2) {
-        log_debug("two audiotracks\n");
-        const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2]amix[ao]", NULL };
-        App_Queue_AddCommand(app, cmd);
-    } else if (app->loadedMediaSource->audioTracks == 3) {
-        log_debug("three audiotracks\n");
-        const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2][aid3]amix=inputs=3[ao]", NULL };
-        App_Queue_AddCommand(app, cmd);
-    } 
+
+    char valueOptionStr[20+6*MAX_SUPPORTED_AUDIO_TRACKS] = "";
+    for (int i=1; i < count+1; i++) {
+        sprintf(valueOptionStr, "%s[aid%d]", valueOptionStr, i);
+    }
+    sprintf(valueOptionStr, "%samix=inputs=%d[ao]", valueOptionStr, count);
+    // Examples of what valueOptionStr should look like:
+    // 3 audio tracks: [aid1][aid2][aid3]amix=inputs=3[ao]
+    // 4 audio tracks: [aid1][aid2][aid3][aid4]amix=inputs=4[ao]
+    // log_debug("%s", valueOptionStr);
+
+    const char* cmd[] = { "set", "options/lavfi-complex", valueOptionStr, NULL };
+    App_Queue_AddCommand(app, cmd);
+
+    // if (count == 2) {
+    //     const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2]amix[ao]", NULL };
+    //     App_Queue_AddCommand(app, cmd);
+    // } else if (count == 3) {
+    //     log_debug("three audiotracks\n");
+    //     const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2][aid3]amix=inputs=3[ao]", NULL };
+    //     App_Queue_AddCommand(app, cmd);
+    // }
 }
 
 void Playback_SetPlaybackPos(App* app, float secs) {
