@@ -47,9 +47,13 @@ void UI_DrawEditor(App* app) {
 
                     // TODO: check if media source is already loaded
                     MediaSource* src = App_CreateMediaSource(app, filePath);
-                    MediaClip* clip = App_CreateMediaClip(app, src);
-                    App_CalculateTimelineEvents(app);
-                    cc_unused(clip);
+                    if (src != nullptr)  {
+                        MediaClip* clip = App_CreateMediaClip(app, src);
+                        App_CalculateTimelineEvents(app);
+                        cc_unused(clip);
+                    } else {
+                        log_error("Failed to import media file");
+                    }
 
                     filelist++;
                 }
@@ -345,7 +349,7 @@ void UI_DrawEditor(App* app) {
 					if (mousePos.x > cursorTimelineBefore.x) {
 						float secs = (mousePos.x - cursorTimelineBefore.x)/app->timeline.scaleX;
 						MediaClip* clip = App_FindClosestMediaClip(app, secs);
-                        log_debug("CLOSEST MEDIA CLIP IS: %s", clip->source->filename);
+                        //log_debug("CLOSEST MEDIA CLIP IS: %s", clip->source->filename);
 						if (app->timeline.snappingEnabled && clip != nullptr) {
 							float snapSensitivity = 10;
 							float track1LeftmostPos = cursorTimelineBefore.x + clip->padding * app->timeline.scaleX;

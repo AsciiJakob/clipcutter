@@ -16,7 +16,8 @@
 	return nullptr;
 }
 
-void MediaSource_Init(MediaSource* mediaSource, const char* path) {
+void MediaSource_Init(MediaSource** mediaSourceP, const char* path) {
+    MediaSource* mediaSource = *mediaSourceP;
 	memset(mediaSource, 0, sizeof(MediaSource));
 
 	mediaSource->filename = nullptr;
@@ -43,12 +44,15 @@ void MediaSource_Init(MediaSource* mediaSource, const char* path) {
 	log_debug("duration:%.2f", s->duration/1000000.0);
 
 	mediaSource->audioTracks = s->nb_streams - 1; // TODO: account for multiple video track
-	mediaSource->length = s->duration / 1000000.0;
-
-
+    if (mediaSource->audioTracks <= MAX_SUPPORTED_AUDIO_TRACKS) {
+    //if (false) {
+        mediaSource->length = s->duration / 1000000.0;
+    } else {
+        free(mediaSource);
+        *mediaSourceP = nullptr;
+    }
 
 	avformat_close_input(&s);
-
 }
 
 void MediaSource_Load(App* app, MediaSource* source) {

@@ -3,6 +3,8 @@
 #include "pch.h"
 #include "app.h"
 
+#define MAX_SUPPORTED_AUDIO_TRACKS 100
+
 typedef struct App App;
 
  struct MediaSource {
@@ -13,7 +15,7 @@ typedef struct App App;
 	int audioTracks;
 };
 
-void MediaSource_Init(MediaSource* mediaSource, const char* path);
+void MediaSource_Init(MediaSource** mediaSourceP, const char* path);
 void MediaSource_Load(App* app, MediaSource* source);
 
 #endif
