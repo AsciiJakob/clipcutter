@@ -312,6 +312,7 @@ void UI_DrawEditor(App* app) {
                 float timelineMousePos = ImGui::GetMousePos().x - cursorTimelineBefore.x;
                 cc_unused(timelineMousePos);
                 float panDelta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 0.0).x;
+                panDelta = panDelta * -1; // negate
                 float currentScrollPos = ImGui::GetScrollX();
                 ImGui::SetScrollX(currentScrollPos + panDelta);
                 ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
