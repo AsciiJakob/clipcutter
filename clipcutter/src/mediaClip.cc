@@ -60,9 +60,9 @@ bool MediaClip_IsBeingPlayed(App* app, MediaClip* mediaClip) {
     }
 }
 
-bool shouldUpdatePlaybackAfterMove(App* app, MediaClip* mediaClip, float drawClipLeftPadding, float drawTrackWidth) {
+bool shouldUpdatePlaybackAfterMove(App* app, MediaClip* mediaClip, float drawClipLeftPadding, float drawClipWidth) {
     // if nothing was changed.
-    if (mediaClip->width == drawTrackWidth && mediaClip->padding == drawClipLeftPadding) { 
+    if (mediaClip->width == drawClipWidth && mediaClip->padding == drawClipLeftPadding) { 
         return false;
     }
 
@@ -74,7 +74,7 @@ bool shouldUpdatePlaybackAfterMove(App* app, MediaClip* mediaClip, float drawCli
         return true;
     }
     // clip will now be positioned where the marker is
-    if (app->playbackTime >= drawClipLeftPadding && app->playbackTime < drawClipLeftPadding + drawTrackWidth) {
+    if (app->playbackTime >= drawClipLeftPadding && app->playbackTime < drawClipLeftPadding + drawClipWidth) {
         return true;
     }
     return false;
@@ -86,7 +86,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 	bool mouseLetGo = !ImGui::IsMouseDown(ImGuiMouseButton_Left);
 	ImVec2 mousePos = ImGui::GetMousePos();
 
-	float drawTrackWidth = mediaClip->width;
+	float drawClipWidth = mediaClip->width;
 	float drawClipLeftPadding = mediaClip->padding;
 
 	if (mediaClip->isBeingMoved) {
@@ -137,7 +137,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 
             // distance to current timemarker
             float markerDistLeft = fabs(app->playbackTime-(drawClipLeftPadding+diff));
-            float markerDistRight = fabs(app->playbackTime-(drawClipLeftPadding+diff+drawTrackWidth));
+            float markerDistRight = fabs(app->playbackTime-(drawClipLeftPadding+diff+drawClipWidth));
 
             bool isSnapping = false;
             if (leftClipEvent != nullptr) {
@@ -159,7 +159,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
             }
             if (markerDistRight < 5) {
                 // log_debug("snapping cursor right");
-                drawClipLeftPadding = app->playbackTime-drawTrackWidth;
+                drawClipLeftPadding = app->playbackTime-drawClipWidth;
                 isSnapping = true;
             }
 
@@ -177,7 +177,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 		if (mouseLetGo) {
             // todo: figure out a way to calculate difference so that we don't refresh if we don't have to
 			mediaClip->isBeingMoved = false;
-			bool updatePlayback = shouldUpdatePlaybackAfterMove(app, mediaClip, drawClipLeftPadding, drawTrackWidth);
+			bool updatePlayback = shouldUpdatePlaybackAfterMove(app, mediaClip, drawClipLeftPadding, drawClipWidth);
 			mediaClip->padding = drawClipLeftPadding;
 			App_CalculateTimelineEvents(app);
 
@@ -209,14 +209,14 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 			drawClipLeftPadding = 0;
 		}
 
-		drawTrackWidth -= cutoffOffset;
+		drawClipWidth -= cutoffOffset;
 
 		if (mouseLetGo) {
-			bool updatePlayback = shouldUpdatePlaybackAfterMove(app, mediaClip, drawClipLeftPadding, drawTrackWidth);
+			bool updatePlayback = shouldUpdatePlaybackAfterMove(app, mediaClip, drawClipLeftPadding, drawClipWidth);
 			mediaClip->padding = drawClipLeftPadding;
 			*startCutoff = totalCutOffvalue;
 			mediaClip->isResizingLeft = false;
-            mediaClip->width = drawTrackWidth;
+            mediaClip->width = drawClipWidth;
             App_CalculateTimelineEvents(app);
 
 			if (updatePlayback) {
@@ -238,13 +238,13 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 			cutoffOffset = -*endCutoff;
 			totalCutOffvalue = cutoffOffset + *endCutoff;
 		}
-		drawTrackWidth -= cutoffOffset;
+		drawClipWidth -= cutoffOffset;
 
 		if (mouseLetGo) {
-			bool updatePlayback = shouldUpdatePlaybackAfterMove(app, mediaClip, drawClipLeftPadding, drawTrackWidth);
+			bool updatePlayback = shouldUpdatePlaybackAfterMove(app, mediaClip, drawClipLeftPadding, drawClipWidth);
 			*endCutoff = totalCutOffvalue;
 			mediaClip->isResizingRight = false;
-            mediaClip->width = drawTrackWidth;
+            mediaClip->width = drawClipWidth;
             App_CalculateTimelineEvents(app);
 
 			if (updatePlayback) {
@@ -262,7 +262,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
         cursor_trackclip = ImGui::GetCursorScreenPos();
         ImVec2 cursor_trackclip_padded = ImGui::GetCursorScreenPos();
         cursor_trackclip_padded.x = (cursor_trackclip_padded.x + drawClipLeftPadding * app->timeline.scaleX);
-        ImVec2 track_size(drawTrackWidth * app->timeline.scaleX, app->timeline.clipHeight);
+        ImVec2 track_size(drawClipWidth * app->timeline.scaleX, app->timeline.clipHeight);
 
         ImGui::SetCursorScreenPos(cursor_trackclip_padded);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
@@ -316,18 +316,18 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
     if (app->selectedTrack == mediaClip) { // ########### clip selection
         ImU32 border_color = ImGui::GetColorU32(ImVec4(1, 1, 1, 1));
         ImVec2 posStart(app->timeline.cursTopLeft.x + drawClipLeftPadding * app->timeline.scaleX, app->timeline.cursTopLeft.y);
-        ImVec2 posEnd(app->timeline.cursTopLeft.x + (drawClipLeftPadding + drawTrackWidth) * app->timeline.scaleX, app->timeline.cursTopLeft.y + app->timeline.clipHeight * (mediaClip->source->audioTracks+1));
+        ImVec2 posEnd(app->timeline.cursTopLeft.x + (drawClipLeftPadding + drawClipWidth) * app->timeline.scaleX, app->timeline.cursTopLeft.y + app->timeline.clipHeight * (mediaClip->source->audioTracks+1));
         ImGui::GetWindowDrawList()->AddRect(posStart, posEnd, border_color, 0.0f, 0, 1.0f);
     } else { // ########### clip left & right borders
         ImU32 border_color = ImGui::GetColorU32(ImVec4(0, 0, 0, 1));
         ImVec2 posStart(app->timeline.cursTopLeft.x + drawClipLeftPadding * app->timeline.scaleX, app->timeline.cursTopLeft.y);
-        ImVec2 posEnd(app->timeline.cursTopLeft.x + (drawClipLeftPadding + drawTrackWidth) * app->timeline.scaleX, app->timeline.cursTopLeft.y + app->timeline.clipHeight * (mediaClip->source->audioTracks+1));
+        ImVec2 posEnd(app->timeline.cursTopLeft.x + (drawClipLeftPadding + drawClipWidth) * app->timeline.scaleX, app->timeline.cursTopLeft.y + app->timeline.clipHeight * (mediaClip->source->audioTracks+1));
         ImGui::GetWindowDrawList()->AddRect(posStart, posEnd, border_color, 0.0f, 0, 1.0f);
     }
 
     if (mediaClip->isHovered) {
         float edgeLeft = (cursor_trackclip.x + drawClipLeftPadding * app->timeline.scaleX);
-        float edgeRight = (cursor_trackclip.x + (drawTrackWidth + drawClipLeftPadding) * app->timeline.scaleX);
+        float edgeRight = (cursor_trackclip.x + (drawClipWidth + drawClipLeftPadding) * app->timeline.scaleX);
 
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             app->selectedTrack = mediaClip;
