@@ -135,22 +135,35 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 
             }
 
+            // distance to current timemarker
+            float markerDistLeft = fabs(app->playbackTime-(drawClipLeftPadding+diff));
+            float markerDistRight = fabs(app->playbackTime-(drawClipLeftPadding+diff+drawTrackWidth));
 
-            bool snappingToClip = false;
+            bool isSnapping = false;
             if (leftClipEvent != nullptr) {
                 if (leftDist < 1) {
                     drawClipLeftPadding = leftClipEvent->start+leftClipEvent->clip->width;
-                    snappingToClip = true;
+                    isSnapping = true;
                 }
             }
             if (rightClipEvent != nullptr) {
                 if (rightDist < 1 && rightDist < leftDist) {
                     drawClipLeftPadding = rightClipEvent->start-mediaClip->width;
-                    snappingToClip = true;
+                    isSnapping = true;
                 }
             }
+            if (markerDistLeft < 5) {
+                // log_debug("snapping cursor left");
+                drawClipLeftPadding = app->playbackTime;
+                isSnapping = true;
+            }
+            if (markerDistRight < 5) {
+                // log_debug("snapping cursor right");
+                drawClipLeftPadding = app->playbackTime-drawTrackWidth;
+                isSnapping = true;
+            }
 
-            if (!snappingToClip) {
+            if (!isSnapping) {
                 drawClipLeftPadding += ceilf((diff) / app->timeline.snappingPrecision) * app->timeline.snappingPrecision;
             }
 
