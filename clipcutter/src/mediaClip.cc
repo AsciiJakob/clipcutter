@@ -3,6 +3,8 @@
 #include "app.h"
 #include <imgui.h>
 
+#define SNAPTHRESHOLD_MARKER 5
+#define SNAPTHRESHOLD_CLIP 1
 
 // use App_CreateMediaClip instead of calling this directly
 void MediaClip_Init(MediaClip* mediaClip, MediaSource* mediaSource) {
@@ -11,7 +13,6 @@ void MediaClip_Init(MediaClip* mediaClip, MediaSource* mediaSource) {
 
 	mediaClip->width = mediaSource->length;
 }
-
 
 TimelineEvent* findClipNeighbourLeft(TimelineEvent* timelineEvents, int eventIndex) {
     if (eventIndex != 0) {
@@ -36,10 +37,15 @@ TimelineEvent* findClipNeighbourRight(TimelineEvent* timelineEvents, int eventIn
     if (eventIndex != TIMELINE_EVENTS_SIZE-1) {
         TimelineEvent* rightEvent = &timelineEvents[eventIndex+1];
         if (rightEvent->type != TIMELINE_EVENT_VIDEO) {
+            if (rightEvent->type == TIMELINE_EVENT_END) {
+                return nullptr;
+            }
             if (eventIndex+1 != TIMELINE_EVENTS_SIZE-1) {
                 TimelineEvent* rightRightEvent = &timelineEvents[eventIndex+2];
-                if (rightRightEvent->type == TIMELINE_EVENT_VIDEO) {
-                    return rightRightEvent;
+                if (eventIndex+2 != TIMELINE_EVENTS_SIZE-1) {
+                    if (rightRightEvent->type == TIMELINE_EVENT_VIDEO) {
+                        return rightRightEvent;
+                    }
                 }
             }
         } else {
@@ -50,6 +56,44 @@ TimelineEvent* findClipNeighbourRight(TimelineEvent* timelineEvents, int eventIn
 
     return nullptr;
 }
+
+float snapPointToGrid(App* app, float point)  {
+    return ceilf(point / app->timeline.snappingPrecision) * app->timeline.snappingPrecision;
+}
+void findNeighbourClipsOfPoints(App* app, float pointLeft, float pointRight, int eventIndex, TimelineEvent** leftClipEventP, TimelineEvent** rightClipEventP, float* leftClipDist, float* rightClipDist) {
+    TimelineEvent* leftClipEvent = findClipNeighbourLeft(app->timelineEvents, eventIndex);
+    TimelineEvent* rightClipEvent = findClipNeighbourRight(app->timelineEvents, eventIndex);
+    unsigned int i=0;
+    while (true) {
+        if (i++ > MEDIACLIPS_SIZE) {
+            log_warn("Hung on snapping to neighbour clip");
+            *rightClipDist = 0.0;
+            break;
+        }
+
+        if (leftClipEvent) {
+            *leftClipDist = (pointLeft)-(leftClipEvent->start+leftClipEvent->clip->width);
+        }
+        if (rightClipEvent) {
+            *rightClipDist = rightClipEvent->start-(pointRight);
+        }
+
+        if (leftClipEvent && *leftClipDist < -leftClipEvent->clip->width) {
+            rightClipEvent = leftClipEvent;
+            leftClipEvent = findClipNeighbourLeft(app->timelineEvents, leftClipEvent->clip->timelineEventsIndex);
+        } else if (rightClipEvent && *rightClipDist < -rightClipEvent->clip->width) {
+            leftClipEvent = rightClipEvent;
+            rightClipEvent = findClipNeighbourRight(app->timelineEvents, rightClipEvent->clip->timelineEventsIndex);
+        } else {
+            break;
+        }
+
+    }
+
+    *leftClipEventP = leftClipEvent;
+    *rightClipEventP = rightClipEvent;
+}
+
 
 bool MediaClip_IsBeingPlayed(App* app, MediaClip* mediaClip) {
     TimelineEvent* currentEvent = &app->timelineEvents[app->timelineEventIndex];
@@ -92,79 +136,54 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 	if (mediaClip->isBeingMoved) {
 		float diff = (mousePos.x - mediaClip->moveStartPos.x) / app->timeline.scaleX;
 		if (app->timeline.snappingEnabled) {
+            
+            bool snapToGrid = true;
+            // snap to neighbouring clips
+            {
 
-            if (ImGui::IsKeyPressed(ImGuiKey_Space))
-                log_debug("debug key pressed");
+                float leftClipDist;
+                float rightClipDist;
+                TimelineEvent* leftClipEvent = nullptr;
+                TimelineEvent* rightClipEvent = nullptr;
 
-            float leftDist;
-            float rightDist;
-            TimelineEvent* leftClipEvent = nullptr;
-            TimelineEvent* rightClipEvent = nullptr;
-            int searchFromIndex = mediaClip->timelineEventsIndex;
-            /*bool movedThroughOtherClip = false;*/
+                float pointLeft = drawClipLeftPadding+diff;
+                float pointRight = drawClipLeftPadding+diff+drawClipWidth;
+                findNeighbourClipsOfPoints(app, pointLeft, pointRight, mediaClip->timelineEventsIndex, &leftClipEvent, &rightClipEvent, &leftClipDist, &rightClipDist);
 
-            leftClipEvent = findClipNeighbourLeft(app->timelineEvents, searchFromIndex);
-            rightClipEvent = findClipNeighbourRight(app->timelineEvents, searchFromIndex);
-            unsigned int i=0;
-            while (true) {
-                if (i++ > MEDIACLIPS_SIZE) {
-                    // TODO: come back and fix this bug. it's really annoying
-                    log_warn("Hung on snapping to neighbour clip, most likely positioned right in the middle of a clip");
-                    rightDist = 0.0;
-                    break;
+                if (leftClipEvent != nullptr) {
+                    if (leftClipDist < SNAPTHRESHOLD_CLIP) {
+                        drawClipLeftPadding = leftClipEvent->start+leftClipEvent->clip->width;
+                        snapToGrid = false;
+                    }
                 }
-
-                if (leftClipEvent) {
-                    leftDist = (drawClipLeftPadding+diff)-(leftClipEvent->start+leftClipEvent->clip->width);
-                }
-                if (rightClipEvent) {
-                    rightDist = rightClipEvent->start-(drawClipLeftPadding+diff+mediaClip->width);
-                }
-
-
-                if (leftClipEvent && leftDist < -leftClipEvent->clip->width) {
-                    rightClipEvent = leftClipEvent;
-                    leftClipEvent = findClipNeighbourLeft(app->timelineEvents, leftClipEvent->clip->timelineEventsIndex);
-
-                } else if (rightClipEvent && rightDist < -rightClipEvent->clip->width) {
-                    leftClipEvent = rightClipEvent;
-                    rightClipEvent = findClipNeighbourRight(app->timelineEvents, rightClipEvent->clip->timelineEventsIndex);
-                } else {
-                    break;
+                if (rightClipEvent != nullptr) {
+                    if (rightClipDist < SNAPTHRESHOLD_CLIP && (!leftClipEvent || (rightClipDist < leftClipDist))) {
+                        drawClipLeftPadding = rightClipEvent->start-mediaClip->width;
+                        snapToGrid = false;
+                    }
                 }
 
             }
 
-            // distance to current timemarker
-            float markerDistLeft = fabs(app->playbackTime-(drawClipLeftPadding+diff));
-            float markerDistRight = fabs(app->playbackTime-(drawClipLeftPadding+diff+drawClipWidth));
 
-            bool isSnapping = false;
-            if (leftClipEvent != nullptr) {
-                if (leftDist < 1) {
-                    drawClipLeftPadding = leftClipEvent->start+leftClipEvent->clip->width;
-                    isSnapping = true;
+            // snap to playback marker
+            float markerDistLeft, markerDistRight;
+            {
+                markerDistLeft = fabs(app->playbackTime-(mediaClip->padding+diff));
+                markerDistRight = fabs(app->playbackTime-(mediaClip->padding+diff+mediaClip->width));
+                if (markerDistLeft < SNAPTHRESHOLD_MARKER) {
+                    drawClipLeftPadding = app->playbackTime;
+                    snapToGrid = false;
+                }
+                if (markerDistRight < SNAPTHRESHOLD_MARKER) {
+                    drawClipLeftPadding = app->playbackTime-mediaClip->width;
+                    snapToGrid = false;
                 }
             }
-            if (rightClipEvent != nullptr) {
-                if (rightDist < 1 && rightDist < leftDist) {
-                    drawClipLeftPadding = rightClipEvent->start-mediaClip->width;
-                    isSnapping = true;
-                }
-            }
-            if (markerDistLeft < 5) {
-                // log_debug("snapping cursor left");
-                drawClipLeftPadding = app->playbackTime;
-                isSnapping = true;
-            }
-            if (markerDistRight < 5) {
-                // log_debug("snapping cursor right");
-                drawClipLeftPadding = app->playbackTime-drawClipWidth;
-                isSnapping = true;
-            }
+            
 
-            if (!isSnapping) {
-                drawClipLeftPadding += ceilf((diff) / app->timeline.snappingPrecision) * app->timeline.snappingPrecision;
+            if (snapToGrid) {
+                drawClipLeftPadding = snapPointToGrid(app, drawClipLeftPadding+diff);
             }
 
 		} else {
@@ -191,30 +210,73 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 
 	if (mediaClip->isResizingLeft) {
 		float cutoffOffset = (mousePos.x - mediaClip->resizeStartPos.x) / app->timeline.scaleX;
-		if (app->timeline.snappingEnabled) {
-			cutoffOffset = floorf(cutoffOffset / app->timeline.snappingPrecision) * app->timeline.snappingPrecision;
-		}
-		drawClipLeftPadding = mediaClip->padding + cutoffOffset;
 		float* startCutoff = &mediaClip->drawStartCutoff;
-		float totalCutOffvalue = cutoffOffset + *startCutoff;
+        float totalCutOffValue = cutoffOffset + *startCutoff;
 
-		if (totalCutOffvalue < 0) {
+		if (app->timeline.snappingEnabled) {
+            bool snapToGrid = true;
+            
+            float leftClipDist;
+            float rightClipDist;
+            TimelineEvent* leftClipEvent = nullptr;
+            TimelineEvent* rightClipEvent = nullptr;
+
+            float pointLeft = drawClipLeftPadding+cutoffOffset;
+            float pointRight = pointLeft;
+            findNeighbourClipsOfPoints(app, pointLeft, pointRight, mediaClip->timelineEventsIndex, &leftClipEvent, &rightClipEvent, &leftClipDist, &rightClipDist);
+            
+            if (leftClipEvent != nullptr) {
+                if (leftClipDist < SNAPTHRESHOLD_CLIP) {
+                    cutoffOffset -= drawClipLeftPadding+cutoffOffset-(leftClipEvent->start+leftClipEvent->clip->width);
+                    snapToGrid = false;
+                }
+            }
+            if (rightClipEvent != nullptr) {
+                if (rightClipDist < SNAPTHRESHOLD_CLIP && (!leftClipEvent || (rightClipDist < leftClipDist))) {
+                    cutoffOffset -= drawClipLeftPadding+cutoffOffset-rightClipEvent->start;
+                    snapToGrid = false;
+                }
+            }
+
+            float markerDist = fabs(app->playbackTime-(drawClipLeftPadding+cutoffOffset));
+
+            if (markerDist < SNAPTHRESHOLD_MARKER) {
+                cutoffOffset -= drawClipLeftPadding+cutoffOffset-app->playbackTime;
+                snapToGrid = false;
+            }
+
+            if (snapToGrid) {
+                cutoffOffset = snapPointToGrid(app, cutoffOffset);
+            }
+		}
+
+		drawClipLeftPadding = mediaClip->padding + cutoffOffset;
+
+        if (totalCutOffValue < 0) {
 			cutoffOffset = -*startCutoff;
-			totalCutOffvalue = cutoffOffset + *startCutoff;
+			totalCutOffValue = cutoffOffset + *startCutoff;
 			drawClipLeftPadding = mediaClip->padding + cutoffOffset;
-		}
-		if (drawClipLeftPadding < 0) {
-			cutoffOffset = -mediaClip->padding;
-			totalCutOffvalue = cutoffOffset + *startCutoff;
-			drawClipLeftPadding = 0;
-		}
+        }
 
-		drawClipWidth -= cutoffOffset;
+        if (totalCutOffValue > mediaClip->source->length) {
+			cutoffOffset = mediaClip->source->length-*startCutoff;
+			totalCutOffValue = cutoffOffset + *startCutoff;
+			drawClipLeftPadding = mediaClip->padding + cutoffOffset;
+        }
+
+        if (drawClipLeftPadding < 0) {
+			cutoffOffset = -mediaClip->padding;
+			totalCutOffValue = cutoffOffset + *startCutoff;
+			drawClipLeftPadding = 0;
+        }
+		
+        drawClipWidth -= cutoffOffset;
 
 		if (mouseLetGo) {
+
 			bool updatePlayback = shouldUpdatePlaybackAfterMove(app, mediaClip, drawClipLeftPadding, drawClipWidth);
 			mediaClip->padding = drawClipLeftPadding;
-			*startCutoff = totalCutOffvalue;
+			*startCutoff = totalCutOffValue;
 			mediaClip->isResizingLeft = false;
             mediaClip->width = drawClipWidth;
             App_CalculateTimelineEvents(app);
@@ -227,22 +289,62 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 	}
 	else if (mediaClip->isResizingRight) {
 		float cutoffOffset = (mediaClip->resizeStartPos.x - mousePos.x) / app->timeline.scaleX;
-		if (app->timeline.snappingEnabled) {
-			cutoffOffset = floor(cutoffOffset / app->timeline.snappingPrecision) * app->timeline.snappingPrecision;
-		}
-
-
 		float* endCutoff = &mediaClip->drawEndCutoff;
-		float totalCutOffvalue = cutoffOffset + *endCutoff;
-		if (totalCutOffvalue < 0) { // limit resizing to the max size of the video
-			cutoffOffset = -*endCutoff;
-			totalCutOffvalue = cutoffOffset + *endCutoff;
+		float totalCutOffValue = cutoffOffset + *endCutoff;
+
+		if (app->timeline.snappingEnabled) {
+            bool snapToGrid = true;
+            
+            float leftClipDist;
+            float rightClipDist;
+            TimelineEvent* leftClipEvent = nullptr;
+            TimelineEvent* rightClipEvent = nullptr;
+
+            float pointLeft = drawClipLeftPadding+drawClipWidth-cutoffOffset;
+            float pointRight = pointLeft;
+            findNeighbourClipsOfPoints(app, pointLeft, pointRight, mediaClip->timelineEventsIndex, &leftClipEvent, &rightClipEvent, &leftClipDist, &rightClipDist);
+            
+            if (leftClipEvent != nullptr) {
+                if (leftClipDist < SNAPTHRESHOLD_CLIP) {
+                    cutoffOffset -= drawClipLeftPadding+drawClipWidth-cutoffOffset-(leftClipEvent->start+leftClipEvent->clip->width);
+                    snapToGrid = false;
+                }
+            }
+            if (rightClipEvent != nullptr) {
+                if (rightClipDist < SNAPTHRESHOLD_CLIP && (!leftClipEvent || (rightClipDist < leftClipDist))) {
+                    cutoffOffset += drawClipLeftPadding+drawClipWidth-cutoffOffset-rightClipEvent->start;
+                    snapToGrid = false;
+                }
+            }
+
+            float markerDist = fabs(app->playbackTime-(drawClipLeftPadding+drawClipWidth-cutoffOffset));
+
+            if (markerDist < SNAPTHRESHOLD_MARKER) {
+                cutoffOffset += drawClipLeftPadding+drawClipWidth-cutoffOffset-app->playbackTime;
+                snapToGrid = false;
+            }
+
+            if (snapToGrid) {
+                cutoffOffset = snapPointToGrid(app, cutoffOffset);
+            }
 		}
+
+
+        if (totalCutOffValue < 0) { // limit resizing to the max size of the video
+            cutoffOffset = -*endCutoff;
+			totalCutOffValue = cutoffOffset + *endCutoff;
+        }
+        if (totalCutOffValue > mediaClip->source->length) {
+            cutoffOffset = mediaClip->source->length-*endCutoff;
+			totalCutOffValue = cutoffOffset + *endCutoff;
+        }
+
 		drawClipWidth -= cutoffOffset;
+
 
 		if (mouseLetGo) {
 			bool updatePlayback = shouldUpdatePlaybackAfterMove(app, mediaClip, drawClipLeftPadding, drawClipWidth);
-			*endCutoff = totalCutOffvalue;
+			*endCutoff = totalCutOffValue;
 			mediaClip->isResizingRight = false;
             mediaClip->width = drawClipWidth;
             App_CalculateTimelineEvents(app);
@@ -262,7 +364,15 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
         cursor_trackclip = ImGui::GetCursorScreenPos();
         ImVec2 cursor_trackclip_padded = ImGui::GetCursorScreenPos();
         cursor_trackclip_padded.x = (cursor_trackclip_padded.x + drawClipLeftPadding * app->timeline.scaleX);
-        ImVec2 track_size(drawClipWidth * app->timeline.scaleX, app->timeline.clipHeight);
+
+        // Imgui doesn't allow the width to be 0
+        // width will only be zero when it's about to get deleted when resizing
+        float drawWidth = drawClipWidth;
+        if (drawClipWidth == 0.0) {
+            drawWidth = 0.001;
+        }
+
+        ImVec2 track_size(drawWidth * app->timeline.scaleX, app->timeline.clipHeight);
 
         ImGui::SetCursorScreenPos(cursor_trackclip_padded);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
@@ -300,8 +410,8 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 
             // ######### bottom border
             float thickness = 1;
-            ImU32 border_color = ImGui::GetColorU32(ImVec4(0.1, 0.1, 0.5, 1));
             if (i != 0) {
+                ImU32 border_color = ImGui::GetColorU32(ImVec4(1, 1, 1, 1));
                 ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(r_min.x, r_min.y), ImVec2(r_max.x, r_min.y + thickness), border_color);
             }
         }
@@ -313,8 +423,13 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
     }
 
     
+    ImU32 border_color;
     if (app->selectedTrack == mediaClip) { // ########### clip selection
-        ImU32 border_color = ImGui::GetColorU32(ImVec4(1, 1, 1, 1));
+        if (drawClipWidth == 0.0) {
+            border_color = ImGui::GetColorU32(ImVec4(0.8, 0.1, 0.1, 1));
+        } else {
+            border_color = ImGui::GetColorU32(ImVec4(1, 1, 1, 1));
+        }
         ImVec2 posStart(app->timeline.cursTopLeft.x + drawClipLeftPadding * app->timeline.scaleX, app->timeline.cursTopLeft.y);
         ImVec2 posEnd(app->timeline.cursTopLeft.x + (drawClipLeftPadding + drawClipWidth) * app->timeline.scaleX, app->timeline.cursTopLeft.y + app->timeline.clipHeight * (mediaClip->source->audioTracks+1));
         ImGui::GetWindowDrawList()->AddRect(posStart, posEnd, border_color, 0.0f, 0, 1.0f);

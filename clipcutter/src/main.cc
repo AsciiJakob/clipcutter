@@ -69,9 +69,14 @@ int main(int argc, char* argv[]) {
 
         //
         //
-        // MediaSource* secondVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/another-2-AT.mp4");
-        // App_CreateMediaClip(app, secondVid);
-        // App_CalculateTimelineEvents(app);
+        MediaSource* secondVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/another-2-AT.mp4");
+        if (secondVid != nullptr)  {
+            App_CreateMediaClip(app, secondVid);
+            App_CalculateTimelineEvents(app);
+            App_MovePlaybackMarker(app, 0);
+        } else {
+            log_error("Failed to import video source");
+        }
 
         /*MediaSource* thirdVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/yetanother-2-AT.mp4");*/
         /*App_CreateMediaClip(app, thirdVid);*/
