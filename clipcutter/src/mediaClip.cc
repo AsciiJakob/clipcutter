@@ -189,6 +189,8 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 		} else {
 			drawClipLeftPadding += diff;
 		}
+
+
 		if (drawClipLeftPadding < 0) {
 			drawClipLeftPadding = 0;
 		}
@@ -211,7 +213,6 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 	if (mediaClip->isResizingLeft) {
 		float cutoffOffset = (mousePos.x - mediaClip->resizeStartPos.x) / app->timeline.scaleX;
 		float* startCutoff = &mediaClip->drawStartCutoff;
-        float totalCutOffValue = cutoffOffset + *startCutoff;
 
 		if (app->timeline.snappingEnabled) {
             bool snapToGrid = true;
@@ -252,6 +253,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 
 		drawClipLeftPadding = mediaClip->padding + cutoffOffset;
 
+        float totalCutOffValue = cutoffOffset + *startCutoff;
         if (totalCutOffValue < 0) {
 			cutoffOffset = -*startCutoff;
 			totalCutOffValue = cutoffOffset + *startCutoff;
@@ -290,7 +292,6 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 	else if (mediaClip->isResizingRight) {
 		float cutoffOffset = (mediaClip->resizeStartPos.x - mousePos.x) / app->timeline.scaleX;
 		float* endCutoff = &mediaClip->drawEndCutoff;
-		float totalCutOffValue = cutoffOffset + *endCutoff;
 
 		if (app->timeline.snappingEnabled) {
             bool snapToGrid = true;
@@ -303,6 +304,10 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
             float pointLeft = drawClipLeftPadding+drawClipWidth-cutoffOffset;
             float pointRight = pointLeft;
             findNeighbourClipsOfPoints(app, pointLeft, pointRight, mediaClip->timelineEventsIndex, &leftClipEvent, &rightClipEvent, &leftClipDist, &rightClipDist);
+
+            if (ImGui::IsKeyPressed(ImGuiKey_Tab)) {
+                log_debug("debug key");
+            }
             
             if (leftClipEvent != nullptr) {
                 if (leftClipDist < SNAPTHRESHOLD_CLIP) {
@@ -329,7 +334,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
             }
 		}
 
-
+        float totalCutOffValue = cutoffOffset + *endCutoff;
         if (totalCutOffValue < 0) { // limit resizing to the max size of the video
             cutoffOffset = -*endCutoff;
 			totalCutOffValue = cutoffOffset + *endCutoff;
