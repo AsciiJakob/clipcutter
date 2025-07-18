@@ -285,6 +285,11 @@ void UI_DrawEditor(App* app) {
 				MediaClip* mediaClip = app->mediaClips[i];
 				if (mediaClip == nullptr) break;
 				MediaClip_Draw(app, mediaClip, i);
+                if (mediaClip->width == 0.0) {
+                    App_DeleteMediaClip(app, mediaClip);
+                    App_CalculateTimelineEvents(app);
+                    i = i-1;
+                }
 			}
 
 			{ // timeMarker
