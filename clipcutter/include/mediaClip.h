@@ -32,8 +32,13 @@ struct MediaClip {
 
 };
 
+struct ClipSplitResult {
+    MediaClip* clipLeft;
+    MediaClip* clipRight;
+};
+
 void MediaClip_Init(MediaClip* mediaClip, MediaSource* mediaSource);
-void MediaClip_Split(App* app, MediaClip* clip, float timestamp);
+ClipSplitResult MediaClip_Split(App* app, MediaClip* clip, float timestamp);
 ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, float drawClipLeftPadding, float drawClipWidth, bool isGhostClip);
 void MediaClip_Draw(App* app, MediaClip* mediaClip, int index);
 bool MediaClip_IsBeingPlayed(App* app, MediaClip* mediaClip);
