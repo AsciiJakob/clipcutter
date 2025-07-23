@@ -2,7 +2,7 @@
 #include "export.h"
 #include "app.h"
 #include "imgui_internal.h"
-//#include "mediaClip.h"
+#include "mediaClip.h"
 
 int tracklistWidth = 100;
 
@@ -183,8 +183,8 @@ void UI_DrawEditor(App* app) {
 			ImGui::Text("length: %.2f", testClip->source->length);
 			ImGui::Text("width: %.2f", testClip->width);
 			ImGui::Text("padding: %.2f", testClip->padding);
-			ImGui::Text("cutoffstart: %.2f", testClip->drawStartCutoff);
-			ImGui::Text("cutoffend: %.2f", testClip->drawEndCutoff);
+			ImGui::Text("cutoffstart: %.2f", testClip->startCutoff);
+			ImGui::Text("cutoffend: %.2f", testClip->endCutoff);
 
 			ImGui::Checkbox("track1beingMoved", &testClip->isBeingMoved);
 		}
@@ -281,16 +281,29 @@ void UI_DrawEditor(App* app) {
 
 			ImGui::SetCursorScreenPos(cursorTimelineBefore);
 
+            MediaClip* drawAgain = nullptr;
+            // int drawAgainI = 0;
 			for (int i = 0; i < MEDIACLIPS_SIZE; i++) { // draw clips
-				MediaClip* mediaClip = app->mediaClips[i];
-				if (mediaClip == nullptr) break;
-				MediaClip_Draw(app, mediaClip, i);
-                if (mediaClip->width == 0.0) {
-                    App_DeleteMediaClip(app, mediaClip);
+				MediaClip* clip = app->mediaClips[i];
+				if (clip == nullptr) break;
+				MediaClip_Draw(app, clip, i);
+                if (clip->width == 0.0) {
+                    App_DeleteMediaClip(app, clip);
                     App_CalculateTimelineEvents(app);
                     i = i-1;
+                } else if (clip->isResizingLeft || clip->isResizingRight || clip->isBeingMoved) {
+                    drawAgain = clip;
+                    // drawAgainI = i;
                 }
 			}
+
+            if (drawAgain != nullptr) {
+                MediaClip_Draw_DrawTracks(app, drawAgain, MEDIACLIPS_SIZE+1, drawAgain->padding, drawAgain->width, true);
+
+                // resized/moved clip is drawn again after all other clips are drawn because that
+                // can avoid clips later in the mediaClips array being drawn over the clip
+                MediaClip_Draw_DrawTracks(app, drawAgain, MEDIACLIPS_SIZE+2, drawAgain->drawPadding, drawAgain->drawWidth, false);
+            }
 
 			{ // timeMarker
 				float timeMarkerValue = app->playbackTime*app->timeline.scaleX;
