@@ -242,7 +242,7 @@ void App_LoadEvent(App* app, TimelineEvent* event) {
 			MediaSource_Load(app, event->clip->source);
 			app->loadedMediaSource = event->clip->source;
 		} else {
-            Playback_SetPlaybackPos(app, event->clip->drawStartCutoff);
+            Playback_SetPlaybackPos(app, event->clip->startCutoff);
         }
 	} else if (event->type == TIMELINE_EVENT_BLANKSPACE) {
         log_trace("App_LoadEvent: loading blank space");
@@ -287,7 +287,7 @@ void App_MovePlaybackMarker(App* app, float secs) {
             App_LoadEvent(app, currentEvent);
         }
 
-        int seekPos = secs-currentEvent->start+currentEvent->clip->drawStartCutoff;
+        int seekPos = secs-currentEvent->start+currentEvent->clip->startCutoff;
         log_info("seeking to: %d\n", seekPos);
         Playback_SetPlaybackPos(app, seekPos);
 

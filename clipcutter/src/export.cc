@@ -177,8 +177,8 @@ char* remuxClip(MediaClip* mediaClip, float* exportFrame, AVFormatContext* ofmt_
             AVStream *inStream = ifmt_ctx->streams[i];
             AVCodecParameters *in_codecpar = inStream->codecpar;
 
-            streamRescaledStartSeconds[i] = av_rescale_q(mediaClip->drawStartCutoff * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
-            streamRescaledEndSeconds[i] = av_rescale_q((mediaClip->source->length-mediaClip->drawEndCutoff) * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
+            streamRescaledStartSeconds[i] = av_rescale_q(mediaClip->startCutoff * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
+            streamRescaledEndSeconds[i] = av_rescale_q((mediaClip->source->length-mediaClip->endCutoff) * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
 
             if (in_codecpar->codec_type != AVMEDIA_TYPE_AUDIO &&
                 in_codecpar->codec_type != AVMEDIA_TYPE_VIDEO) {
@@ -462,7 +462,7 @@ char* remuxClip(MediaClip* mediaClip, float* exportFrame, AVFormatContext* ofmt_
             goto cleanup;
         }
 
-        ret = avformat_seek_file(ifmt_ctx, -1, INT64_MIN, mediaClip->drawStartCutoff * AV_TIME_BASE, mediaClip->drawStartCutoff * AV_TIME_BASE, 0);
+        ret = avformat_seek_file(ifmt_ctx, -1, INT64_MIN, mediaClip->startCutoff * AV_TIME_BASE, mediaClip->startCutoff * AV_TIME_BASE, 0);
         if (ret < 0) {
             err = alloc_error("Failed to seek forward to cutting start in source file");
             goto cleanup;
@@ -504,7 +504,7 @@ char* remuxClip(MediaClip* mediaClip, float* exportFrame, AVFormatContext* ofmt_
         int in_index = pkt->stream_index;
         in_stream  = ifmt_ctx->streams[pkt->stream_index];
 
-        double duration = (double) (ifmt_ctx->duration) / AV_TIME_BASE -mediaClip->drawStartCutoff-mediaClip->drawEndCutoff;
+        double duration = (double) (ifmt_ctx->duration) / AV_TIME_BASE -mediaClip->startCutoff-mediaClip->endCutoff;
         double currentTime = (double) (pkt->pts-streamRescaledStartSeconds[in_index]) * av_q2d(ifmt_ctx->streams[pkt->stream_index]->time_base);
         // log_debug("current: %.2f", currentTime);
 
@@ -816,8 +816,8 @@ char* remux(MediaClip* mediaClip, float* exportFrame, const char* out_filename) 
             AVStream *inStream = ifmt_ctx->streams[i];
             AVCodecParameters *in_codecpar = inStream->codecpar;
 
-            streamRescaledStartSeconds[i] = av_rescale_q(mediaClip->drawStartCutoff * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
-            streamRescaledEndSeconds[i] = av_rescale_q((mediaClip->source->length-mediaClip->drawEndCutoff) * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
+            streamRescaledStartSeconds[i] = av_rescale_q(mediaClip->startCutoff * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
+            streamRescaledEndSeconds[i] = av_rescale_q((mediaClip->source->length-mediaClip->endCutoff) * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
 
             if (in_codecpar->codec_type != AVMEDIA_TYPE_AUDIO &&
                 in_codecpar->codec_type != AVMEDIA_TYPE_VIDEO) {
@@ -1091,7 +1091,7 @@ char* remux(MediaClip* mediaClip, float* exportFrame, const char* out_filename) 
             goto cleanup;
         }
 
-        ret = avformat_seek_file(ifmt_ctx, -1, INT64_MIN, mediaClip->drawStartCutoff * AV_TIME_BASE, mediaClip->drawStartCutoff * AV_TIME_BASE, 0);
+        ret = avformat_seek_file(ifmt_ctx, -1, INT64_MIN, mediaClip->startCutoff * AV_TIME_BASE, mediaClip->startCutoff * AV_TIME_BASE, 0);
         if (ret < 0) {
             err = alloc_error("Failed to seek forward to cutting start in source file");
             goto cleanup;
@@ -1150,7 +1150,7 @@ char* remux(MediaClip* mediaClip, float* exportFrame, const char* out_filename) 
         int in_index = pkt->stream_index;
         in_stream  = ifmt_ctx->streams[pkt->stream_index];
 
-        double duration = (double) (ifmt_ctx->duration) / AV_TIME_BASE -mediaClip->drawStartCutoff-mediaClip->drawEndCutoff;
+        double duration = (double) (ifmt_ctx->duration) / AV_TIME_BASE -mediaClip->startCutoff-mediaClip->endCutoff;
         double currentTime = (double) (pkt->pts-streamRescaledStartSeconds[in_index]) * av_q2d(ifmt_ctx->streams[pkt->stream_index]->time_base);
         // log_debug("current: %.2f", currentTime);
 
@@ -1411,8 +1411,8 @@ int remux_keepMultipleAudioTracks(MediaClip* mediaClip, const char* out_filename
         AVStream *inStream = ifmt_ctx->streams[i];
         AVCodecParameters *in_codecpar = inStream->codecpar;
 
-        streamRescaledStartSeconds[i] = av_rescale_q(mediaClip->drawStartCutoff * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
-        streamRescaledEndSeconds[i] = av_rescale_q((mediaClip->source->length-mediaClip->drawEndCutoff) * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
+        streamRescaledStartSeconds[i] = av_rescale_q(mediaClip->startCutoff * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
+        streamRescaledEndSeconds[i] = av_rescale_q((mediaClip->source->length-mediaClip->endCutoff) * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
 
         if (in_codecpar->codec_type != AVMEDIA_TYPE_AUDIO &&
             in_codecpar->codec_type != AVMEDIA_TYPE_VIDEO &&
@@ -1475,7 +1475,7 @@ int remux_keepMultipleAudioTracks(MediaClip* mediaClip, const char* out_filename
     }
 
         
-    ret = avformat_seek_file(ifmt_ctx, -1, INT64_MIN, mediaClip->drawStartCutoff * AV_TIME_BASE, mediaClip->drawStartCutoff * AV_TIME_BASE, 0);
+    ret = avformat_seek_file(ifmt_ctx, -1, INT64_MIN, mediaClip->startCutoff * AV_TIME_BASE, mediaClip->startCutoff * AV_TIME_BASE, 0);
     if (ret < 0) {
         log_error("Failed to seek forward to cutting start in source file");
         errored = true;

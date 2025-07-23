@@ -134,23 +134,7 @@ int main(int argc, char* argv[]) {
                 if (event.key.key == SDLK_S) {
                     TimelineEvent* currentEvent = &app->timelineEvents[app->timelineEventIndex];
                     if (currentEvent->type == TIMELINE_EVENT_VIDEO) {
-                        MediaClip* rightClip = currentEvent->clip;
-                        MediaClip* leftClip = App_CreateMediaClip(app, rightClip->source);
-                        
-                        // make the two clips overlap each other exactly
-                        leftClip->padding = rightClip->padding;
-                        leftClip->drawStartCutoff = rightClip->drawStartCutoff;
-                        leftClip->drawEndCutoff = rightClip->drawEndCutoff;
-                        leftClip->width = rightClip->width;
-
-                        float ClipLengthRightOfMarker = leftClip->padding+leftClip->width-app->playbackTime;
-                        leftClip->drawEndCutoff += ClipLengthRightOfMarker;
-                        leftClip->width -= ClipLengthRightOfMarker;
-
-                        float clipLengthLeftOfMarker = app->playbackTime-rightClip->padding;
-                        rightClip->drawStartCutoff += clipLengthLeftOfMarker;
-                        rightClip->padding += clipLengthLeftOfMarker;
-                        rightClip->width -= clipLengthLeftOfMarker;
+                        MediaClip_Split(app, currentEvent->clip, app->playbackTime);
 
                         App_CalculateTimelineEvents(app);
                     }
@@ -230,14 +214,14 @@ int main(int argc, char* argv[]) {
                                 // TODO COME BACK HERE
                                 if (currentEvent->type == TIMELINE_EVENT_VIDEO) {
                                     if (playtime == 0.0 && app->playbackTime != 0.0) {
-                                        double seekTime = app->playbackTime-currentEvent->start+currentEvent->clip->drawStartCutoff;
+                                        double seekTime = app->playbackTime-currentEvent->start+currentEvent->clip->startCutoff;
                                         /*double seekTime = app->playbackTime-currentEvent->start;*/
                                         if (seekTime > 0.1) {
                                             Playback_SetPlaybackPos(app, seekTime);
                                             log_trace("Syncing MPV playback time with cursor. Seeking to: %.6f", seekTime);
                                         }
                                     } else {
-                                        app->playbackTime = currentEvent->start+playtime-currentEvent->clip->drawStartCutoff;
+                                        app->playbackTime = currentEvent->start+playtime-currentEvent->clip->startCutoff;
                                     }
                                 } else {
                                     log_error("got playback update with no clip loaded");
