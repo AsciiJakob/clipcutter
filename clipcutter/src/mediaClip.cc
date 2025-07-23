@@ -122,13 +122,22 @@ void overrideOverlappingClips(App* app, MediaClip* priorityClip) {
                 // case: [ ()]
                 log_debug("case: [ ()]");
 
+                ClipSplitResult split = MediaClip_Split(app, clip, prioStart);
+                App_DeleteMediaClip(app, split.clipRight);
             } else if (prioStart == clipStart) {
                 // case: [() ]
                 log_debug("case: [() ]");
 
+                ClipSplitResult split = MediaClip_Split(app, clip, prioEnd);
+                App_DeleteMediaClip(app, split.clipLeft);
             } else if (prioEnd < clipEnd && prioStart > clipStart) {
                 // case: [ () ]
                 log_debug("case: [ () ]");
+
+                ClipSplitResult splitLeft = MediaClip_Split(app, clip, prioStart);
+                ClipSplitResult splitRight = MediaClip_Split(app, splitLeft.clipRight, prioEnd);
+
+                App_DeleteMediaClip(app, splitRight.clipLeft);
             } else {
                 log_debug("double thing");
                 // case: [(])
@@ -138,10 +147,15 @@ void overrideOverlappingClips(App* app, MediaClip* priorityClip) {
                     // case: [(])
                     log_debug("case: [(])");
 
+                    ClipSplitResult split = MediaClip_Split(app, clip, prioStart);
+                    App_DeleteMediaClip(app, split.clipRight);
+
                 } else if (prioStart < clipStart) {
                     // case: ([)]
                     log_debug("case: ([)]");
 
+                    ClipSplitResult split = MediaClip_Split(app, clip, prioEnd);
+                    App_DeleteMediaClip(app, split.clipLeft);
                 }
 
 
@@ -163,7 +177,7 @@ bool MediaClip_IsBeingPlayed(App* app, MediaClip* mediaClip) {
 
 // splits the clip at the timestamp specified
 // does not invoke App_CalculateTImelineEvents() by itself
-void MediaClip_Split(App* app, MediaClip* clip, float timestamp) {
+ClipSplitResult MediaClip_Split(App* app, MediaClip* clip, float timestamp) {
     MediaClip* rightClip = clip;
     MediaClip* leftClip = App_CreateMediaClip(app, rightClip->source);
     
@@ -181,6 +195,9 @@ void MediaClip_Split(App* app, MediaClip* clip, float timestamp) {
     rightClip->startCutoff += clipLengthLeftOfMarker;
     rightClip->padding += clipLengthLeftOfMarker;
     rightClip->width -= clipLengthLeftOfMarker;
+
+    ClipSplitResult result = {leftClip, rightClip};
+    return result;
 }
 
 bool shouldUpdatePlaybackAfterMove(App* app, MediaClip* mediaClip, float drawClipLeftPadding, float drawClipWidth) {
@@ -447,6 +464,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 			*startCutoff = totalCutOffValue;
 			mediaClip->isResizingLeft = false;
             mediaClip->width = drawClipWidth;
+            overrideOverlappingClips(app, mediaClip);
             App_CalculateTimelineEvents(app);
 
 			if (updatePlayback) {
@@ -518,6 +536,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 			*endCutoff = totalCutOffValue;
 			mediaClip->isResizingRight = false;
             mediaClip->width = drawClipWidth;
+            overrideOverlappingClips(app, mediaClip);
             App_CalculateTimelineEvents(app);
 
 			if (updatePlayback) {
