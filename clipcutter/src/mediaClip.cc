@@ -223,6 +223,13 @@ bool shouldUpdatePlaybackAfterMove(App* app, MediaClip* mediaClip, float drawCli
 //void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 
 ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, float drawClipLeftPadding, float drawClipWidth, bool isGhostClip) {
+    ImU32 normal_border_color;
+    if (isGhostClip) {
+        normal_border_color = ImGui::GetColorU32(ImVec4(0.7, 0.7, 0.7, 1));
+    } else {
+        normal_border_color = ImGui::GetColorU32(ImVec4(1, 1, 1, 1));
+    }
+
     ImVec2 cursor_trackclip(0, 0);
     ImGui::SetCursorScreenPos(app->timeline.cursTopLeft);
     for (int i = 0; i <= mediaClip->source->audioTracks; i++) {
@@ -273,26 +280,21 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
             ImGui::SetCursorScreenPos(savedPos);
         }
 
-        // ######### bottom border
+        // ######### border seperating track from track below in clip
+
         float thickness = 1;
         if (i != 0) {
-            ImU32 border_color = ImGui::GetColorU32(ImVec4(1, 1, 1, 1));
+            ImU32 border_color = normal_border_color;
             ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(r_min.x, r_min.y), ImVec2(r_max.x, r_min.y + thickness), border_color);
         }
-
-        // ########## track separator
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-        ImGui::Separator();
-        ImGui::PopStyleVar();
     }
 
     
     ImU32 border_color;
     if (app->selectedTrack == mediaClip) { // ########### clip selection
+        border_color = normal_border_color;
         if (drawClipWidth == 0.0) {
             border_color = ImGui::GetColorU32(ImVec4(0.8, 0.1, 0.1, 1));
-        } else {
-            border_color = ImGui::GetColorU32(ImVec4(1, 1, 1, 1));
         }
         ImVec2 posStart(app->timeline.cursTopLeft.x + drawClipLeftPadding * app->timeline.scaleX, app->timeline.cursTopLeft.y);
         ImVec2 posEnd(app->timeline.cursTopLeft.x + (drawClipLeftPadding + drawClipWidth) * app->timeline.scaleX, app->timeline.cursTopLeft.y + app->timeline.clipHeight * (mediaClip->source->audioTracks+1));

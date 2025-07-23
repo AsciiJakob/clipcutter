@@ -160,11 +160,14 @@ void UI_DrawEditor(App* app) {
     if (ImGui::Begin("Help")) {
         ImGui::TextWrapped("Welcome to Clipcutter!");
         ImGui::TextWrapped("Some basic controls are:");
+        ImGui::TextWrapped("SPACE - toggle pause of video playback");
+        ImGui::TextWrapped("");
+        ImGui::TextWrapped("Timeline:");
         ImGui::TextWrapped("DEL - delete selected clip");
         ImGui::TextWrapped("s - split clip at marker");
-        ImGui::TextWrapped("SPACE - toggle pause of video playback");
         ImGui::TextWrapped("Scroll wheel - zoom in and out");
-        ImGui::TextWrapped("Shift + Scroll wheel - scroll the timeline view horizontally");
+        ImGui::TextWrapped("Shift + Scroll wheel - scroll horizontally");
+        ImGui::TextWrapped("middle mouse - pan timeline");
     }
     ImGui::End();
 
@@ -279,10 +282,25 @@ void UI_DrawEditor(App* app) {
 
 			bool timelineClicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
 
+            // draw track seperators
+			ImVec2 separatorPos = cursorTimelineBefore;
+
+            for (int i=0; i < app->timeline.highestTrackCount+1; i++) {
+                ImGui::SetCursorScreenPos(separatorPos);
+
+                ImU32 separatorColor = ImGui::GetColorU32(ImVec4(0.4, 0.4, 0.4, 1));
+                ImGui::PushStyleColor(ImGuiCol_Separator, separatorColor);
+                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+                ImGui::Separator();
+                ImGui::PopStyleColor();
+                ImGui::PopStyleVar();
+
+                separatorPos.y += app->timeline.clipHeight;
+            }
+
 			ImGui::SetCursorScreenPos(cursorTimelineBefore);
 
             MediaClip* drawAgain = nullptr;
-            // int drawAgainI = 0;
 			for (int i = 0; i < MEDIACLIPS_SIZE; i++) { // draw clips
 				MediaClip* clip = app->mediaClips[i];
 				if (clip == nullptr) break;
@@ -293,7 +311,6 @@ void UI_DrawEditor(App* app) {
                     i = i-1;
                 } else if (clip->isResizingLeft || clip->isResizingRight || clip->isBeingMoved) {
                     drawAgain = clip;
-                    // drawAgainI = i;
                 }
 			}
 
