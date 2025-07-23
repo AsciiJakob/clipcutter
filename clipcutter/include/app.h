@@ -7,6 +7,7 @@
 #define MEDIACLIPS_SIZE 248
 #define MEDIASOURCES_SIZE 248
 #define TIMELINE_EVENTS_SIZE MEDIACLIPS_SIZE*2+1
+#define MINIMUM_DRAW_TRACK_COUNT 3
 
 typedef struct MediaClip MediaClip;
 typedef struct MediaSource MediaSource;

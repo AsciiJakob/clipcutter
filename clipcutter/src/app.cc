@@ -15,11 +15,9 @@ void App_Init(App* app) {
 	app->timeline.clipHeight = 30;
 	app->timeline.scaleX = 1.5;
 	app->timeline.snappingPrecision = 5.0;
-    app->timeline.highestTrackCount = 0;
+    app->timeline.highestTrackCount = MINIMUM_DRAW_TRACK_COUNT;
 
     strcpy(app->exportPath, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");
-
-    log_error("test!");
 }
 
 void App_Free(App* app) {
@@ -167,6 +165,8 @@ void App_CalculateTimelineEvents(App* app) {
 			}
 			mediaClips[backI + 1] = current;
 		}
+
+        if (app->timeline.highestTrackCount < MINIMUM_DRAW_TRACK_COUNT) app->timeline.highestTrackCount = MINIMUM_DRAW_TRACK_COUNT;
 
 	}
 
