@@ -63,15 +63,15 @@ void UI_DrawEditor(App* app) {
 
             SDL_ShowOpenFileDialog(callback, app, app->window, filters, 3, NULL, true);
 		}
-		if (ImGui::Button("export")) {
-            log_debug("Clicked button for opening export modal");
-            ImGui::OpenPopup("ExportModal");
+		if (ImGui::Button("Export (f9)")) {
+            ImGui::OpenPopup("Export options");
 		}
 
-        if (ImGui::BeginPopupModal("ExportModal")) {
-            ImGui::Text("Hello");
+        if (ImGui::IsKeyPressed(ImGuiKey_F9)) {
+            ImGui::OpenPopup("Export options");
+        }
 
-
+        if (ImGui::BeginPopupModal("Export options")) {
             ImGui::InputTextWithHint("Export path", "Path to export to", app->exportPath, sizeof(app->exportPath), ImGuiInputTextFlags_AutoSelectAll, NULL, nullptr);
 
             if (ImGui::Button("Select in file explorer")) {
@@ -161,6 +161,7 @@ void UI_DrawEditor(App* app) {
         ImGui::TextWrapped("Welcome to Clipcutter!");
         ImGui::TextWrapped("Some basic controls are:");
         ImGui::TextWrapped("SPACE - toggle pause of video playback");
+        ImGui::TextWrapped("F9 - open export modal");
         ImGui::TextWrapped("");
         ImGui::TextWrapped("Timeline:");
         ImGui::TextWrapped("DEL - delete selected clip");

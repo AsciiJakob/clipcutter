@@ -120,11 +120,6 @@ int main(int argc, char* argv[]) {
                     log_debug("Pressing debug key");
                 }
 
-                if (event.key.key == SDLK_PAGEDOWN) {
-                    log_debug("Pressing export key");
-                    ImGui::OpenPopup("ExportModal");
-                }
-
                 if (event.key.key == SDLK_DELETE) {
                     if (app->selectedTrack != nullptr)
                         App_DeleteMediaClip(app, app->selectedTrack);
