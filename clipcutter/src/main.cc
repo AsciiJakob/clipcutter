@@ -121,8 +121,13 @@ int main(int argc, char* argv[]) {
                 }
 
                 if (event.key.key == SDLK_DELETE) {
-                    if (app->selectedTrack != nullptr)
-                        App_DeleteMediaClip(app, app->selectedTrack);
+                    if (app->selectedClips.size != 0)  {
+                        for (size_t i=0; i < app->selectedClips.size; i++) {
+                            App_DeleteMediaClip(app, (MediaClip*) app->selectedClips.items[i]);
+                        }
+                        DynArr_Init(&app->selectedClips, sizeof(MediaClip*));
+
+                    }
                 }
 
                 // split clip
@@ -140,6 +145,19 @@ int main(int argc, char* argv[]) {
                     app->playbackActive = !app->playbackActive;
                     Playback_SetPaused(app, !app->playbackActive);
                 }
+
+
+                if (SDL_GetModState() & SDL_KMOD_CTRL) {
+                    if (event.key.key == SDLK_A) {
+                        for (int i=0; i < MEDIACLIPS_SIZE; i++) {
+                            MediaClip* clip = app->mediaClips[i];
+                            if (clip == nullptr) break;
+                            clip->isSelected = true;
+                            DynArr_Append(&app->selectedClips, clip);
+                        }
+                    }
+                }
+
                 //if (event.key.keysym.sym == SDLK_RIGHT) {
                     //setPositionRelative(app->mpv, 5);
                 //}

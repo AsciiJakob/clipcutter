@@ -291,7 +291,7 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
 
     
     ImU32 border_color;
-    if (app->selectedTrack == mediaClip) { // ########### clip selection
+    if (mediaClip->isSelected) { // ########### clip selection
         border_color = normal_border_color;
         if (drawClipWidth == 0.0) {
             border_color = ImGui::GetColorU32(ImVec4(0.8, 0.1, 0.1, 1));
@@ -552,12 +552,60 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
     ImVec2 cursor_trackclip = MediaClip_Draw_DrawTracks(app, mediaClip, clipIndex, drawClipLeftPadding, drawClipWidth, false);
 
     if (mediaClip->isHovered) {
+
+        // handle selection
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
+
+                MediaClip* firstClip = (MediaClip*) app->selectedClips.items[0];
+                App_ClearClipSelections(app);
+
+                if (mediaClip->timelineEventsIndex < firstClip->timelineEventsIndex) {
+                    for (int i=firstClip->timelineEventsIndex; i >= mediaClip->timelineEventsIndex; i--) {
+                        TimelineEvent event = app->timelineEvents[i];
+                        if (event.type == TIMELINE_EVENT_VIDEO) {
+                            DynArr_Append(&app->selectedClips, event.clip);
+                            event.clip->isSelected = true;
+                        }
+                    }
+
+                } else { // if mediaClip->timelineEventsIndex >= lastClip->timelineEventsIndex
+                    for (int i=firstClip->timelineEventsIndex; i <= mediaClip->timelineEventsIndex; i++) {
+                        TimelineEvent event = app->timelineEvents[i];
+                        if (event.type == TIMELINE_EVENT_VIDEO) {
+                            DynArr_Append(&app->selectedClips, event.clip);
+                            event.clip->isSelected = true;
+                        }
+                    }
+                }
+            } else if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+                if (mediaClip->isSelected) {
+                    DynArr_RemoveElement(&app->selectedClips, mediaClip);
+                    mediaClip->isSelected = false;
+                } else {
+                    DynArr_Append(&app->selectedClips, mediaClip);
+                    mediaClip->isSelected = true;
+                }
+            } else {
+                if (mediaClip->isSelected) {
+                    bool addBack = app->selectedClips.size > 1;
+                    App_ClearClipSelections(app);
+                    if (addBack) {
+                        DynArr_Append(&app->selectedClips, mediaClip);
+                        mediaClip->isSelected = true;
+                    }
+                } else {
+                    App_ClearClipSelections(app);
+
+                    DynArr_Append(&app->selectedClips, mediaClip);
+                    mediaClip->isSelected = true;
+                }
+            }
+        }
+
+        // handle resizing / show resizing cursor
         float edgeLeft = (cursor_trackclip.x + drawClipLeftPadding * app->timeline.scaleX);
         float edgeRight = (cursor_trackclip.x + (drawClipWidth + drawClipLeftPadding) * app->timeline.scaleX);
-
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-            app->selectedTrack = mediaClip;
-        }
 
         if (fabs(ImGui::GetMousePos().x - edgeLeft) < 10 || mediaClip->isResizingLeft) {
             ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);

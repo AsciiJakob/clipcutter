@@ -17,6 +17,7 @@ struct MediaClip {
 	bool isResizingRight;
 	bool isBeingMoved;
 	bool isHovered;
+    bool isSelected;
 	
 	ImVec2 moveStartPos;
 	ImVec2 resizeStartPos;

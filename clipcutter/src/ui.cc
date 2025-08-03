@@ -402,7 +402,7 @@ void UI_DrawEditor(App* app) {
 
 						
 						float newSecs = (mousePos.x - cursorTimelineBefore.x)/app->timeline.scaleX;
-						app->selectedTrack = nullptr;
+                        App_ClearClipSelections(app);
 						app->playbackTime = newSecs;
 						App_MovePlaybackMarker(app, newSecs);
 					}
