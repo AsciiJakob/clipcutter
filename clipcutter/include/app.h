@@ -36,7 +36,7 @@ struct Timeline {
 	bool snappingEnabled;
 	float snappingPrecision;
 	float clipHeight;
-
+    float width;
 	ImVec2 cursTopLeft;
 };
 

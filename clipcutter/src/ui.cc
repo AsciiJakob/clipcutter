@@ -177,6 +177,7 @@ void UI_DrawEditor(App* app) {
 		ImGui::Text("playbacktime: %.2f", app->playbackTime);
 		ImGui::Text("playbackActive: %d", app->playbackActive);
 		ImGui::Text("scaling: %.2f", app->timeline.scaleX);
+		ImGui::Text("timeline width: %.2f", app->timeline.width);
 		ImGui::Text("timelineEvent: %d", app->timelineEvents[app->timelineEventIndex].type);
 		if (app->loadedMediaSource != nullptr) {
 			ImGui::Text("currentLoaded: %s", app->loadedMediaSource->filename);
@@ -274,7 +275,9 @@ void UI_DrawEditor(App* app) {
 			ImGui::SetNextItemAllowOverlap();
 			ImVec2 cursorTimelineBefore = ImGui::GetCursorScreenPos();
 			app->timeline.cursTopLeft = cursorTimelineBefore; // todo: refac to use this
-			ImVec2 timeline_size = ImVec2(5000, ImGui::GetContentRegionAvail().y);
+
+			// ImVec2 timeline_size = ImVec2(5000, ImGui::GetContentRegionAvail().y);
+			ImVec2 timeline_size = ImVec2(app->timeline.width*app->timeline.scaleX, ImGui::GetContentRegionAvail().y);
 			ImGui::InvisibleButton("timeline", timeline_size);
 			ImGui::PopStyleVar();
 
@@ -367,6 +370,10 @@ void UI_DrawEditor(App* app) {
 							app->timeline.scaleX = app->timeline.scaleX * factor;
 						} else {
 							app->timeline.scaleX = app->timeline.scaleX / factor;
+                            if (ImGui::GetWindowWidth() / app->timeline.scaleX > app->timeline.width) {
+                                app->timeline.scaleX = ImGui::GetWindowWidth() / app->timeline.width; // revert change to limit how far we can zoom out.
+                            }
+
 						}
 
 						float currentScrollPos = ImGui::GetScrollX();
@@ -377,6 +384,7 @@ void UI_DrawEditor(App* app) {
 
 						float offset = diffBefore - diffAfter;
 						ImGui::SetScrollX(currentScrollPos + offset * app->timeline.scaleX);
+
 					}
 				}
 			}
