@@ -62,7 +62,7 @@ struct App {
 	bool playbackBlocked;
 	bool playbackActive;
 	double playbackTime;
-	MediaClip* selectedTrack;
+	DynArr selectedClips;
 	MediaSource* loadedMediaSource;
 	bool isLoadingVideo;
 	bool isLoadingNewSource;
@@ -103,6 +103,7 @@ MediaClip* App_FindClosestMediaClip(App* app, double timeToLookFrom);
 void App_LoadEvent(App* app, TimelineEvent* event);
 bool App_Queue_AddCommand(App* app, const char** input);
 void App_Queue_SendNext(App* app);
+void App_ClearClipSelections(App* app);
 void App_Die();
 
 #endif

@@ -2,6 +2,7 @@
 #define PCH_H
 
 #include "log.h"
+#include "dynArr.h"
 
 #include <Windows.h>
 

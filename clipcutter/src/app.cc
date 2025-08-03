@@ -16,6 +16,7 @@ void App_Init(App* app) {
 	app->timeline.scaleX = 1.5;
 	app->timeline.snappingPrecision = 5.0;
     app->timeline.highestTrackCount = MINIMUM_DRAW_TRACK_COUNT;
+    DynArr_Init(&app->selectedClips, sizeof(MediaClip*));
 
     strcpy(app->exportPath, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");
 }
@@ -42,6 +43,7 @@ void App_Free(App* app) {
 		free(mediaClip);
 	}
 
+    DynArr_Free(&app->selectedClips);
 	free(app);
 }
 
@@ -78,7 +80,6 @@ MediaClip* App_CreateMediaClip(App* app, MediaSource* mediaSource) {
 
 	return mediaClip;
 }
-
 
 int App_FindFirstNullptr(void** array, int maxLength) {
 	for (int i = 0; i < maxLength; i++) {
@@ -441,6 +442,16 @@ void App_Queue_SendNext(App* app) {
         log_error("Failed sending command to MPV of type: %s", cmdStr);
         // TODO: set unsent to right value and increment readIndex so we don't get stuck
     }
+}
+
+void App_ClearClipSelections(App* app) {
+    for (size_t i=0; i < app->selectedClips.size; i++) {
+        MediaClip* clip = (MediaClip*) app->selectedClips.items[i];
+        if (clip != nullptr)
+            clip->isSelected = false;
+    }
+
+    DynArr_Init(&app->selectedClips, sizeof(MediaClip*)); // clear selectedClips array
 }
 
 
