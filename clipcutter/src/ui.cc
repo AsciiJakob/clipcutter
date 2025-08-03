@@ -159,12 +159,13 @@ void UI_DrawEditor(App* app) {
 
     if (ImGui::Begin("Help")) {
         ImGui::TextWrapped("Welcome to Clipcutter!");
-        ImGui::TextWrapped("Some basic controls are:");
+        ImGui::TextWrapped("");
         ImGui::TextWrapped("SPACE - toggle pause of video playback");
         ImGui::TextWrapped("F9 - open export modal");
         ImGui::TextWrapped("");
         ImGui::TextWrapped("Timeline:");
         ImGui::TextWrapped("DEL - delete selected clip");
+        ImGui::TextWrapped("ctrl + a - select all clips");
         ImGui::TextWrapped("s - split clip at marker");
         ImGui::TextWrapped("Scroll wheel - zoom in and out");
         ImGui::TextWrapped("Shift + Scroll wheel - scroll horizontally");

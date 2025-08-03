@@ -554,7 +554,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
     if (mediaClip->isHovered) {
 
         // handle selection
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !mediaClip->isBeingMoved) {
             if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
 
                 MediaClip* firstClip = (MediaClip*) app->selectedClips.items[0];
@@ -588,12 +588,12 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
                 }
             } else {
                 if (mediaClip->isSelected) {
-                    bool addBack = app->selectedClips.size > 1;
+                    // bool addBack = app->selectedClips.size > 1;
                     App_ClearClipSelections(app);
-                    if (addBack) {
+                    // if (addBack) {
                         DynArr_Append(&app->selectedClips, mediaClip);
                         mediaClip->isSelected = true;
-                    }
+                    // }
                 } else {
                     App_ClearClipSelections(app);
 
