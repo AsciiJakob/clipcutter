@@ -14,6 +14,7 @@ void App_Init(App* app) {
 	app->playbackActive = false;
 	app->timeline.clipHeight = 30;
 	app->timeline.scaleX = 1.5;
+	app->timeline.width = 2500;
 	app->timeline.snappingPrecision = 5.0;
     app->timeline.highestTrackCount = MINIMUM_DRAW_TRACK_COUNT;
     DynArr_Init(&app->selectedClips, sizeof(MediaClip*));
@@ -185,6 +186,9 @@ void App_CalculateTimelineEvents(App* app) {
 			} else {
 				event->start = clipBefore->padding+clipBefore->width;
 			}
+
+            app->timeline.width = fmax(event->start+1000, app->timeline.width);
+
 			break;
 		}
 
