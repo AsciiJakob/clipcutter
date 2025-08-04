@@ -21,30 +21,47 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 int main(int argc, char* argv[]) {
 #endif
 
-    #if defined(CC_PLATFORM_WINDOWS) && defined(CC_BUILD_DEBUG)
-        // if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
-        AllocConsole();
-        FILE* f;
-        freopen_s(&f, "conout$", "w", stdout);
-        freopen_s(&f, "conout$", "w", stderr);
-        // }
-        
-    #endif
-    // __debugbreak();
     log_info("Clipcutter v0.0.1");
-
     App* app = (App*) malloc(sizeof(App));
     App_Init(app);
     /*app->playbackActive = true;*/
     App_CalculateTimelineEvents(app);
 
 
-    // window init
+    if (argc > 1) {
+        for (int i=1; i < argc; i++) {
+            char* arg = argv[i];
 
+            if (strcmp(arg, "--debug-console") == 0) {
+                #if defined(CC_PLATFORM_WINDOWS)
+                    // if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
+                    AllocConsole();
+                    FILE* f;
+                    freopen_s(&f, "conout$", "w", stdout);
+                    freopen_s(&f, "conout$", "w", stderr);
+                    // }
+                    
+                #endif
+            } else {
+                MediaSource* argVideo = App_CreateMediaSource(app, arg);
+                if (argVideo != nullptr)  {
+                    App_CreateMediaClip(app, argVideo);
+                    App_CalculateTimelineEvents(app);
+                } else {
+                    log_error("Failed to import video source");
+                }
+            }
+        }
+
+    }
+
+    // window init
     if (!initWindow(app)) {
         log_fatal("failed to initialize window, shutting down");
         App_Die();
     }
+
+    App_MovePlaybackMarker(app, 0);
 
     // we have to reset the lavfi option every time we load a new video.
     // Otherwise it might try to load too many audio tracks, causing the video to not load
@@ -53,56 +70,7 @@ int main(int argc, char* argv[]) {
 
     mpv_observe_property(app->mpv, 0, "playback-time", MPV_FORMAT_DOUBLE);
 
-
-
-
-    if (argc > 1) {
-        cc_unused(argv);
-        MediaSource* argVideo = App_CreateMediaSource(app, argv[1]);
-        if (argVideo != nullptr)  {
-            App_CreateMediaClip(app, argVideo);
-            App_CalculateTimelineEvents(app);
-            App_MovePlaybackMarker(app, 0);
-        } else {
-            log_error("Failed to import video source");
-        }
-
-        //
-        //
-        MediaSource* secondVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/another-2-AT.mp4");
-        if (secondVid != nullptr)  {
-            App_CreateMediaClip(app, secondVid);
-            App_CalculateTimelineEvents(app);
-            App_MovePlaybackMarker(app, 0);
-        } else {
-            log_error("Failed to import video source");
-        }
-
-        /*MediaSource* thirdVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/yetanother-2-AT.mp4");*/
-        /*App_CreateMediaClip(app, thirdVid);*/
-        /*App_CalculateTimelineEvents(app);*/
-        /**/
-        /**/
-        /*MediaSource* fourthVid = App_CreateMediaSource(app, "D:/notCDrive/Videos/cc_debug/3-audiotracks.mp4");*/
-        /*App_CreateMediaClip(app, fourthVid);*/
-        /*App_CalculateTimelineEvents(app);*/
-    } else {
-
-    }
-
-
-    /*for (int i=0; i < 200; i++) {*/
-    /*    log_debug("I: %d", i);*/
-    /*    if (i== 27) {*/
-    /*        log_debug("27!!!!!!!!!!!!!!");*/
-    /*    }*/
-    /*    const char* cmd[] = { "set", "options/reset-on-next-file", "lavfi-complex", NULL };*/
-    /*    App_QueueCommand(app, cmd);*/
-    /*}*/
-
-
     // Main loop
-
     bool done = false;
     bool mpvRedraw = false;
     while (!done) {
