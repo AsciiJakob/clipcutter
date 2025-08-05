@@ -3,7 +3,7 @@
 #include "app.h"
 #include "playback.h"
 
- char* GetFileNameFromPath( char* _buffer) {
+ char* GetFileNameFromPath(char* _buffer) {
 	char c;
 	int  i;
 	for (i = 0; ; ++i) {
@@ -23,7 +23,8 @@ void MediaSource_Init(MediaSource** mediaSourceP, const char* path) {
 	mediaSource->filename = nullptr;
 	//strcpy(mediaSource->path, path);
 	mediaSource->path = strdup(path);
-	mediaSource->filename = GetFileNameFromPath(strdup(path));
+	// mediaSource->filename = GetFileNameFromPath(strdup(path));
+	mediaSource->filename = strdup(GetFileNameFromPath((char*)path));
 	if (mediaSource->filename == nullptr) {
 		log_fatal("Failed to get filename from path");
 		App_Die();
