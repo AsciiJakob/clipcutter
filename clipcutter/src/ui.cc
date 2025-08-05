@@ -3,6 +3,7 @@
 #include "app.h"
 #include "imgui_internal.h"
 #include "mediaClip.h"
+#include "settings.h"
 
 int tracklistWidth = 100;
 
@@ -123,8 +124,19 @@ void UI_DrawEditor(App* app) {
             ImGui::ProgressBar(app->exportFrame);
 
             if (ImGui::Button("Close")) {
-                ImGui::ClosePopupToLevel(0, false);
+                ImGui::CloseCurrentPopup();
             }
+
+            ImGui::EndPopup();
+        }
+
+
+		if (ImGui::Button("Settings")) {
+            ImGui::OpenPopup("Settings");
+		}
+
+        if (ImGui::BeginPopupModal("Settings")) {
+            Settings_DrawSettings(app);
 
             ImGui::EndPopup();
         }

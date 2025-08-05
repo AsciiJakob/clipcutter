@@ -48,6 +48,14 @@ struct MpvCommand {
     char command[MPVCOMMAND_STR_SIZE];
 };
 
+constexpr const char* SUPPORTED_FILE_FORMATS[] = {
+    ".mp4",
+    ".avi",
+    ".mpeg",
+    ".mov"
+};
+constexpr size_t NUM_SUPPORTED_FORMATS = sizeof(SUPPORTED_FILE_FORMATS) / sizeof(SUPPORTED_FILE_FORMATS[0]);
+
 struct App {
 	SDL_Window* window;
     SDL_GLContext gl_context;
