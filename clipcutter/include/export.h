@@ -3,6 +3,9 @@
 #include "pch.h"
 #include "app.h"
 
+typedef struct App App;
+
+
 void exportVideo(App* app, bool combineAudioStreams);
 
 #endif

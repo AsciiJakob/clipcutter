@@ -120,8 +120,8 @@ void UI_DrawEditor(App* app) {
                 exportVideo(app, false);
             };
 
-            /*ImGui::Text("Frame: %.2f", app->exportFrame);*/
-            ImGui::ProgressBar(app->exportFrame);
+            ImGui::Text("Status: %s", app->exportState.statusString);
+            ImGui::ProgressBar(app->exportState.exportFrame);
 
             if (ImGui::Button("Close")) {
                 ImGui::CloseCurrentPopup();
