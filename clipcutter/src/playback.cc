@@ -52,6 +52,20 @@ void Playback_LoadVideo(App* app, char* path) {
 	/*}*/
 }
 
+void Playback_StepFrames(App* app, bool forwards) {
+	log_trace("Playback_StepFrames()");
+    // NOTE: behaviour of this seems to have changed in newer MPV versions in case i update
+    if (forwards) {
+        const char* cmd[] = { "frame-step", NULL }; 
+        App_Queue_AddCommand(app, cmd);
+    } else {
+        const char* cmd[] = { "frame-back-step", NULL }; 
+        App_Queue_AddCommand(app, cmd);
+
+    }
+
+}
+
 void Playback_SetPaused(App* app, bool pause) {
     const char* state = pause ? "yes" : "no";
     const char* cmd_pause[] = { "set", "pause", state, NULL };
