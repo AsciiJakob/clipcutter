@@ -11,6 +11,20 @@
 
 typedef struct MediaClip MediaClip;
 typedef struct MediaSource MediaSource;
+struct ExportState {
+    char* statusString;
+    float exportFrame;
+    int clipIndex;
+    const char* out_filename;
+    AVStream* out_video_stream;
+    AVStream* out_audio_stream;
+    int64_t offsetPts;
+    int64_t lastPts;
+    int64_t lastDts;
+    int64_t lastAudioPts;
+    int64_t lastAudioDts;
+    int64_t audioOffsetPts;
+};
 
 struct Events {
 	u32 wakeupOnMpvRenderUpdate, wakeupOnMpvEvents;
@@ -87,7 +101,7 @@ struct App {
     #define MPV_CMD_QUEUE_SIZE 30
     MpvCommand MpvCmdQueue[MPV_CMD_QUEUE_SIZE];
 
-    float exportFrame;
+    ExportState exportState;
     char exportPath[1024];
 };
 

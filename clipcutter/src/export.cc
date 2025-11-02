@@ -15,23 +15,9 @@ char* alloc_error(const char* fmt, ...) {
     log_error(errorBuffer);
     return errorBuffer;
 }
+char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext* ofmt_ctx);
 
-struct OutputState {
-    float* exportFrame;
-    int clipIndex;
-    const char* out_filename;
-    AVStream* out_video_stream;
-    AVStream* out_audio_stream;
-    int64_t offsetPts;
-    int64_t lastPts;
-    int64_t lastDts;
-    int64_t lastAudioPts;
-    int64_t lastAudioDts;
-    int64_t audioOffsetPts;
-};
-char* remuxClip(MediaClip* mediaClip, float* exportFrame, AVFormatContext* ofmt_ctx, OutputState* outputState);
-
-char* remuxMultipleClips(MediaClip** mediaClips, float* exportFrame, const char* out_filename) {
+char* remuxMultipleClips(MediaClip** mediaClips, ExportState* exportState, const char* out_filename) {
     AVFormatContext *ofmt_ctx = NULL;
     // AVStream* out_audio_stream;
     // AVCodecContext *enc_ctx;
@@ -41,29 +27,28 @@ char* remuxMultipleClips(MediaClip** mediaClips, float* exportFrame, const char*
     // AVFrame* frame = NULL;
     // int outAudioStreamIdx = -1;
     char* err = nullptr;
-    OutputState outputState;
-    outputState.offsetPts = 0; 
-    outputState.audioOffsetPts = 0; 
-    outputState.lastPts = AV_NOPTS_VALUE;
-    outputState.lastDts = AV_NOPTS_VALUE;
-    outputState.lastAudioPts = AV_NOPTS_VALUE;
-    outputState.lastAudioDts = AV_NOPTS_VALUE;
-    outputState.out_filename = out_filename;
+    exportState->offsetPts = 0; 
+    exportState->audioOffsetPts = 0; 
+    exportState->lastPts = AV_NOPTS_VALUE;
+    exportState->lastDts = AV_NOPTS_VALUE;
+    exportState->lastAudioPts = AV_NOPTS_VALUE;
+    exportState->lastAudioDts = AV_NOPTS_VALUE;
+    exportState->out_filename = out_filename;
 
-    avformat_alloc_output_context2(&ofmt_ctx, NULL, NULL, outputState.out_filename);
+    avformat_alloc_output_context2(&ofmt_ctx, NULL, NULL, exportState->out_filename);
     if (!ofmt_ctx) {
         err = alloc_error("Could not create output context");
         return err;
     }
 
-    outputState.out_video_stream = avformat_new_stream(ofmt_ctx, NULL);
-    if (!outputState.out_video_stream) {
+    exportState->out_video_stream = avformat_new_stream(ofmt_ctx, NULL);
+    if (!exportState->out_video_stream) {
         err = alloc_error("Failed allocating video output stream");
         goto cleanup;
     }
 
-    outputState.out_audio_stream = avformat_new_stream(ofmt_ctx, NULL);
-    if (!outputState.out_audio_stream) {
+    exportState->out_audio_stream = avformat_new_stream(ofmt_ctx, NULL);
+    if (!exportState->out_audio_stream) {
         err = alloc_error("Failed allocating audio output stream");
         goto cleanup;
     }
@@ -73,22 +58,27 @@ char* remuxMultipleClips(MediaClip** mediaClips, float* exportFrame, const char*
         // if (i==1) break;
         MediaClip* mediaClip = mediaClips[i];
         if (mediaClip == nullptr) break;
-        if (outputState.lastPts != AV_NOPTS_VALUE) {
+        if (exportState->lastPts != AV_NOPTS_VALUE) {
             // +1 since we want to write the frame after the last one.
-            outputState.offsetPts = outputState.lastPts+1; 
-            outputState.audioOffsetPts = outputState.lastAudioPts+1; 
+            exportState->offsetPts = exportState->lastPts+1; 
+            exportState->audioOffsetPts = exportState->lastAudioPts+1; 
         }
-        // outputState.lastPts = AV_NOPTS_VALUE;
-        // outputState.lastDts = AV_NOPTS_VALUE;
-        // outputState.lastAudioPts = AV_NOPTS_VALUE;
-        // outputState.lastAudioDts = AV_NOPTS_VALUE;
+        // exportState->lastPts = AV_NOPTS_VALUE;
+        // exportState->lastDts = AV_NOPTS_VALUE;
+        // exportState->lastAudioPts = AV_NOPTS_VALUE;
+        // exportState->lastAudioDts = AV_NOPTS_VALUE;
 
-        outputState.clipIndex = i;
+        exportState->clipIndex = i;
         log_debug("appending mediaClip with index %d", i);
-        err = remuxClip(mediaClip, exportFrame, ofmt_ctx, &outputState);
+        char* statusStrPtr = (char*) malloc(strlen(mediaClip->source->filename) + sizeof("Processing ") + 1);
+        sprintf(statusStrPtr, "Processing %s", mediaClip->source->filename);
+        exportState->statusString = statusStrPtr;
+        err = remuxClip(mediaClip, exportState, ofmt_ctx);
         if (err) {
             goto cleanup;
         }
+        exportState->statusString = nullptr;
+        free(statusStrPtr);
     }
 
     { // output file
@@ -119,7 +109,7 @@ cleanup:
 
 };
 // returns pointer to error message or nullptr if successful
-char* remuxClip(MediaClip* mediaClip, float* exportFrame, AVFormatContext* ofmt_ctx, OutputState* outputState) {
+char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext* ofmt_ctx) {
     const char* in_filename = mediaClip->source->path;
     const AVOutputFormat *ofmt = NULL;
     AVPacket* pkt = NULL;
@@ -146,14 +136,14 @@ char* remuxClip(MediaClip* mediaClip, float* exportFrame, AVFormatContext* ofmt_
     // int64_t last_audio_dts;
 
     // , int64_t* offsetPts, int64_t* offsetDts, int64_t* lastPts, int64_t* lastDts   
-    bool firstMediaClip = outputState->clipIndex == 0;
-    const char* out_filename = outputState->out_filename;
+    bool firstMediaClip = exportState->clipIndex == 0;
+    const char* out_filename = exportState->out_filename;
     log_debug("filename is: %s", out_filename);
-    AVStream* out_video_stream = outputState->out_video_stream;
-    AVStream* out_audio_stream  = outputState->out_audio_stream;
-    int64_t* offsetPts = &outputState->offsetPts;
-    int64_t* lastPts = &outputState->lastPts;
-    int64_t* lastDts = &outputState->lastDts;
+    AVStream* out_video_stream = exportState->out_video_stream;
+    AVStream* out_audio_stream  = exportState->out_audio_stream;
+    int64_t* offsetPts = &exportState->offsetPts;
+    int64_t* lastPts = &exportState->lastPts;
+    int64_t* lastDts = &exportState->lastDts;
 
 
     AVFilterGraph* filter_graph = avfilter_graph_alloc();
@@ -664,7 +654,8 @@ char* remuxClip(MediaClip* mediaClip, float* exportFrame, AVFormatContext* ofmt_
             double currentTime = (double) (pkt->pts-streamRescaledStartSeconds[in_index]) * av_q2d(ifmt_ctx->streams[pkt->stream_index]->time_base);
             // log_debug("current: %.2f", currentTime);
 
-            *exportFrame = (float) (currentTime / duration);
+            exportState->exportFrame = (float) (currentTime / duration);
+            log_debug("%.2f", exportState->exportFrame);
             
 
             
@@ -927,34 +918,32 @@ char* remuxClip(MediaClip* mediaClip, float* exportFrame, AVFormatContext* ofmt_
                             av_packet_rescale_ts(pkt, audioEncCtx->time_base, out_stream->time_base);
 
                             if (pkt->pts != AV_NOPTS_VALUE) {
-                                pkt->pts += outputState->audioOffsetPts;
+                                pkt->pts += exportState->audioOffsetPts;
                             }
 
                             if (pkt->dts != AV_NOPTS_VALUE) {
-                                pkt->dts += outputState->audioOffsetPts;
+                                pkt->dts += exportState->audioOffsetPts;
                             }
 
                             // we have to ensure monotonically increasing DTS
                             // the last_audio_dts > 0 condition is because last_audio_dts is 0 for the very first audio frame
                             // if (pkt->dts <= *last_audio_dts && *last_audio_dts > 0) {
                             // if (*last_audio_dts != AV_NOPTS_VALUE && pkt->dts <= *last_audio_dts) {
-                            if (outputState->lastAudioDts != AV_NOPTS_VALUE && pkt->dts <= outputState->lastAudioDts) {
+                            if (exportState->lastAudioDts != AV_NOPTS_VALUE && pkt->dts <= exportState->lastAudioDts) {
                                 log_debug("we have to ensure it is increasing");
-                                pkt->dts = outputState->lastAudioDts + 1;
+                                pkt->dts = exportState->lastAudioDts + 1;
                                 // if PTS is after DTS, adjust it accordingly
                                 if (pkt->pts <= pkt->dts) {
                                     pkt->pts = pkt->dts;
                                 }
                             }
                             
-                            outputState->lastAudioDts = pkt->dts;
+                            exportState->lastAudioDts = pkt->dts;
                             if (pkt->duration > 0)  {
-                                outputState->lastAudioPts = pkt->pts+pkt->duration;
+                                exportState->lastAudioPts = pkt->pts+pkt->duration;
                             } else {
-                                outputState->lastAudioPts = pkt->pts;
+                                exportState->lastAudioPts = pkt->pts;
                             }
-
-                            log_debug("Wrote audio packet")
 
                             ret = av_interleaved_write_frame(ofmt_ctx, pkt);
                             if (ret < 0) {
@@ -1590,11 +1579,13 @@ void exportVideo(App* app, bool combineAudioStreams) {
 
     if (combineAudioStreams) {
         /*char* errMsg = remux(firstClip, &app->exportFrame, app->exportPath);*/
-        char* errMsg = remuxMultipleClips(app->mediaClips, &app->exportFrame, app->exportPath);
+        char* errMsg = remuxMultipleClips(app->mediaClips, &app->exportState, app->exportPath);
         if (errMsg != nullptr) {
             log_info("Exporting failed with error: %s", errMsg);
+            app->exportState.statusString = (char*) "Failed";
             SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Exporting Failed", errMsg, app->window);
         } else {
+            app->exportState.statusString = (char*) "Completed";
             SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Export", "Sucessfully exported video", app->window);
         }
         free(errMsg);
