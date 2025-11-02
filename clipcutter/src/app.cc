@@ -20,6 +20,7 @@ void App_Init(App* app) {
     DynArr_Init(&app->selectedClips, sizeof(MediaClip*));
 
     strcpy(app->exportPath, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");
+    app->exportState.statusString = (char*) "Not started";
 }
 
 void App_Free(App* app) {
@@ -442,8 +443,9 @@ void App_Queue_SendNext(App* app) {
     sendCmd[sendCmdIndx] = NULL;
 
     //                                              using +1 to avoid having zero
-    if (mpv_command_async(app->mpv, app->mpvCmdQueueReadIndex+1, (const char**) sendCmd) != MPV_ERROR_SUCCESS) {
-        log_error("Failed sending command to MPV of type: %s", cmdStr);
+    int ret;
+    if ((ret = mpv_command_async(app->mpv, app->mpvCmdQueueReadIndex+1, (const char**) sendCmd)) != MPV_ERROR_SUCCESS) {
+        log_error("Failed sending command to MPV of type: '%s', error message: '%s'", cmdStr, mpv_error_string(ret));
         // TODO: set unsent to right value and increment readIndex so we don't get stuck
     }
 }

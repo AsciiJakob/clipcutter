@@ -114,6 +114,14 @@ int main(int argc, char* argv[]) {
                     Playback_SetPaused(app, !app->playbackActive);
                 }
 
+                if (event.key.key == SDLK_RIGHT) {
+                    Playback_StepFrames(app, true);
+                }
+
+                if (event.key.key == SDLK_LEFT) {
+                    log_debug("pressing left key!!Q!");
+                    Playback_StepFrames(app, false);
+                }
 
                 if (SDL_GetModState() & SDL_KMOD_CTRL) {
                     if (event.key.key == SDLK_A) {
