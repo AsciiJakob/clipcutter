@@ -46,6 +46,8 @@ char* remuxMultipleClips(MediaClip** mediaClips, float* exportFrame, const char*
     outputState.audioOffsetPts = 0; 
     outputState.lastPts = AV_NOPTS_VALUE;
     outputState.lastDts = AV_NOPTS_VALUE;
+    outputState.lastAudioPts = AV_NOPTS_VALUE;
+    outputState.lastAudioDts = AV_NOPTS_VALUE;
     outputState.out_filename = out_filename;
 
     avformat_alloc_output_context2(&ofmt_ctx, NULL, NULL, outputState.out_filename);
@@ -125,17 +127,20 @@ char* remuxClip(MediaClip* mediaClip, float* exportFrame, AVFormatContext* ofmt_
     AVFormatContext *ifmt_ctx = NULL;
     AVFilterContext* abufferCtxs[MAX_SUPPORTED_AUDIO_TRACKS] = { NULL};
     AVFilterContext* abuffersink_ctx;
+    AVCodecContext* videoDecCtx;
     AVCodecContext* audioDecCtx[MAX_SUPPORTED_AUDIO_TRACKS];
-    AVCodecContext *enc_ctx;
-    AVCodec* enc;
+    AVCodecContext *audioEncCtx;
+    AVCodec* audioEnc;
+    AVCodecContext *videoEncCtx;
+    AVCodec* videoEnc;
     memset(audioDecCtx, NULL, sizeof(audioDecCtx));
     int inVideoStreamIdx = -1;
     int outAudioStreamIdx = -1;
     int audioStreamIdx[MAX_SUPPORTED_AUDIO_TRACKS];
     memset(audioStreamIdx, -1, sizeof(audioStreamIdx));
     int audioStreamCount = 0;
-    int streamRescaledStartSeconds[MAX_SUPPORTED_AUDIO_TRACKS+1];
-    int streamRescaledEndSeconds[MAX_SUPPORTED_AUDIO_TRACKS+1];
+    int64_t streamRescaledStartSeconds[MAX_SUPPORTED_AUDIO_TRACKS+1];
+    int64_t streamRescaledEndSeconds[MAX_SUPPORTED_AUDIO_TRACKS+1];
     int ret;
     char* err = nullptr;
     // int64_t last_audio_dts;
@@ -250,6 +255,33 @@ char* remuxClip(MediaClip* mediaClip, float* exportFrame, AVFormatContext* ofmt_
 
         outAudioStreamIdx = out_audio_stream->index;
 
+        { // get video decoder
+            const AVStream* stream = ifmt_ctx->streams[inVideoStreamIdx];
+            const AVCodec* decoder = avcodec_find_decoder(stream->codecpar->codec_id);
+            if (!decoder) {
+                err = alloc_error("Failed to find video decoder from video stream");
+                goto cleanup;
+            }
+
+            videoDecCtx = avcodec_alloc_context3(decoder);
+            if (!videoDecCtx) {
+                err = alloc_error("Failed to allocate video decoder context");
+                goto cleanup;
+            }
+
+            ret = avcodec_parameters_to_context(videoDecCtx, stream->codecpar);
+            if (ret < 0) {
+                err = alloc_error("Failed to copy codec parameters to video decoder");
+                goto cleanup;
+            }
+
+            ret = avcodec_open2(videoDecCtx, decoder, NULL);
+            if (ret < 0) {
+                err = alloc_error("Failed to open video codec");
+                goto cleanup;
+            }
+        }
+
         { // get decoders from audio streams
             for (int i=0; i < audioStreamCount; i++) {
                 const AVStream* stream = ifmt_ctx->streams[audioStreamIdx[i]];
@@ -261,13 +293,13 @@ char* remuxClip(MediaClip* mediaClip, float* exportFrame, AVFormatContext* ofmt_
 
                 audioDecCtx[i] = avcodec_alloc_context3(decoder);
                 if (!audioDecCtx[i]) {
-                    err = alloc_error("Failed to allocate decoder context");
+                    err = alloc_error("Failed to allocate audio decoder context");
                     goto cleanup;
                 }
 
                 ret = avcodec_parameters_to_context(audioDecCtx[i], stream->codecpar);
                 if (ret < 0) {
-                    err = alloc_error("Failed to copy codec parameters to decoder");
+                    err = alloc_error("Failed to copy codec parameters to audio decoder");
                     goto cleanup;
                 }
 
@@ -409,68 +441,165 @@ char* remuxClip(MediaClip* mediaClip, float* exportFrame, AVFormatContext* ofmt_
             goto cleanup;
         }
 
-        // TODO: can I share one encoder across all the mediaClips? i should be able to.
-        enc = (AVCodec*) avcodec_find_encoder(ofmt->audio_codec);
-        enc_ctx = avcodec_alloc_context3(enc);
-        
-        if (!enc) {
-            err = alloc_error("Necessary encoder not found");
-            goto cleanup;
+        // create audio encoder
+        {
+
+            // TODO: can I share one encoder across all the mediaClips? i should be able to.
+            audioEnc = (AVCodec*) avcodec_find_encoder(ofmt->audio_codec);            
+
+            if (!audioEnc) {
+                err = alloc_error("Necessary audio encoder not found");
+                goto cleanup;
+            }
+
+            audioEncCtx = avcodec_alloc_context3(audioEnc);
+
+            if (!audioEncCtx) {
+                err = alloc_error("Failed to allocate audio encoder context");
+                goto cleanup;
+            }
+
+            audioEncCtx->sample_rate = audioDecCtx[0]->sample_rate;
+            /*av_channel_layout_default(&enc_ctx->ch_layout, 2); // stereo layout*/
+            av_channel_layout_default(&audioEncCtx->ch_layout, inAudioCodecPar->ch_layout.nb_channels); // stereo layout
+            /*enc_ctx->bit_rate = 320000;  // 320kbps*/
+            audioEncCtx->bit_rate = inAudioCodecPar->bit_rate;
+
+            const void *sample_fmts;
+            int num_sample_fmts;
+            int ret_config = avcodec_get_supported_config(audioEncCtx, audioEnc, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0, 
+                                                        &sample_fmts, &num_sample_fmts);
+            if (ret_config >= 0 && num_sample_fmts > 0) {
+                audioEncCtx->sample_fmt = *(const enum AVSampleFormat*)sample_fmts;
+            } else {
+                audioEncCtx->sample_fmt = AV_SAMPLE_FMT_FLTP; // Default fallback
+            }
+
+            audioEncCtx->time_base = AVRational{1, audioEncCtx->sample_rate};
+
+            if (ofmt->flags & AVFMT_GLOBALHEADER)
+                audioEncCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+
+            ret = avcodec_open2(audioEncCtx, audioEnc, NULL);
+            if (ret < 0) {
+                err = alloc_error("Cannot open audio encoder");
+                goto cleanup;
+            }
+
+
+            log_debug("Encoder expects: format=%d, sample_rate=%d, ch_layout=%llu", 
+                    audioEncCtx->sample_fmt, audioEncCtx->sample_rate, 
+                    (unsigned long long)audioEncCtx->ch_layout.nb_channels);
+
+            ret = avcodec_parameters_from_context(out_audio_stream->codecpar, audioEncCtx);
+
+            if (ret < 0) {
+                err = alloc_error("Failed to copy encoder parameters to output stream");
+                goto cleanup;
+            }
         }
 
-        if (!enc_ctx) {
-            err = alloc_error("Failed to allocate encoder context");
-            goto cleanup;
+        // create video encoder
+        {
+            // TODO: can I share one encoder across all the mediaClips? i should be able to.
+            videoEnc = (AVCodec*) avcodec_find_encoder(ofmt->video_codec);
+
+            if (!videoEnc) {
+                err = alloc_error("Necessary video encoder not found");
+                goto cleanup;
+            }
+
+            videoEncCtx = avcodec_alloc_context3(videoEnc);
+
+            if (!videoEncCtx) {
+                err = alloc_error("Failed to allocate audio encoder context");
+                goto cleanup;
+            }
+
+            AVCodecParameters *inVideoCodecPar = ifmt_ctx->streams[inVideoStreamIdx]->codecpar;
+
+            // Match source parameters
+            videoEncCtx->width  = inVideoCodecPar->width;
+            videoEncCtx->height = inVideoCodecPar->height;
+            videoEncCtx->sample_aspect_ratio = inVideoCodecPar->sample_aspect_ratio.num ?
+                                            inVideoCodecPar->sample_aspect_ratio :
+                                            av_make_q(1, 1);
+
+            // Frame rate / time base
+            // Copy time_base directly from the input
+            videoEncCtx->time_base = ifmt_ctx->streams[inVideoStreamIdx]->time_base;
+
+                        // Let FFmpeg guess the nominal framerate from the input stream
+            AVRational guessed_framerate = av_guess_frame_rate(ifmt_ctx, ifmt_ctx->streams[inVideoStreamIdx], NULL);
+            videoEncCtx->framerate = guessed_framerate.num && guessed_framerate.den ? guessed_framerate : av_make_q(30, 1);
+
+            // Bitrate (copy from input or set manually)
+            videoEncCtx->bit_rate = inVideoCodecPar->bit_rate ? inVideoCodecPar->bit_rate : 2'000'000;
+
+            // Pixel format
+            const void *pix_fmts = NULL;
+            int nb_pix_fmts = 0;
+
+            ret = avcodec_get_supported_config(videoEncCtx, videoEnc, AV_CODEC_CONFIG_PIX_FORMAT, 0,
+                                                &pix_fmts, &nb_pix_fmts);
+            if (ret >= 0 && nb_pix_fmts > 0) {
+                videoEncCtx->pix_fmt = ((const enum AVPixelFormat *)pix_fmts)[0];
+            } else {
+                // fallback to the input pixel format
+                videoEncCtx->pix_fmt = (enum AVPixelFormat)inVideoCodecPar->format;
+            }
+
+
+            // Optional: tune quality or preset if encoder supports it
+            // For example (x264, libx265, etc.):
+            // av_opt_set(videoEncCtx->priv_data, "preset", "medium", 0);
+            // av_opt_set(videoEncCtx->priv_data, "crf", "23", 0);
+
+            if (ofmt->flags & AVFMT_GLOBALHEADER)
+                videoEncCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+
+            // Open the encoder
+            ret = avcodec_open2(videoEncCtx, videoEnc, NULL);
+            if (ret < 0) {
+                err = alloc_error("Failed to open video encoder");
+                goto cleanup;
+            }
+
+            // Copy encoder parameters to output stream
+            // output video to stream 0
+            ret = avcodec_parameters_from_context(ofmt_ctx->streams[0]->codecpar, videoEncCtx);
+            if (ret < 0) {
+                err = alloc_error("Failed to copy video encoder parameters to output stream");
+                goto cleanup;
+            }
+
+            // Log what we got
+            log_debug("Video encoder initialized: %s, %dx%d, fmt=%d, bitrate=%ld",
+                    videoEnc->name,
+                    videoEncCtx->width, videoEncCtx->height,
+                    videoEncCtx->pix_fmt, videoEncCtx->bit_rate);
+
         }
+    }
 
-        enc_ctx->sample_rate = audioDecCtx[0]->sample_rate;
-        /*av_channel_layout_default(&enc_ctx->ch_layout, 2); // stereo layout*/
-        av_channel_layout_default(&enc_ctx->ch_layout, inAudioCodecPar->ch_layout.nb_channels); // stereo layout
-        /*enc_ctx->bit_rate = 320000;  // 320kbps*/
-        enc_ctx->bit_rate = inAudioCodecPar->bit_rate;
+    {
+        bool needReencodeFirstSegment = false;
 
-        const void *sample_fmts;
-        int num_sample_fmts;
-        int ret_config = avcodec_get_supported_config(enc_ctx, enc, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0, 
-                                                    &sample_fmts, &num_sample_fmts);
-        if (ret_config >= 0 && num_sample_fmts > 0) {
-            enc_ctx->sample_fmt = *(const enum AVSampleFormat*)sample_fmts;
-        } else {
-            enc_ctx->sample_fmt = AV_SAMPLE_FMT_FLTP; // Default fallback
-        }
-
-        enc_ctx->time_base = AVRational{1, enc_ctx->sample_rate};
-
-        if (ofmt->flags & AVFMT_GLOBALHEADER)
-            enc_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-
-        ret = avcodec_open2(enc_ctx, enc, NULL);
-        if (ret < 0) {
-            err = alloc_error("Cannot open audio encoder");
-            goto cleanup;
-        }
-
-
-        log_debug("Encoder expects: format=%d, sample_rate=%d, ch_layout=%llu", 
-                enc_ctx->sample_fmt, enc_ctx->sample_rate, 
-                (unsigned long long)enc_ctx->ch_layout.nb_channels);
-
-        ret = avcodec_parameters_from_context(out_audio_stream->codecpar, enc_ctx);
-
-        if (ret < 0) {
-            err = alloc_error("Failed to copy encoder parameters to output stream");
-            goto cleanup;
-        }
-
-        ret = avformat_seek_file(ifmt_ctx, -1, INT64_MIN, mediaClip->startCutoff * AV_TIME_BASE, mediaClip->startCutoff * AV_TIME_BASE, 0);
+        int64_t seek_target = av_rescale_q(mediaClip->startCutoff * AV_TIME_BASE, AV_TIME_BASE_Q, ifmt_ctx->streams[inVideoStreamIdx]->time_base);
+        //ret = av_seek_frame(ifmt_ctx, inVideoStreamIdx, seek_target, AVSEEK_FLAG_BACKWARD);
+        // we seek with video index, but it seeks for all other streams too to the closest point
+        ret = av_seek_frame(ifmt_ctx, inVideoStreamIdx, seek_target, AVSEEK_FLAG_BACKWARD);
         if (ret < 0) {
             err = alloc_error("Failed to seek forward to cutting start in source file");
             goto cleanup;
         }
 
         // only necessary after seek if we are encoding video.
-        /*avcodec_flush_buffers( inVideoStream->codec );*/
-
+        // but since we might need to encode the first keyframe:
+        if (videoDecCtx) avcodec_flush_buffers(videoDecCtx);
+        for (int i = 0; i < audioStreamCount; i++) {
+            avcodec_flush_buffers(audioDecCtx[i]);
+        }
 
         pkt = av_packet_alloc();
         if (!pkt) {
@@ -482,232 +611,366 @@ char* remuxClip(MediaClip* mediaClip, float* exportFrame, AVFormatContext* ofmt_
             err = alloc_error("Failed to allocate AVFrame");
             goto cleanup;
         }
-    }
 
 
-    // last_audio_dts = 0;
-    
-    // main decoding/encoding loop
-    while (1) {
-        AVStream *in_stream, *out_stream;
-        ret = av_read_frame(ifmt_ctx, pkt);
-        if (ret < 0)
-            break;
-
-        if (pkt->pts > streamRescaledEndSeconds[pkt->stream_index]) {
-            // TODO: Why can't I just break here? maybe cause packets don't have to organiezd?
-            av_packet_unref(pkt);
-            continue;
-        }
-
-
-        int in_index = pkt->stream_index;
-        in_stream  = ifmt_ctx->streams[pkt->stream_index];
-
-        double duration = (double) (ifmt_ctx->duration) / AV_TIME_BASE -mediaClip->startCutoff-mediaClip->endCutoff;
-        double currentTime = (double) (pkt->pts-streamRescaledStartSeconds[in_index]) * av_q2d(ifmt_ctx->streams[pkt->stream_index]->time_base);
-        // log_debug("current: %.2f", currentTime);
-
-        *exportFrame = (float) (currentTime / duration);
-        
-
-        
-        if (in_index == inVideoStreamIdx) {
-            pkt->stream_index = 0; // write video output to first stream
-            out_stream = ofmt_ctx->streams[pkt->stream_index];
-            
-
-            // shift the packet to its new position by subtracting the rescaled start seconds.
-            pkt->pts -= streamRescaledStartSeconds[in_index];
-            pkt->dts -= streamRescaledStartSeconds[in_index];
-
-            /* copy packet */
-            av_packet_rescale_ts(pkt, in_stream->time_base, out_stream->time_base);
-            pkt->pos = -1;
-            log_debug("DTS: %d", pkt->dts);
-
-            // log_debug("offsetPts:%d", *offsetPts);
-            // log_debug("offsetPts PR: %" PRId64 , offsetPts);
-
-            if (pkt->pts != AV_NOPTS_VALUE) {
-                pkt->pts += *offsetPts;
-            } else {
-                // if no PTS, derive from DTS if possible
-                // TODO: use breakpoints to see if we ever reach this
-                if (pkt->dts != AV_NOPTS_VALUE) {
-                    pkt->pts = pkt->dts;
+        while (av_read_frame(ifmt_ctx, pkt) >= 0) {
+            if (pkt->stream_index == inVideoStreamIdx) {
+                if (!(pkt->flags & AV_PKT_FLAG_KEY)) {
+                    needReencodeFirstSegment = true;
+                    log_debug("Starting at non-keyframe, will re-encode first segment");
+                    
+                    // configure encoder
+                    videoEncCtx->gop_size = 12; // Reasonable GOP size
+                    videoEncCtx->max_b_frames = 2;
                 }
-            }
-
-            if (pkt->dts != AV_NOPTS_VALUE) {
-                pkt->dts += *offsetPts;
-
-                // ensure monotonically increasing DTS
-                if (*lastDts != AV_NOPTS_VALUE && pkt->dts <= *lastDts) {
-                    int64_t relativeDistance = (*lastDts + 1) - pkt->dts;
-                    pkt->dts = *lastDts + 1;
-
-                    // maintain the relative distance between pts and dts
-                    if (pkt->pts != AV_NOPTS_VALUE) {
-                        pkt->pts += relativeDistance;
-                    }
-                }
-            } else {
-
-                if (pkt->pts != AV_NOPTS_VALUE) {
-                    pkt->dts = pkt->pts;
-                } else {
-                    // both pts and dts are invalid, generate from previous
-                    if (*lastDts != AV_NOPTS_VALUE) {
-                        pkt->dts = *lastDts+1;
-                        pkt->pts = pkt->dts;
-                    } else {
-                        pkt->dts = *offsetPts;
-                        pkt->pts = *offsetPts;
-                    }
-                }
-            }
-
-
-            // obviously we can't have a frame be displayed before being decoded
-            if (pkt->pts < pkt->dts) {
-                pkt->pts = pkt->dts;
-            }
-
-            *lastDts = pkt->dts;
-            if (pkt->duration > 0) {
-                *lastPts = pkt->pts+pkt->duration;
-            } else {
-                *lastPts = pkt->pts;
-            }
-
-
-            ret = av_interleaved_write_frame(ofmt_ctx, pkt);
-            if (ret < 0) {
-                err = alloc_error("Error writing video frame");
+                av_packet_unref(pkt);
                 break;
             }
+            av_packet_unref(pkt);
+        }
 
-        } else { // if stream is audio
-            pkt->stream_index = outAudioStreamIdx;
-            out_stream = ofmt_ctx->streams[pkt->stream_index];
+        // Seek back to the keyframe
+        ret = av_seek_frame(ifmt_ctx, inVideoStreamIdx, seek_target, AVSEEK_FLAG_BACKWARD);
+        if (ret < 0) {
+            err = alloc_error("Failed to seek backwards to cutting start in source file");
+            goto cleanup;
+        }
+        // flush here?
 
-            // shift the packet to its new position by subtracting the rescaled start seconds.
-            pkt->pts -= streamRescaledStartSeconds[in_index];
-            pkt->dts -= streamRescaledStartSeconds[in_index];
 
-            pkt->pos = -1;
+        // last_audio_dts = 0;
+        
+        // main decoding/encoding loop
+        bool reencodingVideo = needReencodeFirstSegment;
+        bool firstVideoKeyframeWritten = false;
+        int64_t nextKeyframePts = AV_NOPTS_VALUE;
+        while (1) {
+            AVStream *in_stream, *out_stream;
+            ret = av_read_frame(ifmt_ctx, pkt); // TODO: make a part of the while condition
+            if (ret < 0)
+                break;
 
-            int idx = -1;
-
-            for (int i=0; i < audioStreamCount; i++) {
-                if (in_index == audioStreamIdx[i]) {
-                    idx = i;
-                    break;
-                }
+            if (pkt->pts > streamRescaledEndSeconds[pkt->stream_index]) {
+                // TODO: Why can't I just break here? maybe cause packets don't have to organiezd?
+                av_packet_unref(pkt);
+                continue;
             }
 
-            ret = avcodec_send_packet(audioDecCtx[idx], pkt);
-            if (ret < 0) {
-                err = alloc_error("Failed to send packet to decoder");
-                goto cleanup;
-            }
 
+            int in_index = pkt->stream_index;
+            in_stream  = ifmt_ctx->streams[pkt->stream_index];
 
-            if (idx != -1) {
-                ret = avcodec_receive_frame(audioDecCtx[idx], frame);
-                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-                    if (ret == AVERROR(EAGAIN)) {
-                        av_packet_unref(pkt);
-                        continue;
+            double duration = (double) (ifmt_ctx->duration) / AV_TIME_BASE -mediaClip->startCutoff-mediaClip->endCutoff;
+            double currentTime = (double) (pkt->pts-streamRescaledStartSeconds[in_index]) * av_q2d(ifmt_ctx->streams[pkt->stream_index]->time_base);
+            // log_debug("current: %.2f", currentTime);
+
+            *exportFrame = (float) (currentTime / duration);
+            
+
+            
+            if (in_index == inVideoStreamIdx) {
+                if (reencodingVideo) {
+                    
+                    if ((pkt->flags & AV_PKT_FLAG_KEY) && pkt->pts > seek_target) {
+                        // foundNextKeyframe = true;
+                        nextKeyframePts = pkt->pts;
+                        reencodingVideo = false;
+                        
+                        log_debug("Found next keyframe at PTS %ld, switching to copying mode", nextKeyframePts);
+
+                        // now we will fall through to copying logic since reencodingVideo is false
                     }
-                    break;
-                } else if (ret < 0) {
-                    err = alloc_error("error during decoding audio");
-                    goto cleanup;
+
+
+                    if (reencodingVideo) {
+                        // ok, now we are certain we need to re-encode video.
+                        int ret_send = avcodec_send_packet(videoDecCtx, pkt);
+                        if (ret_send < 0 && ret_send != AVERROR(EAGAIN)) {
+                            err = alloc_error("Error sending packet to decoder");
+                            goto cleanup;
+                        }
+
+                        while (ret_send >= 0) {
+                            ret_send = avcodec_receive_frame(videoDecCtx, frame);
+                            if (ret_send == AVERROR(EAGAIN) || ret_send == AVERROR_EOF) {
+                                break;
+                            }
+
+                            if (ret_send < 0) {
+                                err = alloc_error("Error during video decoding of first frame");
+                                av_frame_free(&frame);
+                                goto cleanup;
+                            }
+                            if (frame->pts >= seek_target) { // we are now where we want to start the video from
+                                if (!firstVideoKeyframeWritten) {
+                                    // force this frame to be encoded as keyframe
+                                    frame->pict_type = AV_PICTURE_TYPE_I;
+                                    frame->flags |= AV_FRAME_FLAG_KEY;
+                                    firstVideoKeyframeWritten = true;
+                                }
+
+                                int ret_send_frame = avcodec_send_frame(videoEncCtx, frame);
+                                if (ret_send_frame < 0 && ret_send_frame != AVERROR(EAGAIN)) {
+                                    err = alloc_error("Error sending frame to encoder");
+                                    goto cleanup;
+                                }
+
+                                AVPacket* enc_pkt = av_packet_alloc();
+                                while (avcodec_receive_packet(videoEncCtx, enc_pkt) >= 0) { // search next keyframe
+                                    // apply same timestamp logic as normal copying
+                                    enc_pkt->stream_index = 0;
+                                    out_stream = ofmt_ctx->streams[enc_pkt->stream_index];
+                                    
+                                    enc_pkt->pts -= streamRescaledStartSeconds[in_index];
+                                    enc_pkt->dts -= streamRescaledStartSeconds[in_index];
+                                    
+                                    av_packet_rescale_ts(enc_pkt, videoEncCtx->time_base, out_stream->time_base);
+                                    
+                                    if (enc_pkt->pts != AV_NOPTS_VALUE) {
+                                        enc_pkt->pts += *offsetPts;
+                                    }
+                                    if (enc_pkt->dts != AV_NOPTS_VALUE) {
+                                        enc_pkt->dts += *offsetPts;
+                                    }
+                                    
+                                    // Ensure monotonically increasing DTS
+                                    if (*lastDts != AV_NOPTS_VALUE && enc_pkt->dts <= *lastDts) {
+                                        int64_t relativeDistance = (*lastDts + 1) - enc_pkt->dts;
+                                        enc_pkt->dts = *lastDts + 1;
+                                        if (enc_pkt->pts != AV_NOPTS_VALUE) {
+                                            enc_pkt->pts += relativeDistance;
+                                        }
+                                    }
+                                    
+                                    if (enc_pkt->pts < enc_pkt->dts) {
+                                        enc_pkt->pts = enc_pkt->dts;
+                                    }
+                                    
+                                    *lastDts = enc_pkt->dts;
+                                    if (enc_pkt->duration > 0) {
+                                        *lastPts = enc_pkt->pts + enc_pkt->duration;
+                                    } else {
+                                        *lastPts = enc_pkt->pts;
+                                    }
+                                    
+                                    // write encoded video
+                                    ret = av_interleaved_write_frame(ofmt_ctx, enc_pkt);
+                                    if (ret < 0) {
+                                        err = alloc_error("Error writing re-encoded video frame");
+                                        av_packet_free(&enc_pkt);
+                                        av_frame_unref(frame);
+                                        goto cleanup;
+                                    }
+                                    
+                                    av_packet_free(&enc_pkt);
+
+                                }
+                            }
+                            av_frame_unref(frame);
+                        }
+                        av_packet_unref(pkt);
+                        continue; // skip the normal copying for this packet
+                    }
                 }
 
-                // push to buffer source so that it gets processed by our filters
-                ret = av_buffersrc_add_frame_flags(abufferCtxs[idx], frame, AV_BUFFERSRC_FLAG_KEEP_REF);
+
+                if (!reencodingVideo) {
+                    pkt->stream_index = 0; // write video output to first stream
+                    out_stream = ofmt_ctx->streams[pkt->stream_index];
+                    
+
+                    // shift the packet to its new position by subtracting the rescaled start seconds.
+                    pkt->pts -= streamRescaledStartSeconds[in_index];
+                    pkt->dts -= streamRescaledStartSeconds[in_index];
+
+                    /* copy packet */
+                    av_packet_rescale_ts(pkt, in_stream->time_base, out_stream->time_base);
+                    pkt->pos = -1;
+
+                    // log_debug("offsetPts:%d", *offsetPts);
+                    // log_debug("offsetPts PR: %" PRId64 , offsetPts);
+
+                    if (pkt->pts != AV_NOPTS_VALUE) {
+                        pkt->pts += *offsetPts;
+                    } else {
+                        // if no PTS, derive from DTS if possible
+                        // TODO: use breakpoints to see if we ever reach this
+                        if (pkt->dts != AV_NOPTS_VALUE) {
+                            pkt->pts = pkt->dts;
+                        }
+                    }
+
+                    if (pkt->dts != AV_NOPTS_VALUE) {
+                        pkt->dts += *offsetPts;
+
+                        // ensure monotonically increasing DTS
+                        if (*lastDts != AV_NOPTS_VALUE && pkt->dts <= *lastDts) {
+                            int64_t relativeDistance = (*lastDts + 1) - pkt->dts;
+                            pkt->dts = *lastDts + 1;
+
+                            // maintain the relative distance between pts and dts
+                            if (pkt->pts != AV_NOPTS_VALUE) {
+                                pkt->pts += relativeDistance;
+                            }
+                        }
+                    } else {
+                        if (pkt->pts != AV_NOPTS_VALUE) {
+                            pkt->dts = pkt->pts;
+                        } else {
+                            // both pts and dts are invalid, generate from previous
+                            if (*lastDts != AV_NOPTS_VALUE) {
+                                pkt->dts = *lastDts+1;
+                                pkt->pts = pkt->dts;
+                            } else {
+                                pkt->dts = *offsetPts;
+                                pkt->pts = *offsetPts;
+                            }
+                        }
+                    }
+
+
+                    // obviously we can't have a frame be displayed before being decoded
+                    if (pkt->pts < pkt->dts) {
+                        pkt->pts = pkt->dts;
+                    }
+
+                    *lastDts = pkt->dts;
+                    if (pkt->duration > 0) {
+                        *lastPts = pkt->pts+pkt->duration;
+                    } else {
+                        *lastPts = pkt->pts;
+                    }
+
+
+                    ret = av_interleaved_write_frame(ofmt_ctx, pkt);
+                    if (ret < 0) {
+                        err = alloc_error("Error writing video frame");
+                        break;
+                    }
+                }
+
+            } else { // if stream is audio
+                // audio processing is the same regardless of if we are re-encoding video or not.
+                pkt->stream_index = outAudioStreamIdx;
+                out_stream = ofmt_ctx->streams[pkt->stream_index];
+
+                // shift the packet to its new position by subtracting the rescaled start seconds.
+                pkt->pts -= streamRescaledStartSeconds[in_index];
+                pkt->dts -= streamRescaledStartSeconds[in_index];
+
+                pkt->pos = -1;
+
+                int idx = -1;
+
+                for (int i=0; i < audioStreamCount; i++) {
+                    if (in_index == audioStreamIdx[i]) {
+                        idx = i;
+                        break;
+                    }
+                }
+
+                ret = avcodec_send_packet(audioDecCtx[idx], pkt);
                 if (ret < 0) {
-                    err = alloc_error("Error feeding audio frame to filtergraph");
+                    err = alloc_error("Failed to send packet to decoder");
                     goto cleanup;
                 }
 
-                // grab from filtergraph
-                while (1) {
-                    ret = av_buffersink_get_frame(abuffersink_ctx, frame);
+
+                if (idx != -1) {
+                    ret = avcodec_receive_frame(audioDecCtx[idx], frame);
                     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                        if (ret == AVERROR(EAGAIN)) {
+                            av_packet_unref(pkt);
+                            continue;
+                        }
                         break;
                     } else if (ret < 0) {
-                        err = alloc_error("error getting audio from buffersink");
+                        err = alloc_error("error during decoding audio");
                         goto cleanup;
                     }
 
-                    //log_debug("Sending frame to encoder: format=%d, samples=%d, channels=%d", 
-                    //       frame->format, frame->nb_samples, frame->ch_layout.nb_channels);
-                    ret = avcodec_send_frame(enc_ctx, frame);
+                    // push to buffer source so that it gets processed by our filters
+                    ret = av_buffersrc_add_frame_flags(abufferCtxs[idx], frame, AV_BUFFERSRC_FLAG_KEEP_REF);
                     if (ret < 0) {
-                        err = alloc_error("error sending frame to encoder");
+                        err = alloc_error("Error feeding audio frame to filtergraph");
                         goto cleanup;
                     }
 
-                    while (ret >= 0) {
-                        ret = avcodec_receive_packet(enc_ctx, pkt);
-                        pkt->stream_index = outAudioStreamIdx; // as calling avcodec_receive_packet resets it
+                    // grab from filtergraph
+                    while (1) {
+                        ret = av_buffersink_get_frame(abuffersink_ctx, frame);
                         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
                             break;
                         } else if (ret < 0) {
-                            err = alloc_error("error decoding audio frame");
+                            err = alloc_error("error getting audio from buffersink");
                             goto cleanup;
                         }
 
-                        av_packet_rescale_ts(pkt, enc_ctx->time_base, out_stream->time_base);
-
-                        if (pkt->pts != AV_NOPTS_VALUE) {
-                            pkt->pts += outputState->audioOffsetPts;
+                        //log_debug("Sending frame to encoder: format=%d, samples=%d, channels=%d", 
+                        //       frame->format, frame->nb_samples, frame->ch_layout.nb_channels);
+                        ret = avcodec_send_frame(audioEncCtx, frame);
+                        if (ret < 0) {
+                            err = alloc_error("error sending frame to encoder");
+                            goto cleanup;
                         }
 
-                        if (pkt->dts != AV_NOPTS_VALUE) {
-                            pkt->dts += outputState->audioOffsetPts;
-                        }
+                        while (ret >= 0) {
+                            ret = avcodec_receive_packet(audioEncCtx, pkt);
+                            pkt->stream_index = outAudioStreamIdx; // as calling avcodec_receive_packet resets it
+                            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                                break;
+                            } else if (ret < 0) {
+                                err = alloc_error("error decoding audio frame");
+                                goto cleanup;
+                            }
 
-                        // we have to ensure monotonically increasing DTS
-                        // the last_audio_dts > 0 condition is because last_audio_dts is 0 for the very first audio frame
-                        // if (pkt->dts <= *last_audio_dts && *last_audio_dts > 0) {
-                        // if (*last_audio_dts != AV_NOPTS_VALUE && pkt->dts <= *last_audio_dts) {
-                        if (outputState->lastAudioDts != AV_NOPTS_VALUE && pkt->dts <= outputState->lastAudioDts) {
-                            log_debug("we have to ensure it is increasing");
-                            pkt->dts = outputState->lastAudioDts + 1;
-                            // if PTS is after DTS, adjust it accordingly
-                            if (pkt->pts <= pkt->dts) {
-                                pkt->pts = pkt->dts;
+                            av_packet_rescale_ts(pkt, audioEncCtx->time_base, out_stream->time_base);
+
+                            if (pkt->pts != AV_NOPTS_VALUE) {
+                                pkt->pts += outputState->audioOffsetPts;
+                            }
+
+                            if (pkt->dts != AV_NOPTS_VALUE) {
+                                pkt->dts += outputState->audioOffsetPts;
+                            }
+
+                            // we have to ensure monotonically increasing DTS
+                            // the last_audio_dts > 0 condition is because last_audio_dts is 0 for the very first audio frame
+                            // if (pkt->dts <= *last_audio_dts && *last_audio_dts > 0) {
+                            // if (*last_audio_dts != AV_NOPTS_VALUE && pkt->dts <= *last_audio_dts) {
+                            if (outputState->lastAudioDts != AV_NOPTS_VALUE && pkt->dts <= outputState->lastAudioDts) {
+                                log_debug("we have to ensure it is increasing");
+                                pkt->dts = outputState->lastAudioDts + 1;
+                                // if PTS is after DTS, adjust it accordingly
+                                if (pkt->pts <= pkt->dts) {
+                                    pkt->pts = pkt->dts;
+                                }
+                            }
+                            
+                            outputState->lastAudioDts = pkt->dts;
+                            if (pkt->duration > 0)  {
+                                outputState->lastAudioPts = pkt->pts+pkt->duration;
+                            } else {
+                                outputState->lastAudioPts = pkt->pts;
+                            }
+
+                            log_debug("Wrote audio packet")
+
+                            ret = av_interleaved_write_frame(ofmt_ctx, pkt);
+                            if (ret < 0) {
+                                err = alloc_error("Error writing audio frame");
+                                goto cleanup;
                             }
                         }
-                        
-                        outputState->lastAudioDts = pkt->dts;
-                        if (pkt->duration > 0)  {
-                            outputState->lastAudioPts = pkt->pts+pkt->duration;
-                        } else {
-                            outputState->lastAudioPts = pkt->pts;
-                        }
 
-                        log_debug("Wrote audio packet")
-
-                        ret = av_interleaved_write_frame(ofmt_ctx, pkt);
-                        if (ret < 0) {
-                            err = alloc_error("Error writing audio frame");
-                            goto cleanup;
-                        }
+                        av_frame_unref(frame);
                     }
-
-                    av_frame_unref(frame);
                 }
+
             }
 
+            av_packet_unref(pkt);
         }
-
-        av_packet_unref(pkt);
     }
 
     // av_write_trailer(ofmt_ctx);
