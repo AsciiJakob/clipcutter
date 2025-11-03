@@ -121,7 +121,7 @@ void UI_DrawEditor(App* app) {
             };
 
             ImGui::Text("Status: %s", app->exportState.statusString);
-            ImGui::ProgressBar(app->exportState.exportFrame);
+            ImGui::ProgressBar(app->exportState.exportProgress);
 
             if (ImGui::Button("Close")) {
                 ImGui::CloseCurrentPopup();
@@ -163,6 +163,7 @@ void UI_DrawEditor(App* app) {
 
         ImGui::DockBuilderDockWindow("Timeline", dock_id_down); // dock_main_id docks it to the center of the main docking thing
         ImGui::DockBuilderDockWindow("DebugThingies", dock_id_up_left);
+        ImGui::DockBuilderDockWindow("Effects", dock_id_up_left);
         ImGui::DockBuilderDockWindow("Video Player", dock_id_up_middle);
         ImGui::DockBuilderDockWindow("Help", dock_id_up_right);
 
@@ -192,8 +193,7 @@ void UI_DrawEditor(App* app) {
 		ImGui::Text("timeline width: %.2f", app->timeline.width);
 		ImGui::Text("timelineEvent: %d", app->timelineEvents[app->timelineEventIndex].type);
 		if (app->loadedMediaSource != nullptr) {
-			ImGui::Text("currentLoaded: %s", app->loadedMediaSource->filename);
-		}
+			ImGui::Text("currentLoaded: %s", app->loadedMediaSource->filename); }
 
 		ImGui::Text("------Track 1:");
 		MediaClip* testClip = app->mediaClips[0];
@@ -217,6 +217,51 @@ void UI_DrawEditor(App* app) {
 		//iPtr[0] = snappingPrecision
 		//imgui.SliderInt("snappingPrecision", iPtr, 1, 50, "%d") --disabled when 1
 		//snappingPrecision = iPtr[0]
+
+	}
+	ImGui::End();
+
+	if (ImGui::Begin("Effects")) {
+		ImGui::Text("Audio effects:");
+        float pitchValue = 1.0;
+        ImGui::InputFloat("Pitch", &pitchValue);
+        if (ImGui::IsItemDeactivatedAfterEdit()) {
+            log_debug("setting pitch to: %.2f", pitchValue);
+            char lavfiString[100];
+            sprintf(lavfiString, "lavfi=[rubberband=pitch=%.2f:tempo=1]", pitchValue);
+
+            const char* cmd[] = { "set", "options/af", lavfiString, NULL };
+            App_Queue_AddCommand(app, cmd);
+        }
+
+        
+		ImGui::Text("Compressor");
+        bool updateEffect = false;
+        ImGui::SliderFloat("attack", &app->temp_attack, 0.01, 2000);
+        if (ImGui::IsItemDeactivatedAfterEdit())
+            updateEffect = true;
+        ImGui::SliderFloat("release", &app->temp_release, 0.01, 9000);
+        if (ImGui::IsItemDeactivatedAfterEdit())
+            updateEffect = true;
+        ImGui::SliderFloat("ratio", &app->temp_ratio, 1, 20);
+        if (ImGui::IsItemDeactivatedAfterEdit())
+            updateEffect = true;
+        ImGui::SliderFloat("threshold", &app->temp_threshold, 0.00097563, 1);
+        if (ImGui::IsItemDeactivatedAfterEdit())
+            updateEffect = true;
+        ImGui::SliderFloat("level in", &app->temp_level_in, 0.015625, 64);
+        if (ImGui::IsItemDeactivatedAfterEdit())
+            updateEffect = true;
+        ImGui::SliderFloat("level out", &app->temp_makeup, 1, 64);
+        if (ImGui::IsItemDeactivatedAfterEdit())
+            updateEffect = true;
+        if (updateEffect) {
+            char lavfiString[300];
+            sprintf(lavfiString, "lavfi=[acompressor=attack=%.5f:release=%.5f:ratio=%.5f:threshold=%.5f:level_in=%.5f:makeup=%.5f]", app->temp_attack, app->temp_release, app->temp_ratio, app->temp_threshold, app->temp_level_in, app->temp_makeup);
+
+            const char* cmd[] = { "set", "options/af", lavfiString, NULL };
+            App_Queue_AddCommand(app, cmd);
+        }
 
 	}
 	ImGui::End();

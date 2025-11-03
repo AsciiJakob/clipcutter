@@ -13,7 +13,7 @@ typedef struct MediaClip MediaClip;
 typedef struct MediaSource MediaSource;
 struct ExportState {
     char* statusString;
-    float exportFrame;
+    float exportProgress;
     int clipIndex;
     const char* out_filename;
     AVStream* out_video_stream;
@@ -103,6 +103,13 @@ struct App {
 
     ExportState exportState;
     char exportPath[1024];
+
+    float temp_threshold;
+    float temp_ratio;
+    float temp_attack;
+    float temp_release;
+    float temp_level_in;
+    float temp_makeup;
 };
 
 struct GetPropertyCallback {

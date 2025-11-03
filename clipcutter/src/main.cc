@@ -119,7 +119,6 @@ int main(int argc, char* argv[]) {
                 }
 
                 if (event.key.key == SDLK_LEFT) {
-                    log_debug("pressing left key!!Q!");
                     Playback_StepFrames(app, false);
                 }
 
