@@ -552,6 +552,8 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
     ImVec2 cursor_trackclip = MediaClip_Draw_DrawTracks(app, mediaClip, clipIndex, drawClipLeftPadding, drawClipWidth, false);
 
     if (mediaClip->isHovered) {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+
 
         // handle selection
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !mediaClip->isBeingMoved) {

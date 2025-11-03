@@ -21,6 +21,13 @@ void App_Init(App* app) {
 
     strcpy(app->exportPath, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");
     app->exportState.statusString = (char*) "Not started";
+
+    app->temp_attack = 20;
+    app->temp_release = 250;
+    app->temp_ratio = 2;
+    app->temp_threshold = 0.125;
+    app->temp_level_in = 1;
+    app->temp_makeup = 1;
 }
 
 void App_Free(App* app) {

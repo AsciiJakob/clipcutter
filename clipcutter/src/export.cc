@@ -650,13 +650,14 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
             int in_index = pkt->stream_index;
             in_stream  = ifmt_ctx->streams[pkt->stream_index];
 
-            double duration = (double) (ifmt_ctx->duration) / AV_TIME_BASE -mediaClip->startCutoff-mediaClip->endCutoff;
-            double currentTime = (double) (pkt->pts-streamRescaledStartSeconds[in_index]) * av_q2d(ifmt_ctx->streams[pkt->stream_index]->time_base);
+            double duration = (double) (ifmt_ctx->duration) / AV_TIME_BASE - mediaClip->startCutoff-mediaClip->endCutoff;
+            double currentTime = (double) (pkt->pts - streamRescaledStartSeconds[in_index]) * av_q2d(ifmt_ctx->streams[pkt->stream_index]->time_base);
+            if (pkt->pts < streamRescaledStartSeconds[in_index]) {
+                currentTime = 0.0;
+            }
             // log_debug("current: %.2f", currentTime);
 
-            exportState->exportFrame = (float) (currentTime / duration);
-            log_debug("%.2f", exportState->exportFrame);
-            
+            exportState->exportProgress = (float) (currentTime / duration);
 
             
             if (in_index == inVideoStreamIdx) {
@@ -1012,7 +1013,7 @@ cleanup:
 
 
 // returns pointer to error message or nullptr if successful
-char* remux(MediaClip* mediaClip, float* exportFrame, const char* out_filename) {
+char* remux(MediaClip* mediaClip, float* exportProgress, const char* out_filename) {
     const char* in_filename = mediaClip->source->path;
     const AVOutputFormat *ofmt = NULL;
     AVPacket* pkt = NULL;
@@ -1406,7 +1407,7 @@ char* remux(MediaClip* mediaClip, float* exportFrame, const char* out_filename) 
         double currentTime = (double) (pkt->pts-streamRescaledStartSeconds[in_index]) * av_q2d(ifmt_ctx->streams[pkt->stream_index]->time_base);
         // log_debug("current: %.2f", currentTime);
 
-        *exportFrame = (float) (currentTime / duration);
+        *exportProgress = (float) (currentTime / duration);
         
 
         
