@@ -15,17 +15,99 @@ char* alloc_error(const char* fmt, ...) {
     log_error(errorBuffer);
     return errorBuffer;
 }
-char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext* ofmt_ctx);
+
+char* setOutputParameters(MediaClip* firstClip, ExportState* exportState) {
+    AVFormatContext* ofmt_ctx = exportState->ofmt_ctx;
+    AVFormatContext *ifmt_ctx = NULL;
+    int audioStreamIdx[MAX_SUPPORTED_AUDIO_TRACKS];
+    char* err = nullptr;
+    int ret;
+    int inVideoStreamIdx = -1;
+    
+    if ((ret = avformat_open_input(&ifmt_ctx, firstClip->source->path, 0, 0)) < 0) {
+        err = alloc_error("Could not open input file '%s'", firstClip->source->path);
+        goto cleanup;
+    }
+    
+    if ((ret = avformat_find_stream_info(ifmt_ctx, 0)) < 0) {
+        err = alloc_error("Failed to retrieve input stream information");
+        goto cleanup;
+    }
+
+    log_info("stealing output parameters from the following video file:");
+    av_dump_format(ifmt_ctx, 0, firstClip->source->path, 0);
+
+
+    { // find audio and video track
+        int audioStreamCount = 0;
+        log_debug("modified nb sttream is: %d", ifmt_ctx->nb_streams);
+        for (unsigned int i = 0; i < ifmt_ctx->nb_streams; i++) {
+            AVStream *inStream = ifmt_ctx->streams[i];
+            AVCodecParameters *in_codecpar = inStream->codecpar;
+
+            if (in_codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+                if (inVideoStreamIdx != -1) {
+                    err = alloc_error("Found more than two video streams");
+                    goto cleanup;
+                }
+                inVideoStreamIdx = i;
+            } else if (in_codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+                log_debug("found audio");
+                audioStreamIdx[audioStreamCount++] = i;
+            }
+        }
+
+        if (audioStreamIdx[0] == -1) {
+            err = alloc_error("found no audio sources");
+            goto cleanup;
+        }
+        if (inVideoStreamIdx == -1) {
+            err = alloc_error("Found no video source");
+            goto cleanup;
+        }
+
+    }
+
+    ret = avcodec_parameters_copy(exportState->out_video_stream->codecpar, ifmt_ctx->streams[inVideoStreamIdx]->codecpar);
+    if (ret < 0) {
+        err = alloc_error("Failed to copy video codec parameters");
+        goto cleanup;
+    }
+
+    ret = avcodec_parameters_copy(exportState->out_audio_stream->codecpar, ifmt_ctx->streams[audioStreamIdx[0]]->codecpar);
+    if (ret < 0) {
+        err = alloc_error("Failed to copy audio codec parameters");
+        goto cleanup;
+    }
+
+    av_dump_format(ofmt_ctx, 0, exportState->out_filename, 1);
+
+    // open output file for writing
+    if (!(ofmt_ctx->oformat->flags & AVFMT_NOFILE)) {
+        ret = avio_open(&ofmt_ctx->pb, exportState->out_filename, AVIO_FLAG_WRITE);
+        if (ret < 0) {
+            err = alloc_error("Could not open output file '%s'", exportState->out_filename);
+            goto cleanup;
+        }
+    }
+
+    ret = avformat_write_header(ofmt_ctx, NULL);
+    if (ret < 0) {
+        err = alloc_error("Error occurred when opening output file");
+        goto cleanup;
+    }
+
+cleanup:
+    avformat_close_input(&ifmt_ctx);
+
+    log_error("setting output parameters failed with error as %d", err);
+    return err;
+}
+
+char* remuxClip(MediaClip* mediaClip, ExportState* exportState);
 
 char* remuxMultipleClips(MediaClip** mediaClips, ExportState* exportState, const char* out_filename) {
     AVFormatContext *ofmt_ctx = NULL;
-    // AVStream* out_audio_stream;
-    // AVCodecContext *enc_ctx;
-    // AVCodecContext* audioDecCtx[MAX_SUPPORTED_AUDIO_TRACKS];
-    // AVCodec* enc;
-    // AVPacket* pkt = NULL;
-    // AVFrame* frame = NULL;
-    // int outAudioStreamIdx = -1;
     char* err = nullptr;
     exportState->offsetPts = 0; 
     exportState->audioOffsetPts = 0; 
@@ -40,6 +122,7 @@ char* remuxMultipleClips(MediaClip** mediaClips, ExportState* exportState, const
         err = alloc_error("Could not create output context");
         return err;
     }
+    exportState->ofmt_ctx = ofmt_ctx;
 
     exportState->out_video_stream = avformat_new_stream(ofmt_ctx, NULL);
     if (!exportState->out_video_stream) {
@@ -53,6 +136,9 @@ char* remuxMultipleClips(MediaClip** mediaClips, ExportState* exportState, const
         goto cleanup;
     }
 
+    err = setOutputParameters(mediaClips[0], exportState);
+    if (err)
+        goto cleanup;
 
     for (int i=0; i < MEDIACLIPS_SIZE; i++) {
         // if (i==1) break;
@@ -63,17 +149,13 @@ char* remuxMultipleClips(MediaClip** mediaClips, ExportState* exportState, const
             exportState->offsetPts = exportState->lastPts+1; 
             exportState->audioOffsetPts = exportState->lastAudioPts+1; 
         }
-        // exportState->lastPts = AV_NOPTS_VALUE;
-        // exportState->lastDts = AV_NOPTS_VALUE;
-        // exportState->lastAudioPts = AV_NOPTS_VALUE;
-        // exportState->lastAudioDts = AV_NOPTS_VALUE;
 
         exportState->clipIndex = i;
         log_debug("appending mediaClip with index %d", i);
         char* statusStrPtr = (char*) malloc(strlen(mediaClip->source->filename) + sizeof("Processing ") + 1);
         sprintf(statusStrPtr, "Processing %s", mediaClip->source->filename);
         exportState->statusString = statusStrPtr;
-        err = remuxClip(mediaClip, exportState, ofmt_ctx);
+        err = remuxClip(mediaClip, exportState);
         if (err) {
             goto cleanup;
         }
@@ -87,17 +169,6 @@ char* remuxMultipleClips(MediaClip** mediaClips, ExportState* exportState, const
     }
 
 cleanup:
-    // if (pkt)
-    //     av_packet_free(&pkt);
-    //
-    // if (frame)
-    //     av_frame_free(&frame);
-
-    // close this in the inner func instead
-    // avformat_close_input(&ifmt_ctx);
-
-    // avfilter_graph_free(&filter_graph);
-
     // close output
     if (ofmt_ctx && !(ofmt_ctx->oformat->flags & AVFMT_NOFILE))
         avio_closep(&ofmt_ctx->pb);
@@ -109,9 +180,9 @@ cleanup:
 
 };
 // returns pointer to error message or nullptr if successful
-char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext* ofmt_ctx) {
+char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
     const char* in_filename = mediaClip->source->path;
-    const AVOutputFormat *ofmt = NULL;
+    AVFormatContext* ofmt_ctx = exportState->ofmt_ctx;
     AVPacket* pkt = NULL;
     AVFrame* frame = NULL;
     AVFormatContext *ifmt_ctx = NULL;
@@ -136,10 +207,8 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
     // int64_t last_audio_dts;
 
     // , int64_t* offsetPts, int64_t* offsetDts, int64_t* lastPts, int64_t* lastDts   
-    bool firstMediaClip = exportState->clipIndex == 0;
     const char* out_filename = exportState->out_filename;
     log_debug("filename is: %s", out_filename);
-    AVStream* out_video_stream = exportState->out_video_stream;
     AVStream* out_audio_stream  = exportState->out_audio_stream;
     int64_t* offsetPts = &exportState->offsetPts;
     int64_t* lastPts = &exportState->lastPts;
@@ -161,12 +230,10 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
         goto cleanup;
     }
 
-    av_dump_format(ifmt_ctx, 0, in_filename, 0);
 
-    ofmt = ofmt_ctx->oformat;
 
     {
-        bool foundVideo = false;
+        inVideoStreamIdx = -1;
         log_debug("modified nb sttream is: %d", ifmt_ctx->nb_streams);
         for (unsigned int i = 0; i < ifmt_ctx->nb_streams; i++) {
             AVStream *inStream = ifmt_ctx->streams[i];
@@ -182,11 +249,10 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
 
             if (in_codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
                 log_debug("found video");
-                if (foundVideo) {
+                if (inVideoStreamIdx != -1) {
                     err = alloc_error("Found more than two video streams");
                     goto cleanup;
                 }
-                foundVideo = true;
 
                 inVideoStreamIdx = i;
             } else if (in_codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
@@ -199,49 +265,14 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
             err = alloc_error("found no audio sources");
             goto cleanup;
         }
-        if (!foundVideo) {
+        if (inVideoStreamIdx == -1) {
             err = alloc_error("Found no video source");
             goto cleanup;
         }
 
 
-        AVCodecParameters* inAudioCodecPar = ifmt_ctx->streams[audioStreamIdx[0]]->codecpar;
+        AVCodecParameters* outAudioCodecPar = exportState->out_audio_stream->codecpar;
 
-        // we make the video output format match that of the first media clip. TODO: do this in the function scope above this instead
-        if (firstMediaClip) {
-            log_debug("writing output formatting ctx");
-
-            ret = avcodec_parameters_copy(out_video_stream->codecpar, ifmt_ctx->streams[inVideoStreamIdx]->codecpar);
-            if (ret < 0) {
-                err = alloc_error("Failed to copy video codec parameters");
-                goto cleanup;
-            }
-
-            ret = avcodec_parameters_copy(out_audio_stream->codecpar, inAudioCodecPar);
-
-            av_dump_format(ofmt_ctx, 0, out_filename, 1);
-
-            // open output file for writing
-            if (!(ofmt->flags & AVFMT_NOFILE)) {
-                ret = avio_open(&ofmt_ctx->pb, out_filename, AVIO_FLAG_WRITE);
-                if (ret < 0) {
-                    err = alloc_error("Could not open output file '%s'", out_filename);
-                    goto cleanup;
-                }
-            }
-
-            ret = avformat_write_header(ofmt_ctx, NULL);
-            if (ret < 0) {
-                err = alloc_error("Error occurred when opening output file");
-                goto cleanup;
-            }
-        }
-
-        /*out_audio_stream->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;*/
-        /*out_audio_stream->codecpar->codec_id = inCodecPar->codec_id;*/
-        /*out_audio_stream->codecpar->sample_rate = inCodecPar->sample_rate;*/
-        /*out_audio_stream->codecpar->ch_layout.nb_channels = inCodecPar->ch_layout.nb_channels;  // stereo output*/
-        /*out_audio_stream->codecpar->bit_rate = inCodecPar->bit_rate;  // 320kbps */
 
         outAudioStreamIdx = out_audio_stream->index;
 
@@ -313,11 +344,7 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
                     err = alloc_error("Could not allocate the abuffer instance.");
                     goto cleanup;
                 }
-            
-                /* Set the filter options through the AVOptions API. */
-                /*#define INPUT_SAMPLERATE 48000*/
-                /*#define INPUT_FORMAT         AV_SAMPLE_FMT_FLTP*/
-                /*#define INPUT_CHANNEL_LAYOUT (AVChannelLayout)AV_CHANNEL_LAYOUT_5POINT0*/
+
                 char ch_layout[64];
                 av_channel_layout_describe((const AVChannelLayout*)&stream->codecpar->ch_layout, ch_layout, sizeof(ch_layout));
                 av_opt_set    (abuffer_ctx, "channel_layout", ch_layout, AV_OPT_SEARCH_CHILDREN);
@@ -325,14 +352,6 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
                 av_opt_set_q  (abuffer_ctx, "time_base", stream->time_base, AV_OPT_SEARCH_CHILDREN);
                 av_opt_set_int(abuffer_ctx, "sample_rate", stream->codecpar->sample_rate, AV_OPT_SEARCH_CHILDREN);
 
-
-                /*char ch_layout[64];*/
-                /*AVChannelLayout test = AV_CHANNEL_LAYOUT_5POINT0;*/
-                /*av_channel_layout_describe(&test, ch_layout, sizeof(ch_layout));*/
-                /*av_opt_set    (abuffer_ctx, "channel_layout", ch_layout, AV_OPT_SEARCH_CHILDREN);*/
-                /*av_opt_set    (abuffer_ctx, "sample_fmt", av_get_sample_fmt_name(INPUT_FORMAT), AV_OPT_SEARCH_CHILDREN);*/
-                /*av_opt_set_q  (abuffer_ctx, "time_base", AVRational{ 1, INPUT_SAMPLERATE }, AV_OPT_SEARCH_CHILDREN);*/
-                /*av_opt_set_int(abuffer_ctx, "sample_rate", INPUT_SAMPLERATE, AV_OPT_SEARCH_CHILDREN);*/
 
                 /* Now initialize the filter; we pass NULL options, since we have already
                 * set all the options above. */
@@ -378,12 +397,10 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
             goto cleanup;
         }
 
-        /* A third way of passing the options is in a string of the form
-        * key1=value1:key2=value2.... */
         char options_str[1024];
         snprintf(options_str, sizeof(options_str),
                 "sample_fmts=%s:sample_rates=%d:channel_layouts=stereo",
-                av_get_sample_fmt_name((AVSampleFormat)inAudioCodecPar->format), inAudioCodecPar->sample_rate);
+                av_get_sample_fmt_name((AVSampleFormat)outAudioCodecPar->format), outAudioCodecPar->sample_rate);
         ret = avfilter_init_str(aformat_ctx, options_str);
         if (ret < 0) {
             err = alloc_error("Could not initialize the aformat filter");
@@ -417,6 +434,8 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
         if (ret >= 0)
             ret = avfilter_link(amix_ctx, 0, aformat_ctx, 0);
 
+        // TODO: add custom effects here
+
         if (ret >= 0)
             ret = avfilter_link(aformat_ctx, 0, abuffersink_ctx, 0);
         if (ret < 0) {
@@ -433,9 +452,7 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
 
         // create audio encoder
         {
-
-            // TODO: can I share one encoder across all the mediaClips? i should be able to.
-            audioEnc = (AVCodec*) avcodec_find_encoder(ofmt->audio_codec);            
+            audioEnc = (AVCodec*) avcodec_find_encoder(ofmt_ctx->oformat->audio_codec);            
 
             if (!audioEnc) {
                 err = alloc_error("Necessary audio encoder not found");
@@ -451,9 +468,9 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
 
             audioEncCtx->sample_rate = audioDecCtx[0]->sample_rate;
             /*av_channel_layout_default(&enc_ctx->ch_layout, 2); // stereo layout*/
-            av_channel_layout_default(&audioEncCtx->ch_layout, inAudioCodecPar->ch_layout.nb_channels); // stereo layout
+            av_channel_layout_default(&audioEncCtx->ch_layout, outAudioCodecPar->ch_layout.nb_channels); // stereo layout
             /*enc_ctx->bit_rate = 320000;  // 320kbps*/
-            audioEncCtx->bit_rate = inAudioCodecPar->bit_rate;
+            audioEncCtx->bit_rate = outAudioCodecPar->bit_rate;
 
             const void *sample_fmts;
             int num_sample_fmts;
@@ -467,7 +484,7 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
 
             audioEncCtx->time_base = AVRational{1, audioEncCtx->sample_rate};
 
-            if (ofmt->flags & AVFMT_GLOBALHEADER)
+            if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
                 audioEncCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
             ret = avcodec_open2(audioEncCtx, audioEnc, NULL);
@@ -491,8 +508,7 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
 
         // create video encoder
         {
-            // TODO: can I share one encoder across all the mediaClips? i should be able to.
-            videoEnc = (AVCodec*) avcodec_find_encoder(ofmt->video_codec);
+            videoEnc = (AVCodec*) avcodec_find_encoder(ofmt_ctx->oformat->video_codec);
 
             if (!videoEnc) {
                 err = alloc_error("Necessary video encoder not found");
@@ -506,13 +522,13 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
                 goto cleanup;
             }
 
-            AVCodecParameters *inVideoCodecPar = ifmt_ctx->streams[inVideoStreamIdx]->codecpar;
+            AVCodecParameters* outVideoCodecPar = exportState->out_video_stream->codecpar;
 
             // Match source parameters
-            videoEncCtx->width  = inVideoCodecPar->width;
-            videoEncCtx->height = inVideoCodecPar->height;
-            videoEncCtx->sample_aspect_ratio = inVideoCodecPar->sample_aspect_ratio.num ?
-                                            inVideoCodecPar->sample_aspect_ratio :
+            videoEncCtx->width  = outVideoCodecPar->width;
+            videoEncCtx->height = outVideoCodecPar->height;
+            videoEncCtx->sample_aspect_ratio = outVideoCodecPar->sample_aspect_ratio.num ?
+                                            outVideoCodecPar->sample_aspect_ratio :
                                             av_make_q(1, 1);
 
             // Frame rate / time base
@@ -524,7 +540,7 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
             videoEncCtx->framerate = guessed_framerate.num && guessed_framerate.den ? guessed_framerate : av_make_q(30, 1);
 
             // Bitrate (copy from input or set manually)
-            videoEncCtx->bit_rate = inVideoCodecPar->bit_rate ? inVideoCodecPar->bit_rate : 2'000'000;
+            videoEncCtx->bit_rate = outVideoCodecPar->bit_rate ? outVideoCodecPar->bit_rate : 2'000'000;
 
             // Pixel format
             const void *pix_fmts = NULL;
@@ -536,7 +552,7 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
                 videoEncCtx->pix_fmt = ((const enum AVPixelFormat *)pix_fmts)[0];
             } else {
                 // fallback to the input pixel format
-                videoEncCtx->pix_fmt = (enum AVPixelFormat)inVideoCodecPar->format;
+                videoEncCtx->pix_fmt = (enum AVPixelFormat)outVideoCodecPar->format;
             }
 
 
@@ -545,7 +561,7 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState, AVFormatContext*
             // av_opt_set(videoEncCtx->priv_data, "preset", "medium", 0);
             // av_opt_set(videoEncCtx->priv_data, "crf", "23", 0);
 
-            if (ofmt->flags & AVFMT_GLOBALHEADER)
+            if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
                 videoEncCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
             // Open the encoder
@@ -1125,11 +1141,6 @@ char* remux(MediaClip* mediaClip, float* exportProgress, const char* out_filenam
 
         AVCodecParameters* inAudioCodecPar = ifmt_ctx->streams[audioStreamIdx[0]]->codecpar;
         ret = avcodec_parameters_copy(out_audio_stream->codecpar, inAudioCodecPar);
-        /*out_audio_stream->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;*/
-        /*out_audio_stream->codecpar->codec_id = inCodecPar->codec_id;*/
-        /*out_audio_stream->codecpar->sample_rate = inCodecPar->sample_rate;*/
-        /*out_audio_stream->codecpar->ch_layout.nb_channels = inCodecPar->ch_layout.nb_channels;  // stereo output*/
-        /*out_audio_stream->codecpar->bit_rate = inCodecPar->bit_rate;  // 320kbps */
 
         outAudioStreamIdx = out_audio_stream->index;
 

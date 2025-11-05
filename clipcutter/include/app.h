@@ -24,6 +24,8 @@ struct ExportState {
     int64_t lastAudioPts;
     int64_t lastAudioDts;
     int64_t audioOffsetPts;
+    AVFormatContext* ofmt_ctx;
+    DynArr userAudioFilters;
 };
 
 struct Events {
