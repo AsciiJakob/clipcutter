@@ -406,6 +406,21 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             err = alloc_error("Could not initialize the aformat filter");
             goto cleanup;
         }
+        
+        // TODO: add custom effects here
+        // test with modified compressor
+        // const char* acompressor_desc = "attack=26.85600:release=664.43903:ratio=20.00000:threshold=0.04800:level_in=11.61000:makeup=1.00000";
+        // test with default settings (no compressor)
+        const char* acompressor_desc = "attack=20.00000:release=250.00000:ratio=2.00000:threshold=0.12500:level_in=1.00000:makeup=1.00000";
+
+        const AVFilter* acompressor = avfilter_get_by_name("acompressor");
+        AVFilterContext* acompressor_ctx = NULL;
+
+        ret = avfilter_graph_create_filter(&acompressor_ctx, acompressor, "acompressor", acompressor_desc, NULL, filter_graph);
+        if (ret < 0) {
+            err = alloc_error("Failed adding user effect");
+            goto cleanup;
+        }
 
 
         const AVFilter* abuffersink = avfilter_get_by_name("abuffersink");
@@ -420,6 +435,23 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             goto cleanup;
         }
 
+        // Set the output format constraints to match the encoder
+        AVSampleFormat sample_fmts[] = { (AVSampleFormat)outAudioCodecPar->format, AV_SAMPLE_FMT_NONE };
+        ret = av_opt_set_int_list(abuffersink_ctx, "sample_fmts", sample_fmts, AV_SAMPLE_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
+        if (ret < 0) {
+            err = alloc_error("Could not set output sample format");
+            goto cleanup;
+        }
+
+        int sample_rates[] = { outAudioCodecPar->sample_rate, -1 };
+        ret = av_opt_set_int_list(abuffersink_ctx, "sample_rates", sample_rates, -1, AV_OPT_SEARCH_CHILDREN);
+        if (ret < 0) {
+            err = alloc_error("Could not set output sample rate");
+            goto cleanup;
+        }
+
+
+
         /* This filter takes no options. */
         ret = avfilter_init_str(abuffersink_ctx, NULL);
         if (ret < 0) {
@@ -427,17 +459,28 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             goto cleanup;
         }
 
+        // for (int i=0; i < audioStreamCount; i++) {
+        //     if (ret >= 0)
+        //         ret = avfilter_link(abufferCtxs[i], 0, amix_ctx, i);
+        // }
+        // if (ret >= 0)
+        //     ret = avfilter_link(amix_ctx, 0, aformat_ctx, 0);
+        // if (ret >= 0)
+        //     ret = avfilter_link(aformat_ctx, 0, abuffersink_ctx, 0);
+        // if (ret < 0) {
+        //     err = alloc_error("Error connecting filters");
+        //     goto cleanup;
+        // }
         for (int i=0; i < audioStreamCount; i++) {
             if (ret >= 0)
                 ret = avfilter_link(abufferCtxs[i], 0, amix_ctx, i);
         }
         if (ret >= 0)
             ret = avfilter_link(amix_ctx, 0, aformat_ctx, 0);
-
-        // TODO: add custom effects here
-
         if (ret >= 0)
-            ret = avfilter_link(aformat_ctx, 0, abuffersink_ctx, 0);
+            ret = avfilter_link(aformat_ctx, 0, acompressor_ctx, 0);
+        if (ret >= 0)
+            ret = avfilter_link(acompressor_ctx, 0, abuffersink_ctx, 0);
         if (ret < 0) {
             err = alloc_error("Error connecting filters");
             goto cleanup;

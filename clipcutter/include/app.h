@@ -64,6 +64,7 @@ struct MpvCommand {
     char command[MPVCOMMAND_STR_SIZE];
 };
 
+// TODO: make a longer list, because many more formats are actually supported.
 constexpr const char* SUPPORTED_FILE_FORMATS[] = {
     ".mp4",
     ".avi",
