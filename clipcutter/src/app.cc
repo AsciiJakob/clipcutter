@@ -12,8 +12,11 @@ void App_Init(App* app) {
 
 	app->playbackBlocked = false;
 	app->playbackActive = false;
+    app->userScaleFactor = 1.0;
+    app->scale = 10.0; // placeholder value, actual value gets set after imgui is initilalized
 	app->timeline.clipHeight = 30;
-	app->timeline.scaleX = 1.5;
+	// app->timeline.zoomX = 1.5;
+    app->timeline.zoomX = 1.5;
 	app->timeline.width = 2500;
 	app->timeline.snappingPrecision = 5.0;
     app->timeline.highestTrackCount = MINIMUM_DRAW_TRACK_COUNT;

@@ -47,7 +47,7 @@ struct AppRender {
 };
 
 struct Timeline {
-	float scaleX;
+	float zoomX;
     int highestTrackCount;
 	bool snappingEnabled;
 	float snappingPrecision;
@@ -92,6 +92,9 @@ struct App {
 	bool isLoadingVideo;
 	bool isLoadingNewSource;
 
+    float userScaleFactor;
+    float scale;
+    float scaleX;
 	Timeline timeline;
 
 	int timelineEventIndex;

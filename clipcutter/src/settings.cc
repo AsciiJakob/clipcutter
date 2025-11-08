@@ -204,6 +204,8 @@ void Settings_DrawSettings(App* app) {
     }
     #endif
 
+    ImGui::SliderFloat("UI scale factor", &app->userScaleFactor, 0, 10);
+
     ImGui::InputText("Default export path", app->exportPath, 1024);
     ImGui::InputFloat("Snapping precision", &app->timeline.snappingPrecision);
 

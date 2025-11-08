@@ -31,7 +31,8 @@ int main(int argc, char* argv[]) {
     if (argc > 1) {
         for (int i=1; i < argc; i++) {
             char* arg = argv[i];
-
+			
+			// todo: Fix bug with program not launching if you specify parameter that doesn't exist.
             if (strcmp(arg, "--debug-console") == 0) {
                 #if defined(CC_PLATFORM_WINDOWS)
                     // if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
@@ -267,6 +268,7 @@ int main(int argc, char* argv[]) {
             app->timelineEventIndex++;
             App_LoadEvent(app, nextEvent);
         }
+
 
         // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
