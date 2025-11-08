@@ -156,8 +156,10 @@ void UI_DrawEditor(App* app) {
         ImGuiID dock_id_up;
         ImGuiID dock_id_down = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.35*app->scale, nullptr, &dock_id_up);
         ImGuiID dock_id_up_middle;
-        ImGuiID dock_id_up_left = ImGui::DockBuilderSplitNode(dock_id_up, ImGuiDir_Left, 0.2*app->scale, nullptr, &dock_id_up_middle);
-        ImGuiID dock_id_up_right = ImGui::DockBuilderSplitNode(dock_id_up_middle, ImGuiDir_Right, 0.2*app->scale, nullptr, &dock_id_up_middle);
+        constexpr float sideDocksWidth = 0.2; // in percent
+        ImGuiID dock_id_up_left = ImGui::DockBuilderSplitNode(dock_id_up, ImGuiDir_Left, sideDocksWidth*app->scale, nullptr, &dock_id_up_middle);
+        constexpr float dock_id_up_right_size = sideDocksWidth/(1-sideDocksWidth);
+        ImGuiID dock_id_up_right = ImGui::DockBuilderSplitNode(dock_id_up_middle, ImGuiDir_Right, dock_id_up_right_size*app->scale, nullptr, &dock_id_up_middle);
 
 
         ImGui::DockBuilderDockWindow("Timeline", dock_id_down); // dock_main_id docks it to the center of the main docking thing
