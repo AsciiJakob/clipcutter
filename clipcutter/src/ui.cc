@@ -5,9 +5,6 @@
 #include "mediaClip.h"
 #include "settings.h"
 
-int tracklistWidth = 100;
-
-
 int exportPathInputCallback(ImGuiInputTextCallbackData data) {
     /*if (data.EventFlag == ImGuiInputTextFlags_CallbackCompletion) {*/
     /**/
@@ -17,6 +14,8 @@ int exportPathInputCallback(ImGuiInputTextCallbackData data) {
 }
 
 void UI_DrawEditor(App* app) {
+    app->scale = ImGui::GetFontSize()/13.0*app->userScaleFactor; // divide by 13 so we can use higher, readable values rather than decimal numbers like 0.052
+    app->scaleX = app->scale*app->timeline.zoomX;
 
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::Button("Load File")) {
@@ -155,10 +154,10 @@ void UI_DrawEditor(App* app) {
 
         ImGuiID dock_main_id = dockspace_id;
         ImGuiID dock_id_up;
-        ImGuiID dock_id_down = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.35f, nullptr, &dock_id_up);
+        ImGuiID dock_id_down = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.35*app->scale, nullptr, &dock_id_up);
         ImGuiID dock_id_up_middle;
-        ImGuiID dock_id_up_left = ImGui::DockBuilderSplitNode(dock_id_up, ImGuiDir_Left, 0.20f, nullptr, &dock_id_up_middle);
-        ImGuiID dock_id_up_right = ImGui::DockBuilderSplitNode(dock_id_up_middle, ImGuiDir_Right, 0.20f, nullptr, &dock_id_up_middle);
+        ImGuiID dock_id_up_left = ImGui::DockBuilderSplitNode(dock_id_up, ImGuiDir_Left, 0.2*app->scale, nullptr, &dock_id_up_middle);
+        ImGuiID dock_id_up_right = ImGui::DockBuilderSplitNode(dock_id_up_middle, ImGuiDir_Right, 0.2*app->scale, nullptr, &dock_id_up_middle);
 
 
         ImGui::DockBuilderDockWindow("Timeline", dock_id_down); // dock_main_id docks it to the center of the main docking thing
@@ -189,7 +188,8 @@ void UI_DrawEditor(App* app) {
 	if (ImGui::Begin("DebugThingies")) {
 		ImGui::Text("playbacktime: %.2f", app->playbackTime);
 		ImGui::Text("playbackActive: %d", app->playbackActive);
-		ImGui::Text("scaling: %.2f", app->timeline.scaleX);
+		ImGui::Text("scaling: %.2f", app->scale);
+		ImGui::Text("scaling X: %.2f", app->scaleX);
 		ImGui::Text("timeline width: %.2f", app->timeline.width);
 		ImGui::Text("timelineEvent: %d", app->timelineEvents[app->timelineEventIndex].type);
 		if (app->loadedMediaSource != nullptr) {
@@ -275,7 +275,9 @@ void UI_DrawEditor(App* app) {
 		{ // Tracklist
 			ImGui::BeginGroup();
 			ImU32 tracklistColor = ImGui::GetColorU32(ImVec4(0.15, 0.15, 0.15, 1));
-			//ImVec2 tracklistSize = ImVec2(tracklistWidth, std::max(ImGui::GetContentRegionAvail().y, (trackCount + 3) * track1Height));
+            double tracklistWidth = 104*app->scale;
+            // double tracklistWidth = 95.0;
+			// ImVec2 tracklistSize = ImVec2(tracklistWidth, fmax(ImGui::GetContentRegionAvail().y, (float)((app->timeline.highestTrackCount) * app->timeline.clipHeight)));
 			ImVec2 tracklistSize = ImVec2(tracklistWidth, fmax(ImGui::GetContentRegionAvail().y, (float)((app->timeline.highestTrackCount) * app->timeline.clipHeight)));
 
 			cursorTrackListBefore = ImGui::GetCursorScreenPos();
@@ -295,9 +297,9 @@ void UI_DrawEditor(App* app) {
                 if (i==0) i=1; // start indexing at 1
 
 				ImGui::Text("Track %d", i);
-				ImGui::SameLine(tracklistWidth - 40);
+				ImGui::SameLine(tracklistWidth - 40*app->scale);
 				ImGui::SmallButton("Mute");
-				trackCursor.y += app->timeline.clipHeight;
+				trackCursor.y += app->timeline.clipHeight*app->scale;
 				ImGui::SetCursorScreenPos(trackCursor);
 
 				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
@@ -323,7 +325,7 @@ void UI_DrawEditor(App* app) {
 
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 			ImGui::SameLine();
-			ImVec2 childSize = ImVec2(ImGui::GetContentRegionAvail().x, fmax(ImGui::GetContentRegionAvail().y, (app->timeline.highestTrackCount) * app->timeline.clipHeight));
+			ImVec2 childSize = ImVec2(ImGui::GetContentRegionAvail().x, fmax(ImGui::GetContentRegionAvail().y, (app->timeline.highestTrackCount) * app->timeline.clipHeight * app->scale));
 			// create child window so that we can have a horizontal scrollbar for the timeline
 			ImGui::BeginChild("TimelineWindowChild", childSize, false, ImGuiWindowFlags_HorizontalScrollbar);
 
@@ -334,7 +336,7 @@ void UI_DrawEditor(App* app) {
 			app->timeline.cursTopLeft = cursorTimelineBefore; // todo: refac to use this
 
 			// ImVec2 timeline_size = ImVec2(5000, ImGui::GetContentRegionAvail().y);
-			ImVec2 timeline_size = ImVec2(app->timeline.width*app->timeline.scaleX, ImGui::GetContentRegionAvail().y);
+			ImVec2 timeline_size = ImVec2(app->timeline.width*app->scaleX, ImGui::GetContentRegionAvail().y);
 			ImGui::InvisibleButton("timeline", timeline_size);
 			ImGui::PopStyleVar();
 
@@ -357,7 +359,7 @@ void UI_DrawEditor(App* app) {
                 ImGui::PopStyleColor();
                 ImGui::PopStyleVar();
 
-                separatorPos.y += app->timeline.clipHeight;
+                separatorPos.y += app->timeline.clipHeight*app->scale;
             }
 
 			ImGui::SetCursorScreenPos(cursorTimelineBefore);
@@ -385,15 +387,15 @@ void UI_DrawEditor(App* app) {
             }
 
 			{ // timeMarker
-				float timeMarkerValue = app->playbackTime*app->timeline.scaleX;
+				float timeMarkerPos = app->playbackTime*app->scaleX;
 
 				ImGui::SetCursorScreenPos(cursorTimelineBefore);
 				ImVec2 cursor_offset = ImGui::GetCursorScreenPos();
-				cursor_offset.x = cursor_offset.x + timeMarkerValue;
+				cursor_offset.x = cursor_offset.x + timeMarkerPos;
 				ImGui::SetCursorScreenPos(cursor_offset);
 
 				ImU32 timeline_color = ImGui::GetColorU32(ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
-				ImVec2 timeline_size(2, ImGui::GetContentRegionAvail().y);
+				ImVec2 timeline_size(2*app->scale, ImGui::GetContentRegionAvail().y);
 				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 				ImGui::Dummy(timeline_size);
 				ImGui::PopStyleVar();
@@ -422,13 +424,13 @@ void UI_DrawEditor(App* app) {
 					float factor = 1.05f;
 
 					if (mw != 0) {
-						float oldZoom = app->timeline.scaleX;
+						float oldZoom = app->timeline.zoomX;
 						if (mw > 0) {
-							app->timeline.scaleX = app->timeline.scaleX * factor;
+							app->timeline.zoomX = app->timeline.zoomX * factor;
 						} else {
-							app->timeline.scaleX = app->timeline.scaleX / factor;
-                            if (ImGui::GetWindowWidth() / app->timeline.scaleX > app->timeline.width) {
-                                app->timeline.scaleX = ImGui::GetWindowWidth() / app->timeline.width; // revert change to limit how far we can zoom out.
+							app->timeline.zoomX = app->timeline.zoomX / factor;
+                            if (ImGui::GetWindowWidth() / app->timeline.zoomX > app->timeline.width) {
+                                app->timeline.zoomX = ImGui::GetWindowWidth() / app->timeline.width; // revert change to limit how far we can zoom out.
                             }
 
 						}
@@ -437,10 +439,10 @@ void UI_DrawEditor(App* app) {
 						float timelineMousePos = ImGui::GetMousePos().x - cursorTimelineBefore.x;
 
 						float diffBefore = timelineMousePos / oldZoom - currentScrollPos;
-						float diffAfter = timelineMousePos / app->timeline.scaleX - currentScrollPos;
+						float diffAfter = timelineMousePos / app->timeline.zoomX - currentScrollPos;
 
 						float offset = diffBefore - diffAfter;
-						ImGui::SetScrollX(currentScrollPos + offset * app->timeline.scaleX);
+						ImGui::SetScrollX(currentScrollPos + offset * app->timeline.zoomX);
 
 					}
 				}
@@ -450,13 +452,13 @@ void UI_DrawEditor(App* app) {
 				if (!hoveringOverTrack && timelineClicked) {
 					ImVec2 mousePos = ImGui::GetMousePos();
 					if (mousePos.x > cursorTimelineBefore.x) {
-						float secs = (mousePos.x - cursorTimelineBefore.x)/app->timeline.scaleX;
+						float secs = (mousePos.x - cursorTimelineBefore.x)/app->scaleX;
 						MediaClip* clip = App_FindClosestMediaClip(app, secs);
                         //log_debug("CLOSEST MEDIA CLIP IS: %s", clip->source->filename);
 						if (app->timeline.snappingEnabled && clip != nullptr) {
 							float snapSensitivity = 10;
-							float track1LeftmostPos = cursorTimelineBefore.x + clip->padding * app->timeline.scaleX;
-							float track1RightmostPos = cursorTimelineBefore.x + (clip->padding + clip->width) * app->timeline.scaleX;
+							float track1LeftmostPos = cursorTimelineBefore.x + clip->padding * app->scaleX;
+							float track1RightmostPos = cursorTimelineBefore.x + (clip->padding + clip->width) * app->scaleX;
 
 							if (fabs(mousePos.x - track1LeftmostPos) < snapSensitivity) {
 								mousePos.x = track1LeftmostPos;
@@ -467,7 +469,7 @@ void UI_DrawEditor(App* app) {
 						}
 
 						
-						float newSecs = (mousePos.x - cursorTimelineBefore.x)/app->timeline.scaleX;
+						float newSecs = (mousePos.x - cursorTimelineBefore.x)/app->scaleX;
                         App_ClearClipSelections(app);
 						app->playbackTime = newSecs;
 						App_MovePlaybackMarker(app, newSecs);
