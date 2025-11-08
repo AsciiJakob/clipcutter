@@ -174,8 +174,10 @@ void UI_DrawEditor(App* app) {
     if (ImGui::Begin("Help")) {
         ImGui::TextWrapped("Welcome to Clipcutter!");
         ImGui::TextWrapped("");
+        ImGui::TextWrapped("Playback:");
         ImGui::TextWrapped("SPACE - toggle pause of video playback");
-        ImGui::TextWrapped("F9 - open export modal");
+        ImGui::TextWrapped("Left arrow - navigate one frame to the left");
+        ImGui::TextWrapped("Right arrow - navigate one frame to the right");
         ImGui::TextWrapped("");
         ImGui::TextWrapped("Timeline:");
         ImGui::TextWrapped("DEL - delete selected clip");
@@ -184,6 +186,9 @@ void UI_DrawEditor(App* app) {
         ImGui::TextWrapped("Scroll wheel - zoom in and out");
         ImGui::TextWrapped("Shift + Scroll wheel - scroll horizontally");
         ImGui::TextWrapped("middle mouse - pan timeline");
+        ImGui::TextWrapped("");
+        ImGui::TextWrapped("Misc:");
+        ImGui::TextWrapped("F9 - open export modal");
     }
     ImGui::End();
 
