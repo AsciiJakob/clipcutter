@@ -273,7 +273,8 @@ void App_LoadEvent(App* app, TimelineEvent* event) {
 // moves the playback marker. Commonly called with secs=app->playtime in order to
 // update the playback to reflect what timelineEvents actually looks like in memory
 // after it has been modified.
-// Playback_SetPlaybackPos() only sets the playback within the video in MPV, this function updates the visual marker and loads the appropriate events
+// Playback_SetPlaybackPos() only sets the playback within the video in MPV,
+// this function updates the visual marker and loads the appropriate events
 void App_MovePlaybackMarker(App* app, float secs) {
 
 	// set timelineEventIndex

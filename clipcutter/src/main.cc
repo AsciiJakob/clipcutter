@@ -147,8 +147,12 @@ int main(int argc, char* argv[]) {
                 if (mediaSource == nullptr) {
                     log_fatal("Failed to import media clip");
                 } else {
-                    App_CreateMediaClip(app, mediaSource);
+                    MediaClip* newClip = App_CreateMediaClip(app, mediaSource);
                     App_CalculateTimelineEvents(app);
+                    if (MediaClip_IsUnderTimeMarker(app, newClip)) {
+                        App_MovePlaybackMarker(app, app->playbackTime);
+                    }
+
                 }
 
             } else if (event.type == app->events.wakeupOnMpvRenderUpdate) {
