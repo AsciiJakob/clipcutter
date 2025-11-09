@@ -48,9 +48,11 @@ void UI_DrawEditor(App* app) {
                     // TODO: check if media source is already loaded
                     MediaSource* src = App_CreateMediaSource(app, filePath);
                     if (src != nullptr)  {
-                        MediaClip* clip = App_CreateMediaClip(app, src);
+                        MediaClip* newClip = App_CreateMediaClip(app, src);
                         App_CalculateTimelineEvents(app);
-                        cc_unused(clip);
+                        if (MediaClip_IsUnderTimeMarker(app, newClip)) {
+                            App_MovePlaybackMarker(app, app->playbackTime);
+                        }
                     } else {
                         log_error("Failed to import media file");
                     }

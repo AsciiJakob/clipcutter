@@ -165,7 +165,6 @@ void overrideOverlappingClips(App* app, MediaClip* priorityClip) {
     }
 }
 
-
 bool MediaClip_IsBeingPlayed(App* app, MediaClip* mediaClip) {
     TimelineEvent* currentEvent = &app->timelineEvents[app->timelineEventIndex];
     if (currentEvent->type == TIMELINE_EVENT_VIDEO && currentEvent->clip == mediaClip) {
@@ -200,7 +199,19 @@ ClipSplitResult MediaClip_Split(App* app, MediaClip* clip, float timestamp) {
     return result;
 }
 
-bool shouldUpdatePlaybackAfterMove(App* app, MediaClip* mediaClip, float drawClipLeftPadding, float drawClipWidth) {
+
+// is a clip positioned under where the time marker is?
+// useful when combined with 
+// App_MovePlaybackMarker(app, app->playbackTime);
+// to make sure the clip loads if function returns true.
+bool MediaClip_IsUnderTimeMarker(App* app, MediaClip* clip) {
+    return app->playbackTime >= clip->padding && app->playbackTime <= (clip->padding+clip->width);
+}
+
+// return true if a playback update is necessary to keep
+// things synchronized after a clip has moved.
+// Uses the old position from mediaClip and its new from the last two arguments.
+bool shouldPlaybackUpdateAfterMove(App* app, MediaClip* mediaClip, float drawClipLeftPadding, float drawClipWidth) {
     // if nothing was changed.
     if (mediaClip->width == drawClipWidth && mediaClip->padding == drawClipLeftPadding) { 
         return false;
@@ -382,7 +393,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 		if (mouseLetGo) {
             // todo: figure out a way to calculate difference so that we don't refresh if we don't have to
 			mediaClip->isBeingMoved = false;
-			bool updatePlayback = shouldUpdatePlaybackAfterMove(app, mediaClip, drawClipLeftPadding, drawClipWidth);
+			bool updatePlayback = shouldPlaybackUpdateAfterMove(app, mediaClip, drawClipLeftPadding, drawClipWidth);
 			mediaClip->padding = drawClipLeftPadding;
             overrideOverlappingClips(app, mediaClip);
 			App_CalculateTimelineEvents(app);
@@ -462,7 +473,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 
 		if (mouseLetGo) {
 
-			bool updatePlayback = shouldUpdatePlaybackAfterMove(app, mediaClip, drawClipLeftPadding, drawClipWidth);
+			bool updatePlayback = shouldPlaybackUpdateAfterMove(app, mediaClip, drawClipLeftPadding, drawClipWidth);
 			mediaClip->padding = drawClipLeftPadding;
 			*startCutoff = totalCutOffValue;
 			mediaClip->isResizingLeft = false;
@@ -535,7 +546,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 
 
 		if (mouseLetGo) {
-			bool updatePlayback = shouldUpdatePlaybackAfterMove(app, mediaClip, drawClipLeftPadding, drawClipWidth);
+			bool updatePlayback = shouldPlaybackUpdateAfterMove(app, mediaClip, drawClipLeftPadding, drawClipWidth);
 			*endCutoff = totalCutOffValue;
 			mediaClip->isResizingRight = false;
             mediaClip->width = drawClipWidth;
