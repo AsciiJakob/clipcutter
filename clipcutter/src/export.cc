@@ -16,6 +16,22 @@ char* alloc_error(const char* fmt, ...) {
     return errorBuffer;
 }
 
+void Export_SetDefaultExportOptionsVideo(App* app) {
+    app->exportState.exportOptions.exportVideo = true;
+    app->exportState.exportOptions.exportAudio = true;
+    app->exportState.exportOptions.remuxVideo = true;
+    app->exportState.exportOptions.remuxAudio = false;
+    app->exportState.exportOptions.mergeAudioTracks = true;
+}
+
+void Export_SetDefaultExportOptionsAudio(App* app) {
+    app->exportState.exportOptions.exportVideo = false;
+    app->exportState.exportOptions.exportAudio = true;
+    app->exportState.exportOptions.remuxVideo = false;
+    app->exportState.exportOptions.remuxAudio = false;
+    app->exportState.exportOptions.mergeAudioTracks = true;
+}
+
 char* setOutputParameters(MediaClip* firstClip, ExportState* exportState) {
     AVFormatContext* ofmt_ctx = exportState->ofmt_ctx;
     AVFormatContext *ifmt_ctx = NULL;

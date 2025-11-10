@@ -6,6 +6,8 @@
 typedef struct App App;
 
 
+void Export_SetDefaultExportOptionsVideo(App* app);
+void Export_SetDefaultExportOptionsAudio(App* app);
 void exportVideo(App* app, bool combineAudioStreams);
 
 #endif
