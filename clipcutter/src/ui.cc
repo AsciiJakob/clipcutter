@@ -85,10 +85,10 @@ void UI_DrawEditor(App* app) {
             }
             if (ImGui::BeginCombo("##exportvideoaudio", *selected)) {
                 if (ImGui::Selectable(exportVideoStr, options->exportVideo)) {
-                    options->exportVideo = true;
+                    Export_SetDefaultExportOptionsVideo(app);
                 }
                 if (ImGui::Selectable(exportAudioStr, !options->exportVideo)) {
-                    options->exportVideo = false;
+                    Export_SetDefaultExportOptionsAudio(app);
                 }
 
                 ImGui::EndCombo();
@@ -136,6 +136,17 @@ void UI_DrawEditor(App* app) {
             if (options->exportVideo) {
                 ImGui::Checkbox("include audio", &options->exportAudio);
                 ImGui::Checkbox("Remux video", &options->remuxVideo);
+                ImGui::Checkbox("Remux audio", &options->remuxAudio);
+                ImGui::Text("Encoding Options:");
+                if (options->remuxAudio == true) {
+                    ImGui::BeginDisabled();
+                    options->mergeAudioTracks = false;
+                }
+                ImGui::Checkbox("Merge audio-tracks", &options->mergeAudioTracks);
+                if (options->remuxAudio == true) {
+                    ImGui::EndDisabled();
+                }
+            } else { // we chose "Export as audio"
                 ImGui::Checkbox("Remux audio", &options->remuxAudio);
                 ImGui::Text("Encoding Options:");
                 if (options->remuxAudio == true) {
