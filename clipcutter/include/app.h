@@ -11,7 +11,17 @@
 
 typedef struct MediaClip MediaClip;
 typedef struct MediaSource MediaSource;
+struct ExportOptions {
+    bool exportVideo;
+    bool exportAudio;
+    bool remuxVideo;
+    bool remuxAudio;
+    bool mergeAudioTracks;
+};
+
 struct ExportState {
+    ExportOptions exportOptions;
+
     char* statusString;
     float exportProgress;
     int clipIndex;
