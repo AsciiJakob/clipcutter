@@ -24,6 +24,11 @@ void App_Init(App* app) {
 
     strcpy(app->exportPath, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");
     app->exportState.statusString = (char*) "Not started";
+    app->exportState.exportOptions.exportVideo = true;
+    app->exportState.exportOptions.exportAudio = true;
+    app->exportState.exportOptions.remuxVideo = true;
+    app->exportState.exportOptions.remuxAudio = false;
+    app->exportState.exportOptions.mergeAudioTracks = true;
 
     app->temp_attack = 20;
     app->temp_release = 250;
