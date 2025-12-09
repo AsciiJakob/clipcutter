@@ -41,6 +41,8 @@ extern "C" {
 #include "libavutil/channel_layout.h"
 #include "libavutil/md5.h"
 #include "libavutil/mem.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/pixfmt.h"
 }
 
 

@@ -29,7 +29,7 @@ struct ExportState {
     AVStream* out_video_stream;
     AVStream* out_audio_stream;
     int64_t offsetPts;
-    int64_t lastPts;
+    int64_t lastVideoPts;
     int64_t lastDts;
     int64_t lastAudioPts;
     int64_t lastAudioDts;
