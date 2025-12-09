@@ -21,7 +21,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 int main(int argc, char* argv[]) {
 #endif
 
-    log_info("Clipcutter v0.0.1");
+    log_info("Clipcutter v0.0.1 ");
     App* app = (App*) malloc(sizeof(App));
     App_Init(app);
     /*app->playbackActive = true;*/
