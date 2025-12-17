@@ -865,12 +865,9 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
 
                     {
                         // progressbar logic
-                        double duration = (double) (ifmt_ctx->duration) / AV_TIME_BASE - mediaClip->startCutoff-mediaClip->endCutoff;
-                        double offset_from_rebase = pts_us_frame - (pts_offset[in_index]-exportState->offsetPtsEncTB);
-                        double currentTime = (double) offset_from_rebase * av_q2d(in_stream->time_base);
-                        // if (rebased_pts < offset_from_rebase) {
-                        //     currentTime = 0.0;
-                        // }
+                        double duration = (double) (ifmt_ctx->duration) / AV_TIME_BASE ; // duration in seconds
+                        duration = duration - mediaClip->startCutoff - mediaClip->endCutoff;
+                        double currentTime = (double) av_rescale_q(rebased_pts, in_stream->time_base, AV_TIME_BASE_Q) / AV_TIME_BASE;
 
                         exportState->exportProgress = (float) (currentTime / duration);
                     }
