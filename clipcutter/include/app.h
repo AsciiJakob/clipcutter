@@ -28,8 +28,8 @@ struct ExportState {
     const char* out_filename;
     AVStream* out_video_stream;
     AVStream* out_audio_stream;
-    int64_t offsetPts;
-    int64_t lastVideoPts;
+    int64_t offsetPtsEncTB; // stored in encoder timebase
+    int64_t lastVideoPtsEncTB; // stored in encoder timebase
     int64_t lastDts;
     int64_t lastAudioPts;
     int64_t lastAudioDts;
