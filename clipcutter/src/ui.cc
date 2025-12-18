@@ -76,18 +76,18 @@ void UI_DrawEditor(App* app) {
         if (ImGui::BeginPopupModal("Export options")) {
             ExportOptions* options = &app->exportState.exportOptions;
             const char* exportVideoStr = "Export as Video";
-            const char* exportAudioStr = "Export as Audio";
+            const char* exportAudioStr = "Export as Audio (dummy)";
             const char** selected = nullptr;
-            if (options->exportVideo) {
+            if (options->exportVideoSelected) {
                 selected = &exportVideoStr;
             } else {
                 selected = &exportAudioStr;
             }
             if (ImGui::BeginCombo("##exportvideoaudio", *selected)) {
-                if (ImGui::Selectable(exportVideoStr, options->exportVideo)) {
+                if (ImGui::Selectable(exportVideoStr, options->exportVideoSelected)) {
                     Export_SetDefaultExportOptionsVideo(app);
                 }
-                if (ImGui::Selectable(exportAudioStr, !options->exportVideo)) {
+                if (ImGui::Selectable(exportAudioStr, !options->exportVideoSelected)) {
                     Export_SetDefaultExportOptionsAudio(app);
                 }
 
@@ -133,32 +133,15 @@ void UI_DrawEditor(App* app) {
                 SDL_ShowSaveFileDialog(callback, app, app->window, filters, 3, app->exportPath);
             }
 
-            if (options->exportVideo) {
-                ImGui::Checkbox("include audio", &options->exportAudio);
-                ImGui::Checkbox("Remux video", &options->remuxVideo);
-                ImGui::Checkbox("Remux audio", &options->remuxAudio);
+            if (options->exportVideoSelected) {
+                ImGui::Checkbox("include audio (dummy)", &options->exportAudio);
                 ImGui::Text("Encoding Options:");
-                if (options->remuxAudio == true) {
-                    ImGui::BeginDisabled();
-                    options->mergeAudioTracks = false;
-                }
-                ImGui::Checkbox("Merge audio-tracks", &options->mergeAudioTracks);
-                if (options->remuxAudio == true) {
-                    ImGui::EndDisabled();
-                }
+                ImGui::Checkbox("Merge audio-tracks (dummy)", &options->mergeAudioTracks);
             } else { // we chose "Export as audio"
-                ImGui::Checkbox("Remux audio", &options->remuxAudio);
                 ImGui::Text("Encoding Options:");
-                if (options->remuxAudio == true) {
-                    ImGui::BeginDisabled();
-                    options->mergeAudioTracks = false;
-                }
                 ImGui::Checkbox("Merge audio-tracks", &options->mergeAudioTracks);
-                if (options->remuxAudio == true) {
-                    ImGui::EndDisabled();
-                }
             }
-            if (ImGui::Button("Remux")) {
+            if (ImGui::Button("Render")) {
                 std::thread thread_obj(exportVideo, app, true);
                 thread_obj.detach();
             };
