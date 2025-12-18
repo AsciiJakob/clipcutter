@@ -17,18 +17,14 @@ char* alloc_error(const char* fmt, ...) {
 }
 
 void Export_SetDefaultExportOptionsVideo(App* app) {
-    app->exportState.exportOptions.exportVideo = true;
+    app->exportState.exportOptions.exportVideoSelected = true;
     app->exportState.exportOptions.exportAudio = true;
-    app->exportState.exportOptions.remuxVideo = true;
-    app->exportState.exportOptions.remuxAudio = false;
     app->exportState.exportOptions.mergeAudioTracks = true;
 }
 
 void Export_SetDefaultExportOptionsAudio(App* app) {
-    app->exportState.exportOptions.exportVideo = false;
+    app->exportState.exportOptions.exportVideoSelected = false;
     app->exportState.exportOptions.exportAudio = true;
-    app->exportState.exportOptions.remuxVideo = false;
-    app->exportState.exportOptions.remuxAudio = false;
     app->exportState.exportOptions.mergeAudioTracks = true;
 }
 

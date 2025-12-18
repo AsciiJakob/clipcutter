@@ -12,10 +12,8 @@
 typedef struct MediaClip MediaClip;
 typedef struct MediaSource MediaSource;
 struct ExportOptions {
-    bool exportVideo;
+    bool exportVideoSelected;
     bool exportAudio;
-    bool remuxVideo;
-    bool remuxAudio;
     bool mergeAudioTracks;
 };
 
