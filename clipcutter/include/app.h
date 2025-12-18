@@ -28,12 +28,10 @@ struct ExportState {
     const char* out_filename;
     AVStream* out_video_stream;
     AVStream* out_audio_stream;
-    int64_t offsetPtsEncTB; // stored in encoder timebase
-    int64_t lastVideoPtsEncTB; // stored in encoder timebase
-    int64_t lastDts;
-    int64_t lastAudioPts;
-    int64_t lastAudioDts;
-    int64_t audioOffsetPts;
+    int64_t offsetPtsEncTBVideo;
+    int64_t offsetPtsEncTBAudio;
+    int64_t lastPtsEncTBVideo;
+    int64_t lastPtsEncTBAudio;
     AVFormatContext* ofmt_ctx;
     DynArr userAudioFilters;
 };
