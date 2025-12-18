@@ -6,6 +6,7 @@ Under development, not suitable for usage. Hoping to have a MVP released Q1 2026
 ## Features
 * Video playback
 * Cutting/trimming
+* Video concatenation
 * Exporting (somewhat unstable)
 * * exporting video and audio
 * * exporting video only (unimplemented)
