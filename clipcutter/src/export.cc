@@ -248,6 +248,7 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
     log_debug("filename is: %s", out_filename);
     AVStream* out_audio_stream  = exportState->out_audio_stream;
     int64_t* last_video_pts_enc_tb = &exportState->lastPtsEncTBVideo;
+    int64_t* last_audio_pts_enc_tb = &exportState->lastPtsEncTBAudio;
 
 
     AVFilterGraph* filter_graph = avfilter_graph_alloc();
@@ -748,21 +749,21 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
                     }
 
                     // rebase timestamp
-                    // int64_t rebased_pts = frame->pts - pts_offset[in_index];
-                    frame->pts = frame->pts+exportState->offsetPtsEncTBVideo;
+                    int64_t rebased_pts = frame->pts - pts_offset[in_index] + exportState->offsetPtsEncTBVideo;
+                    // frame->pts = frame->pts+exportState->offsetPtsEncTBVideo;
                     
                     // ensure monotically increasing pts
                     int64_t last_pts = *last_video_pts_enc_tb;
-                    // if (last_pts != AV_NOPTS_VALUE && rebased_pts <= last_pts) {
-                    if (last_pts != AV_NOPTS_VALUE && frame->pts <= last_pts) {
+                    if (last_pts != AV_NOPTS_VALUE && rebased_pts <= last_pts) {
+                    // if (last_pts != AV_NOPTS_VALUE && frame->pts <= last_pts) {
                         log_debug("non monotically increasing pts for video, fixing")
-                        // rebased_pts = last_pts + 1;
-                        frame->pts = last_pts + 1;
+                        rebased_pts = last_pts + 1;
+                        // frame->pts = last_pts + 1;
                     }
-                    // *last_video_pts_enc_tb = rebased_pts;
-                    *last_video_pts_enc_tb = frame->pts;
+                    *last_video_pts_enc_tb = rebased_pts;
+                    // *last_video_pts_enc_tb = frame->pts;
 
-                    // frame->pts = rebased_pts;
+                    frame->pts = rebased_pts;
 
                     int ret_send_frame = avcodec_send_frame(videoEncCtx, frame);
                     if (ret_send_frame < 0 && ret_send_frame != AVERROR(EAGAIN)) {
@@ -825,6 +826,12 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
                     }
 
 
+                    // It is unclear to me if the line below is necessary
+                    // or if the decoder always uses the same time base as the input.
+                    // works with our without on mp4s, but hard to test with every codec etc
+                    frame->pts = av_rescale_q(frame->pts,
+                                            audioDecCtx[idx]->time_base,
+                                            in_stream->time_base);
                     int64_t pts_us_frame = av_rescale_q(frame->pts,
                                                         in_stream->time_base,
                                                         AV_TIME_BASE_Q);
@@ -845,22 +852,19 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
 
                     // Calculate pts_offset if needed
                     if (!found_rebase_pts[in_index]) {
-                        pts_offset[in_index] = frame->pts;
+                        pts_offset[in_index] = av_rescale_q(frame->pts,
+                                audioDecCtx[idx]->time_base,
+                                audioEncCtx->time_base);
                         found_rebase_pts[in_index] = true;
                     }
-
-                    // rebase timestamp
-                    int64_t rebased_pts = frame->pts - pts_offset[in_index];
-
-                    frame->pts = av_rescale_q(rebased_pts, in_stream->time_base, audioDecCtx[idx]->time_base);
 
 
                     {
                         // progressbar logic
                         double duration = (double) (ifmt_ctx->duration) / AV_TIME_BASE ; // duration in seconds
                         duration = duration - mediaClip->startCutoff - mediaClip->endCutoff;
-                        double currentTime = (double) av_rescale_q(rebased_pts, in_stream->time_base, AV_TIME_BASE_Q) / AV_TIME_BASE;
-
+                        double currentTime = (double) (pts_us_frame / AV_TIME_BASE);
+                        currentTime = currentTime-mediaClip->startCutoff;
                         exportState->exportProgress = (float) (currentTime / duration);
                     }
 
@@ -883,8 +887,21 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
                             goto cleanup;
                         }
 
-                        frame->pts += exportState->offsetPtsEncTBAudio;
-                        exportState->lastPtsEncTBAudio = frame->pts;
+                        // pts is in in_stream->time_base since the abuffer is configured to use that
+                        frame->pts = av_rescale_q(frame->pts, in_stream->time_base, audioEncCtx->time_base);
+
+                        // rebase timestamp
+                        int64_t rebased_pts = frame->pts - pts_offset[in_index] + exportState->offsetPtsEncTBAudio;
+
+                        // ensure monotically increasing pts
+                        int64_t last_pts = *last_audio_pts_enc_tb;
+                        if (last_pts != AV_NOPTS_VALUE && rebased_pts <= last_pts) {
+                            log_debug("non monotically increasing pts for AUDIO, fixing")
+                            rebased_pts = last_pts + 1;
+                        }
+                        *last_audio_pts_enc_tb = rebased_pts;
+
+                        frame->pts = rebased_pts;
 
                         ret = avcodec_send_frame(audioEncCtx, frame);
                         if (ret < 0) {
@@ -901,30 +918,6 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
                                 err = alloc_error("error decoding audio frame");
                                 goto cleanup;
                             }
-
-                            // av_packet_rescale_ts(pkt, audioEncCtx->time_base, out_stream->time_base);
-
-
-
-                            // we have to ensure monotonically increasing DTS
-                            // the last_audio_dts > 0 condition is because last_audio_dts is 0 for the very first audio frame
-                            // if (pkt->dts <= *last_audio_dts && *last_audio_dts > 0) {
-                            // if (*last_audio_dts != AV_NOPTS_VALUE && pkt->dts <= *last_audio_dts) {
-                            // if (exportState->lastAudioDts != AV_NOPTS_VALUE && pkt->dts <= exportState->lastAudioDts) {
-                            //     log_debug("we have to ensure it is increasing");
-                            //     pkt->dts = exportState->lastAudioDts + 1;
-                            //     // if PTS is after DTS, adjust it accordingly
-                            //     if (pkt->pts <= pkt->dts) {
-                            //         pkt->pts = pkt->dts;
-                            //     }
-                            // }
-                            // 
-                            // exportState->lastAudioDts = pkt->dts;
-                            // if (pkt->duration > 0)  {
-                            //     exportState->lastAudioPts = pkt->pts+pkt->duration;
-                            // } else {
-                            //     exportState->lastAudioPts = pkt->pts;
-                            // }
 
                             ret = av_interleaved_write_frame(ofmt_ctx, pkt);
                             if (ret < 0) {
@@ -973,16 +966,18 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
                 }
 
                 // rebase timestamp
-                frame->pts = frame->pts + exportState->offsetPtsEncTBVideo;
+                int64_t rebased_pts = frame->pts - pts_offset[in_index] + exportState->offsetPtsEncTBVideo;
 
                 // ensure monotically increasing pts
                 int64_t last_pts = *last_video_pts_enc_tb;
                 // TODO: i think the AV_NOPTS_VALUE check here is redundant.
-                if (last_pts != AV_NOPTS_VALUE && frame->pts <= last_pts) {
+                if (last_pts != AV_NOPTS_VALUE && rebased_pts <= last_pts) {
                     log_debug("non monotically increasing pts for video in draining, fixing")
-                    frame->pts = last_pts + 1;
+                    rebased_pts= last_pts + 1;
                 }
-                *last_video_pts_enc_tb = frame->pts;
+                *last_video_pts_enc_tb = rebased_pts;
+
+                frame->pts = rebased_pts;
 
                 avcodec_send_frame(videoEncCtx, frame);
 
