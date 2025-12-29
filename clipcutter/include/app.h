@@ -22,8 +22,9 @@ struct ExportState {
 
     char* statusString;
     float exportProgress;
-    int clipIndex;
     const char* out_filename;
+
+    int clipIndex;
     AVStream* out_video_stream;
     AVStream* out_audio_stream;
     int64_t offsetPtsEncTBVideo;
