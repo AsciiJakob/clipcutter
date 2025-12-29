@@ -939,6 +939,8 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
         
         // https://www.ffmpeg.org/doxygen/trunk/group__lavc__encdec.html
         log_debug("draining decoder");
+        exportState->statusString = (char*) "Draining decoder/encoder";
+
         avcodec_send_packet(videoDecCtx, NULL); // enters "draining mode"
         while (1) {
             int ret = avcodec_receive_frame(videoDecCtx, frame);
