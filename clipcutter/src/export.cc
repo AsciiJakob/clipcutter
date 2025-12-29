@@ -604,11 +604,11 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             videoEncCtx->height = videoDecCtx->height;
             videoEncCtx->width  = videoDecCtx->width;
             videoEncCtx->pix_fmt = AV_PIX_FMT_YUV420P;
-            // videoEncCtx->time_base = vidStream->time_base;
-            // videoEncCtx->framerate = av_guess_frame_rate(ifmt_ctx, vidStream, NULL);
-            int framerate = 30;
-            videoEncCtx->framerate = {framerate, 1};
-            videoEncCtx->time_base = {1, framerate};
+            videoEncCtx->time_base = ifmt_ctx->streams[inVideoStreamIdx]->time_base;
+            videoEncCtx->framerate = av_guess_frame_rate(ifmt_ctx, ifmt_ctx->streams[inVideoStreamIdx], NULL);
+            // int framerate = 60;
+            // videoEncCtx->framerate = {framerate, 1};
+            // videoEncCtx->time_base = {1, framerate};
 
 
             // Open the encoder
