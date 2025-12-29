@@ -136,7 +136,32 @@ void UI_DrawEditor(App* app) {
             if (options->exportVideoSelected) {
                 ImGui::Checkbox("include audio (dummy)", &options->exportAudio);
                 ImGui::Text("Encoding Options:");
-                ImGui::Checkbox("Merge audio-tracks (dummy)", &options->mergeAudioTracks);
+
+            if (ImGui::BeginCombo("##crforcb", "Constant Rate Factor (CRF)")) {
+                if (ImGui::Selectable("Constant Rate Factor (CRF)", true)) {
+
+                }
+                if (ImGui::Selectable("Constant Bitrate (CB) (unimplemented)", false)) {
+
+                }
+
+                ImGui::EndCombo();
+            }
+
+            ImGui::SliderFloat("CBR rate factor", &options->CBRRateFactor, 0, 50);
+            if (ImGui::IsItemHovered()) {
+                ImGui::BeginTooltip();
+                ImGui::Text("The rate factor for CBR compression. The lower, the higher quality.");
+                ImGui::Text("A sane range is most likely between 17-28.");
+                ImGui::Text("0: lossless");
+                ImGui::Text("18: visually lossless");
+                ImGui::Text("51: worst possible, heavily compressed");
+
+                ImGui::EndTooltip();
+            }
+
+
+            ImGui::Checkbox("Merge audio-tracks (dummy)", &options->mergeAudioTracks);
             } else { // we chose "Export as audio"
                 ImGui::Text("Encoding Options:");
                 ImGui::Checkbox("Merge audio-tracks", &options->mergeAudioTracks);

@@ -15,6 +15,7 @@ struct ExportOptions {
     bool exportVideoSelected;
     bool exportAudio;
     bool mergeAudioTracks;
+    float CBRRateFactor;
 };
 
 struct ExportState {
