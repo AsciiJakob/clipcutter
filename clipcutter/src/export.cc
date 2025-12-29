@@ -202,6 +202,110 @@ cleanup:
 // }
 
 
+char* recieveAndProcessFramesVideo(
+        ExportState* exportState,
+        AVFormatContext *ifmt_ctx,
+        AVFormatContext* ofmt_ctx,
+        AVFrame* frame,
+        int64_t start_TS,
+        int64_t end_TS,
+        AVCodecContext* videoDecCtx,
+        AVCodecContext* videoEncCtx,
+        int in_index,
+        bool* isPastEndTSVideo,
+        bool decoderIsBeingDrained,
+        int found_rebase_pts[MAX_SUPPORTED_AUDIO_TRACKS+1],
+        int64_t pts_offset[MAX_SUPPORTED_AUDIO_TRACKS+1]
+        ) {
+
+    cc_unused(decoderIsBeingDrained);
+    int64_t* last_video_pts_enc_tb = &exportState->lastPtsEncTBVideo;
+    AVStream* in_stream = ifmt_ctx->streams[in_index];
+
+    while (1) {
+        int ret = avcodec_receive_frame(videoDecCtx, frame);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            break;
+        }
+
+        frame->pts = av_rescale_q(frame->pts,
+                                in_stream->time_base,
+                                videoEncCtx->time_base);
+
+        int64_t pts_us_frame = av_rescale_q(frame->pts,
+                                            videoEncCtx->time_base,
+                                            AV_TIME_BASE_Q);
+
+        // TODO: check if this is really necessary.
+        frame->pts = frame->best_effort_timestamp;
+        if (frame->pts == AV_NOPTS_VALUE) {
+            frame->pts = *last_video_pts_enc_tb++;
+            *last_video_pts_enc_tb = frame->pts;
+        }
+
+        // drop packet if it's before our span
+        if (pts_us_frame < start_TS) {
+            av_frame_unref(frame);
+            continue;
+        }
+
+        // if after trimming region, mark this stream as finished
+        if (pts_us_frame > end_TS) {
+            *isPastEndTSVideo = true;
+            av_frame_unref(frame);
+            continue;
+        }
+
+        // calculate pts_offset if needed
+        if (!found_rebase_pts[in_index]) {
+            pts_offset[in_index] = frame->pts; // frame->pts is in enc TB
+            found_rebase_pts[in_index] = true;
+        }
+
+        // rebase timestamp
+        int64_t rebased_pts = frame->pts - pts_offset[in_index] + exportState->offsetPtsEncTBVideo;
+
+        // ensure monotically increasing pts
+        int64_t last_pts = *last_video_pts_enc_tb;
+        // TODO: check if the AV_NOPTS_VALUE check here is redundant.
+        if (last_pts != AV_NOPTS_VALUE && rebased_pts <= last_pts) {
+            log_debug("non monotically increasing pts for video, fixing")
+            rebased_pts= last_pts + 1;
+        }
+        *last_video_pts_enc_tb = rebased_pts;
+
+        frame->pts = rebased_pts;
+
+        int ret_send_frame = avcodec_send_frame(videoEncCtx, frame);
+        if (ret_send_frame < 0 && ret_send_frame != AVERROR(EAGAIN)) {
+            return alloc_error("Error sending frame to encoder");
+        }
+
+
+        AVPacket *enc_pkt = av_packet_alloc();
+        while (1) {
+            int er = avcodec_receive_packet(videoEncCtx, enc_pkt);
+            if (er == AVERROR(EAGAIN) || er == AVERROR_EOF) break;
+
+            av_packet_rescale_ts(enc_pkt, videoEncCtx->time_base, exportState->out_video_stream->time_base);
+            enc_pkt->stream_index = 0;
+
+            ret = av_interleaved_write_frame(ofmt_ctx, enc_pkt);
+            if (ret < 0) {
+                av_packet_free(&enc_pkt);
+                av_frame_unref(frame);
+                return alloc_error("Error writing re-encoded video frame");
+            }
+
+            av_packet_unref(enc_pkt);
+        }
+        av_packet_free(&enc_pkt);
+        av_frame_unref(frame);
+
+    }
+
+    return nullptr;
+}
 
 // returns pointer to error message or nullptr if successful
 char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
@@ -247,7 +351,6 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
     const char* out_filename = exportState->out_filename;
     log_debug("filename is: %s", out_filename);
     AVStream* out_audio_stream  = exportState->out_audio_stream;
-    int64_t* last_video_pts_enc_tb = &exportState->lastPtsEncTBVideo;
     int64_t* last_audio_pts_enc_tb = &exportState->lastPtsEncTBAudio;
 
 
@@ -676,21 +779,21 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
         // last_audio_dts = 0;
         
         // main decoding/encoding loop
-        bool finished_video = false;
-        bool finished_audio = false;
+        bool isPastEndTSVideo = false;
+        bool isPastEndTSAudio = false;
         while (1) {
             ret = av_read_frame(ifmt_ctx, pkt);
             if (ret < 0) // end of file
                 break;
 
             int in_index = pkt->stream_index;
-            AVStream *in_stream = ifmt_ctx->streams[pkt->stream_index];
+            AVStream *in_stream = ifmt_ctx->streams[in_index];
 
             // if (is_muted_track[in_index)) {
             //     continue;
             // }
 
-            if (finished_video && finished_audio) {
+            if (isPastEndTSVideo && isPastEndTSAudio) {
                 break;
             }
 
@@ -701,97 +804,33 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             
             if (in_index == inVideoStreamIdx) {
 
-                // pkt->pts -= streamRescaledStartSeconds[in_index];
-                // pkt->dts -= streamRescaledStartSeconds[in_index];
-
                 int ret_send = avcodec_send_packet(videoDecCtx, pkt);
                 if (ret_send < 0 && ret_send != AVERROR(EAGAIN)) {
                     err = alloc_error("Error sending video packet to decoder");
                     goto cleanup;
                 }
 
-                while (ret_send >= 0) {
-                    ret_send = avcodec_receive_frame(videoDecCtx, frame);
-                    if (ret_send == AVERROR(EAGAIN) || ret_send == AVERROR_EOF) {
-                        break;
-                    }
+                err = recieveAndProcessFramesVideo(
+                    exportState,
+                    ifmt_ctx,
+                    ofmt_ctx,
+                    frame,
+                    start_TS,
+                    end_TS,
+                    videoDecCtx,
+                    videoEncCtx,
+                    in_index,
+                    &isPastEndTSVideo,
+                    false,
+                    found_rebase_pts,
+                    pts_offset
+                );
 
-                    if (ret_send < 0) {
-                        err = alloc_error("Error during video decoding");
-                        av_frame_free(&frame);
-                        goto cleanup;
-                    }
-
-                    frame->pts = av_rescale_q(frame->pts, in_stream->time_base, videoEncCtx->time_base);
-
-                    int64_t pts_us_frame = av_rescale_q(frame->pts,
-                                                        videoEncCtx->time_base,
-                                                        AV_TIME_BASE_Q);
-
-                    // drop packet if it's before our span
-                    if (pts_us_frame < start_TS) {
-                        av_frame_unref(frame);
-                        continue;
-                    }
-
-                    // if after trimming region, mark this stream as finished
-                    if (pts_us_frame > end_TS) {
-                        log_debug("reached ")
-                        finished_video = true;
-                        av_frame_unref(frame);
-                        continue;
-                    }
-
-                    // calculate pts_offset if needed
-                    if (!found_rebase_pts[in_index]) {
-                        pts_offset[in_index] = frame->pts; // frame->pts is in enc TB
-                        found_rebase_pts[in_index] = true;
-                    }
-
-                    // rebase timestamp
-                    int64_t rebased_pts = frame->pts - pts_offset[in_index] + exportState->offsetPtsEncTBVideo;
-                    // frame->pts = frame->pts+exportState->offsetPtsEncTBVideo;
-                    
-                    // ensure monotically increasing pts
-                    int64_t last_pts = *last_video_pts_enc_tb;
-                    if (last_pts != AV_NOPTS_VALUE && rebased_pts <= last_pts) {
-                    // if (last_pts != AV_NOPTS_VALUE && frame->pts <= last_pts) {
-                        log_debug("non monotically increasing pts for video, fixing")
-                        rebased_pts = last_pts + 1;
-                        // frame->pts = last_pts + 1;
-                    }
-                    *last_video_pts_enc_tb = rebased_pts;
-                    // *last_video_pts_enc_tb = frame->pts;
-
-                    frame->pts = rebased_pts;
-
-                    int ret_send_frame = avcodec_send_frame(videoEncCtx, frame);
-                    if (ret_send_frame < 0 && ret_send_frame != AVERROR(EAGAIN)) {
-                        err = alloc_error("Error sending frame to encoder");
-                        goto cleanup;
-                    }
-
-                    AVPacket* enc_pkt = av_packet_alloc();
-
-                    while (avcodec_receive_packet(videoEncCtx, enc_pkt) >= 0) {
-                        enc_pkt->stream_index = 0;
-
-                        av_packet_rescale_ts(enc_pkt, videoEncCtx->time_base, ofmt_ctx->streams[inVideoStreamIdx]->time_base); 
-                        // write encoded video
-                        ret = av_interleaved_write_frame(ofmt_ctx, enc_pkt);
-                        if (ret < 0) {
-                            err = alloc_error("Error writing re-encoded video frame");
-                            av_packet_free(&enc_pkt);
-                            av_frame_unref(frame);
-                            goto cleanup;
-                        }
-                        
-                        av_packet_unref(enc_pkt);
-
-                    }
-                    av_packet_free(&enc_pkt);
-                    av_frame_unref(frame);
+                if (err) {
+                    av_frame_free(&frame);
+                    goto cleanup;
                 }
+
 
             } else { // if stream is audio
                 pkt->stream_index = outAudioStreamIdx;
@@ -845,7 +884,7 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
 
                     // If after trimming region → mark this stream as finished
                     if (pts_us_frame > end_TS) {
-                        finished_audio = true;
+                        isPastEndTSAudio = true;
                         av_frame_unref(frame);
                         continue;
                     }
@@ -942,60 +981,25 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
         exportState->statusString = (char*) "Draining decoder/encoder";
 
         avcodec_send_packet(videoDecCtx, NULL); // enters "draining mode"
-        while (1) {
-            int ret = avcodec_receive_frame(videoDecCtx, frame);
-            if (ret == AVERROR_EOF) break;
-            if (ret == AVERROR(EAGAIN)) continue;
-            log_debug("drained packet recieved");
-            int in_index = pkt->stream_index;
-            AVStream* in_stream = ifmt_ctx->streams[in_index];
+        err = recieveAndProcessFramesVideo(
+            exportState,
+            ifmt_ctx,
+            ofmt_ctx,
+            frame,
+            start_TS,
+            end_TS,
+            videoDecCtx,
+            videoEncCtx,
+            pkt->stream_index,
+            &isPastEndTSVideo,
+            false,
+            found_rebase_pts,
+            pts_offset
+        );
 
-            frame->pts = av_rescale_q(frame->pts, in_stream->time_base, videoEncCtx->time_base);
-
-            frame->pts = frame->best_effort_timestamp;
-            if (frame->pts == AV_NOPTS_VALUE) {
-                frame->pts = *last_video_pts_enc_tb++;
-                *last_video_pts_enc_tb = frame->pts;
-            }
-
-            int64_t pts_us_frame = av_rescale_q(frame->pts, videoEncCtx->time_base, AV_TIME_BASE_Q);
-
-            if (pts_us_frame >= start_TS && pts_us_frame <= end_TS) {
-
-                if (!found_rebase_pts[in_index]) {
-                    pts_offset[in_index] = frame->pts; // frame->pts is in enc TB
-                    found_rebase_pts[in_index] = true;
-                }
-
-                // rebase timestamp
-                int64_t rebased_pts = frame->pts - pts_offset[in_index] + exportState->offsetPtsEncTBVideo;
-
-                // ensure monotically increasing pts
-                int64_t last_pts = *last_video_pts_enc_tb;
-                // TODO: i think the AV_NOPTS_VALUE check here is redundant.
-                if (last_pts != AV_NOPTS_VALUE && rebased_pts <= last_pts) {
-                    log_debug("non monotically increasing pts for video in draining, fixing")
-                    rebased_pts= last_pts + 1;
-                }
-                *last_video_pts_enc_tb = rebased_pts;
-
-                frame->pts = rebased_pts;
-
-                avcodec_send_frame(videoEncCtx, frame);
-
-                AVPacket *enc_pkt = av_packet_alloc();
-                while (1) {
-                    int er = avcodec_receive_packet(videoEncCtx, enc_pkt);
-                    if (er == AVERROR(EAGAIN) || er == AVERROR_EOF) break;
-
-                    av_packet_rescale_ts(enc_pkt, videoEncCtx->time_base, ofmt_ctx->streams[inVideoStreamIdx]->time_base);
-                    enc_pkt->stream_index = 0;
-                    av_interleaved_write_frame(ofmt_ctx, enc_pkt);
-                    av_packet_unref(enc_pkt);
-                }
-            }
-
-            av_frame_unref(frame);
+        if (err) {
+            av_frame_free(&frame);
+            goto cleanup;
         }
 
         log_debug("draining encoder");
