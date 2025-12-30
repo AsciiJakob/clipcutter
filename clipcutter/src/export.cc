@@ -1,3 +1,4 @@
+#include "export.h"
 #include "pch.h"
 #include "app.h"
 #include "mediaSource.h"
@@ -5,6 +6,18 @@
 #include <SDL3/SDL_messagebox.h>
 
 #define MAX_ERROR_LENGTH 4096
+const char* const ENCODER_PRESETS[] = {
+    "ultrafast",
+    "superfast", 
+    "veryfast", 
+    "faster", 
+    "fast", 
+    "medium", 
+    "slow", 
+    "slower", 
+    "veryslow"
+};
+const int ENCODER_PRESET_COUNT = sizeof(ENCODER_PRESETS) / sizeof(ENCODER_PRESETS[0]);
 
 char* alloc_error(const char* fmt, ...) {
     va_list args;
@@ -22,6 +35,7 @@ void Export_SetDefaultExportOptionsVideo(App* app) {
     app->exportState.exportOptions.exportAudio = true;
     app->exportState.exportOptions.mergeAudioTracks = true;
     app->exportState.exportOptions.CBRRateFactor = 23.0;
+    app->exportState.exportOptions.encoderPresetIndex = 5; // medium
 }
 
 void Export_SetDefaultExportOptionsAudio(App* app) {
@@ -712,12 +726,16 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             // videoEncCtx->rc_buffer_size = videoEncCtx->bit_rate;
 
             // av_opt_set(videoEncCtx->priv_data, "crf", "17", 0);
-            float RF = exportState->exportOptions.CBRRateFactor;
+            ExportOptions* expOpts = &exportState->exportOptions;
+            float RF = expOpts->CBRRateFactor;
             int len = snprintf(NULL, 0, "%f", RF);
             char* RFStr = (char*) malloc(len + 1);
             snprintf(RFStr, len + 1, "%f", RF);
             av_opt_set(videoEncCtx->priv_data, "crf", RFStr, 0);
             free(RFStr);
+
+            av_opt_set(videoEncCtx->priv_data, "preset", ENCODER_PRESETS[expOpts->encoderPresetIndex], 0);
+
 
             // videoEncCtx->width  = videoDecCtx->width  / 2;
             // videoEncCtx->height = videoDecCtx->height / 2;
