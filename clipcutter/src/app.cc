@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "app.h"
 #include "mediaSource.h"
+#include "mediaClip.h"
 #include "playback.h"
 #include "export.h"
 
