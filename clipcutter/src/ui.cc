@@ -273,6 +273,10 @@ void UI_DrawEditor(App* app) {
 		if (app->loadedMediaSource != nullptr) {
 			ImGui::Text("currentLoaded: %s", app->loadedMediaSource->filename); }
 
+        if (ImGui::InputDouble("Force seek", &app->playbackTime, -1, -1, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue)) {
+            Playback_SetPlaybackPos(app, app->playbackTime);
+        }
+
 
 		ImGui::Text("------Track 1:");
 		MediaClip* testClip = app->mediaClips[0];
