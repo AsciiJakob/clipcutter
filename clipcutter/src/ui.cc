@@ -4,6 +4,7 @@
 #include "imgui_internal.h"
 #include "mediaClip.h"
 #include "settings.h"
+#include "playback.h"
 
 int exportPathInputCallback(ImGuiInputTextCallbackData data) {
     /*if (data.EventFlag == ImGuiInputTextFlags_CallbackCompletion) {*/
@@ -141,25 +142,43 @@ void UI_DrawEditor(App* app) {
                 if (ImGui::Selectable("Constant Rate Factor (CRF)", true)) {
 
                 }
-                if (ImGui::Selectable("Constant Bitrate (CB) (unimplemented)", false)) {
+                if (ImGui::Selectable("Constant Bitrate (CBR) (unimplemented)", false)) {
 
                 }
 
                 ImGui::EndCombo();
             }
 
-            ImGui::SliderFloat("CBR rate factor", &options->CBRRateFactor, 0, 50);
+            ImGui::SliderFloat("CRF rate factor", &options->CBRRateFactor, 0, 50);
             if (ImGui::IsItemHovered()) {
                 ImGui::BeginTooltip();
-                ImGui::Text("The rate factor for CBR compression. The lower, the higher quality.");
+                ImGui::Text("The rate factor for CRF compression. The lower, the higher quality.");
                 ImGui::Text("A sane range is most likely between 17-28.");
                 ImGui::Text("0: lossless");
                 ImGui::Text("18: visually lossless");
                 ImGui::Text("51: worst possible, heavily compressed");
+                ImGui::Text("");
+                ImGui::Text("Default: 23");
 
                 ImGui::EndTooltip();
             }
 
+            ImGui::Combo("encoding speed preset", &options->encoderPresetIndex, ENCODER_PRESETS, ENCODER_PRESET_COUNT, -1);
+            if (ImGui::IsItemHovered()) {
+                ImGui::BeginTooltip();
+                ImGui::Text("Slower preset will provide better compression (lower filesizes) at the cost of time.");
+                ImGui::Text("medium->ultrafast: 55%% faster (with much lower quality)");
+                ImGui::Text("medium->faster: 25%% faster");
+                ImGui::Text("medium->fast: 10%% faster");
+                ImGui::Text("medium->slower: 40%% slower");
+                ImGui::Text("medium->slow: 100%% slower");
+                ImGui::Text("medium->veryslow: 280%% slower (with minimal quality improvements over slow)");
+                ImGui::Text("");
+                ImGui::Text("Default: medium");
+
+
+                ImGui::EndTooltip();
+            }
 
             ImGui::Checkbox("Merge audio-tracks (dummy)", &options->mergeAudioTracks);
             } else { // we chose "Export as audio"
@@ -253,6 +272,7 @@ void UI_DrawEditor(App* app) {
 		ImGui::Text("timelineEvent: %d", app->timelineEvents[app->timelineEventIndex].type);
 		if (app->loadedMediaSource != nullptr) {
 			ImGui::Text("currentLoaded: %s", app->loadedMediaSource->filename); }
+
 
 		ImGui::Text("------Track 1:");
 		MediaClip* testClip = app->mediaClips[0];

@@ -14,6 +14,7 @@ struct ExportOptions {
     bool exportAudio;
     bool mergeAudioTracks;
     float CBRRateFactor;
+    int encoderPresetIndex;
 };
 
 struct ExportState {
