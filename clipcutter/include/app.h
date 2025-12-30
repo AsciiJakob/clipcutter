@@ -1,8 +1,6 @@
 #ifndef APP_H
 #define APP_H
 #include "pch.h"
-#include "mediaSource.h"
-#include "mediaClip.h"
 
 #define MEDIACLIPS_SIZE 248
 #define MEDIASOURCES_SIZE 248

@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "app.h"
+#include "mediaSource.h"
 
 void Playback_SetAudioTracks(App* app, int count) {
     log_trace("Playback_SetAudioTracks() with %d as count", count);

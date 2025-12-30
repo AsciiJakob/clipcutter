@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "app.h"
 #include "mediaSource.h"
+#include "mediaClip.h"
 #include <SDL3/SDL_messagebox.h>
 
 #define MAX_ERROR_LENGTH 4096
