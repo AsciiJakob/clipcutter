@@ -44,14 +44,22 @@ void MediaSource_Init(MediaSource** mediaSourceP, const char* path) {
 	log_debug("streams:%d", s->nb_streams);
 	log_debug("duration:%.2f", s->duration/1000000.0);
 
-	mediaSource->audioTracks = s->nb_streams - 1; // TODO: account for multiple video track
-    if (mediaSource->audioTracks <= MAX_SUPPORTED_AUDIO_TRACKS) {
-    //if (false) {
-        mediaSource->length = s->duration / 1000000.0;
-    } else {
+	mediaSource->audioTracks = 0;
+    for (unsigned int i=0; i < s->nb_streams; i++) {
+        if (s->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+            mediaSource->audioTracks++;
+        }
+    }
+
+    if (mediaSource->audioTracks > MAX_SUPPORTED_AUDIO_TRACKS) {
+        log_error("Cannot initialize a media source with more than %d audiotracks.", MAX_SUPPORTED_AUDIO_TRACKS);
         free(mediaSource);
         *mediaSourceP = nullptr;
+        avformat_close_input(&s);
+        return;
     }
+
+    mediaSource->length = s->duration / 1000000.0;
 
 	avformat_close_input(&s);
 }
