@@ -38,11 +38,11 @@ void MediaSource_Init(MediaSource** mediaSourceP, const char* path) {
 	if (ret < 0) {
 		log_fatal("ffmpeg failed to retrieve information about video source");
 		App_Die();
-	} else log_debug("yay\n");
+	}
 
 	avformat_find_stream_info(s, nullptr);
 	log_debug("streams:%d", s->nb_streams);
-	log_debug("duration:%.2f", s->duration/1000000.0);
+	log_debug("duration:%.2f", s->duration/AV_TIME_BASE);
 
 	mediaSource->audioTracks = 0;
     for (unsigned int i=0; i < s->nb_streams; i++) {
@@ -59,7 +59,7 @@ void MediaSource_Init(MediaSource** mediaSourceP, const char* path) {
         return;
     }
 
-    mediaSource->length = s->duration / 1000000.0;
+    mediaSource->length = (float) s->duration / AV_TIME_BASE;
 
 	avformat_close_input(&s);
 }

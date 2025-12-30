@@ -33,7 +33,8 @@ void log_message(LOG_LEVEL level, const char* filePath, int lineNum, const char*
         time_t     now = time(0);
         struct tm  tstruct;
         tstruct = *localtime(&now);
-        strftime(timeStr, sizeof(timeStr), "%Y-%m-%d.%X", &tstruct);
+        // strftime(timeStr, sizeof(timeStr), "%Y-%m-%d.%X", &tstruct);
+        strftime(timeStr, sizeof(timeStr), "%X", &tstruct);
     }
 
     const char* type = LOG_LEVEL_STRINGS[level];
