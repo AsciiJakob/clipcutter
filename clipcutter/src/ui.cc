@@ -273,12 +273,13 @@ void UI_DrawEditor(App* app) {
 		if (app->loadedMediaSource != nullptr) {
 			ImGui::Text("currentLoaded: %s", app->loadedMediaSource->filename); }
 
+
         if (ImGui::InputDouble("Force seek", &app->playbackTime, -1, -1, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue)) {
             Playback_SetPlaybackPos(app, app->playbackTime);
         }
 
 
-		ImGui::Text("------Track 1:");
+		ImGui::Text("------clip 1:");
 		MediaClip* testClip = app->mediaClips[0];
 		if (testClip != nullptr) {
 			ImGui::Text("length: %.2f", testClip->source->length);
@@ -289,17 +290,6 @@ void UI_DrawEditor(App* app) {
 
 			ImGui::Checkbox("track1beingMoved", &testClip->isBeingMoved);
 		}
-
-		//local iPtr = ffi.new("int[1]", 0)
-		//iPtr[0] = track1Height
-		//imgui.SliderInt("trackHeight", iPtr, 10, 100, "%d")
-		//track1Height = iPtr[0]
-		//iPtr[0] = trackCount
-		//imgui.SliderInt("trackCount", iPtr, 0, 50, "%d")
-		//trackCount = iPtr[0]
-		//iPtr[0] = snappingPrecision
-		//imgui.SliderInt("snappingPrecision", iPtr, 1, 50, "%d") --disabled when 1
-		//snappingPrecision = iPtr[0]
 
 	}
 	ImGui::End();
@@ -377,11 +367,19 @@ void UI_DrawEditor(App* app) {
 
 			ImVec2 trackCursor = cursorTrackListBefore;
 			for (int i = 0; i < app->timeline.highestTrackCount+1; i++) {
-                if (i==0) i=1; // start indexing at 1
 
-				ImGui::Text("Track %d", i);
+				ImGui::Text("Track %d", i+1);
 				ImGui::SameLine(tracklistWidth - 40*app->scale);
-				ImGui::SmallButton("Mute");
+
+                if (i != 0) {
+                    char muteButtonLabel[10];
+                    snprintf(muteButtonLabel, sizeof(muteButtonLabel), "Mute##%d", i);
+                    if (ImGui::SmallButton(muteButtonLabel)) {
+                        app->audioStreamDisabled[i] = !app->audioStreamDisabled[i];
+                        Playback_SetAudioTracks(app, app->loadedMediaSource->audioTracks);
+                    }
+                }
+
 				trackCursor.y += app->timeline.clipHeight*app->scale;
 				ImGui::SetCursorScreenPos(trackCursor);
 

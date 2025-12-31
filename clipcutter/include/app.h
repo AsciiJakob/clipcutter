@@ -4,6 +4,7 @@
 
 #define MEDIACLIPS_SIZE 248
 #define MEDIASOURCES_SIZE 248
+#define MAX_SUPPORTED_AUDIO_TRACKS 100
 #define TIMELINE_EVENTS_SIZE MEDIACLIPS_SIZE*2+1
 #define MINIMUM_DRAW_TRACK_COUNT 3
 
@@ -32,6 +33,7 @@ struct ExportState {
     int64_t lastPtsEncTBVideo;
     int64_t lastPtsEncTBAudio;
     AVFormatContext* ofmt_ctx;
+    bool (*audioStreamDisabled)[MAX_SUPPORTED_AUDIO_TRACKS];
     DynArr userAudioFilters;
 };
 
@@ -108,6 +110,7 @@ struct App {
 	TimelineEvent timelineEvents[TIMELINE_EVENTS_SIZE];
 	MediaSource* mediaSources[MEDIASOURCES_SIZE];
 	MediaClip* mediaClips[MEDIACLIPS_SIZE];
+    bool audioStreamDisabled[MAX_SUPPORTED_AUDIO_TRACKS];
 
     int mpvCmdQueueWriteIndex;
     int mpvCmdQueueReadIndex;

@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "app.h"
-#include "mediaSource.h"
 
 void Playback_SetAudioTracks(App* app, int count) {
     log_trace("Playback_SetAudioTracks() with %d as count", count);
@@ -10,10 +9,14 @@ void Playback_SetAudioTracks(App* app, int count) {
     assert(app->loadedMediaSource != nullptr && "loadedMediaSource was null");
 
     char valueOptionStr[20+6*MAX_SUPPORTED_AUDIO_TRACKS] = "";
-    for (int i=1; i < count+1; i++) {
-        sprintf(valueOptionStr, "%s[aid%d]", valueOptionStr, i);
+    int enabledTrackCount = 0;
+    for (int i=1; i < count+1; i++) { // assuming video has one video track
+        if (!app->audioStreamDisabled[i]) {
+            sprintf(valueOptionStr, "%s[aid%d]", valueOptionStr, i);
+            enabledTrackCount++;
+        } 
     }
-    sprintf(valueOptionStr, "%samix=inputs=%d[ao]", valueOptionStr, count);
+    sprintf(valueOptionStr, "%samix=inputs=%d[ao]", valueOptionStr, enabledTrackCount);
     // Examples of what valueOptionStr should look like:
     // 3 audio tracks: [aid1][aid2][aid3]amix=inputs=3[ao]
     // 4 audio tracks: [aid1][aid2][aid3][aid4]amix=inputs=4[ao]
