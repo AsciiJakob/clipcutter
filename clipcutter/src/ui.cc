@@ -274,7 +274,9 @@ void UI_DrawEditor(App* app) {
 			ImGui::Text("currentLoaded: %s", app->loadedMediaSource->filename); }
 
 
-        if (ImGui::InputDouble("Force seek", &app->playbackTime, -1, -1, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue)) {
+        ImGui::InputDouble("Force seek", &app->playbackTime, -1, -1, "%.2f", 0);
+        if (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter, false)) {
+            log_debug("thing is called");
             Playback_SetPlaybackPos(app, app->playbackTime);
         }
 

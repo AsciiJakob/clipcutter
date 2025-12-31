@@ -68,7 +68,7 @@ char* setOutputParameters(MediaClip* firstClip, ExportState* exportState) {
 
     { // find audio and video track
         int audioStreamCount = 0;
-        log_debug("modified nb sttream is: %d", ifmt_ctx->nb_streams);
+        log_debug("nb sttream is: %d", ifmt_ctx->nb_streams);
         for (unsigned int i = 0; i < ifmt_ctx->nb_streams; i++) {
             AVStream *inStream = ifmt_ctx->streams[i];
             AVCodecParameters *in_codecpar = inStream->codecpar;
@@ -85,10 +85,6 @@ char* setOutputParameters(MediaClip* firstClip, ExportState* exportState) {
             }
         }
 
-        if (audioStreamIdx[0] == -1) {
-            err = alloc_error("found no audio sources");
-            goto cleanup;
-        }
         if (inVideoStreamIdx == -1) {
             err = alloc_error("Found no video source");
             goto cleanup;
@@ -413,10 +409,6 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             }
         }
 
-        if (enabledAudioStreamIdx[0] == -1) {
-            err = alloc_error("found no audio sources");
-            goto cleanup;
-        }
         if (inVideoStreamIdx == -1) {
             err = alloc_error("Found no video source");
             goto cleanup;
@@ -517,129 +509,130 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
 
         if (enabledAudioStreamCount == 0) {
             log_debug("No audio tracks. only exporting video.");
-            // TODO: implement
-        }
+        } else {
+
+            const AVFilter* amix = avfilter_get_by_name("amix");
+            if (!amix) {
+                err = alloc_error("Could not find the amix filter");
+                goto cleanup;
+            }
+
+            AVFilterContext* amix_ctx = avfilter_graph_alloc_filter(filter_graph, amix, "src");
+            if (!amix_ctx) {
+                err = alloc_error("Could not allocate the amix filter context");
+                goto cleanup;
+            }
+
+            av_opt_set_int(amix_ctx, "inputs", enabledAudioStreamCount, AV_OPT_SEARCH_CHILDREN);
+
+            // NULL since we set the options with av_opt above.
+            ret = avfilter_init_str(amix_ctx, NULL);
+            if (ret < 0) {
+                err = alloc_error("Could not initialize the amix filter");
+                goto cleanup;
+            }
+
+            const AVFilter* aformat = avfilter_get_by_name("aformat");
+            if (!aformat) {
+                err = alloc_error("Could not find the aformat filter");
+                goto cleanup;
+            }
+
+            AVFilterContext* aformat_ctx = avfilter_graph_alloc_filter(filter_graph, aformat, "aformat");
+            if (!aformat_ctx) {
+                err = alloc_error("Could not allocate the aformat instance");
+                goto cleanup;
+            }
+
+            char options_str[1024];
+            snprintf(options_str, sizeof(options_str),
+                    "sample_fmts=%s:sample_rates=%d:channel_layouts=stereo",
+                    av_get_sample_fmt_name((AVSampleFormat)outAudioCodecPar->format), outAudioCodecPar->sample_rate);
+            ret = avfilter_init_str(aformat_ctx, options_str);
+            if (ret < 0) {
+                err = alloc_error("Could not initialize the aformat filter");
+                goto cleanup;
+            }
+            
+            // TODO: add custom effects here
+            // test with modified compressor
+            // const char* acompressor_desc = "attack=26.85600:release=664.43903:ratio=20.00000:threshold=0.04800:level_in=11.61000:makeup=1.00000";
+            // test with default settings (no compressor)
+            const char* acompressor_desc = "attack=20.00000:release=250.00000:ratio=2.00000:threshold=0.12500:level_in=1.00000:makeup=1.00000";
+
+            const AVFilter* acompressor = avfilter_get_by_name("acompressor");
+            AVFilterContext* acompressor_ctx = NULL;
+
+            ret = avfilter_graph_create_filter(&acompressor_ctx, acompressor, "acompressor", acompressor_desc, NULL, filter_graph);
+            if (ret < 0) {
+                err = alloc_error("Failed adding user effect");
+                goto cleanup;
+            }
 
 
-        const AVFilter* amix = avfilter_get_by_name("amix");
-        if (!amix) {
-            err = alloc_error("Could not find the amix filter");
-            goto cleanup;
-        }
+            const AVFilter* abuffersink = avfilter_get_by_name("abuffersink");
+            if (!abuffersink) {
+                err = alloc_error("Could not find the abuffersink filter");
+                goto cleanup;
+            }
 
-        AVFilterContext* amix_ctx = avfilter_graph_alloc_filter(filter_graph, amix, "src");
-        if (!amix_ctx) {
-            err = alloc_error("Could not allocate the amix filter context");
-            goto cleanup;
-        }
+            abuffersink_ctx = avfilter_graph_alloc_filter(filter_graph, abuffersink, "sink");
+            if (!abuffersink_ctx) {
+                err = alloc_error("Could not allocate the abuffersink instance");
+                goto cleanup;
+            }
 
-        av_opt_set_int(amix_ctx, "inputs", enabledAudioStreamCount, AV_OPT_SEARCH_CHILDREN);
+            // Set the output format constraints to match the encoder
+            AVSampleFormat sample_fmts[] = { (AVSampleFormat)outAudioCodecPar->format, AV_SAMPLE_FMT_NONE };
+            ret = av_opt_set_int_list(abuffersink_ctx, "sample_fmts", sample_fmts, AV_SAMPLE_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
+            if (ret < 0) {
+                err = alloc_error("Could not set output sample format");
+                goto cleanup;
+            }
 
-        // NULL since we set the options with av_opt above.
-        ret = avfilter_init_str(amix_ctx, NULL);
-        if (ret < 0) {
-            err = alloc_error("Could not initialize the amix filter");
-            goto cleanup;
-        }
-
-        const AVFilter* aformat = avfilter_get_by_name("aformat");
-        if (!aformat) {
-            err = alloc_error("Could not find the aformat filter");
-            goto cleanup;
-        }
-
-        AVFilterContext* aformat_ctx = avfilter_graph_alloc_filter(filter_graph, aformat, "aformat");
-        if (!aformat_ctx) {
-            err = alloc_error("Could not allocate the aformat instance");
-            goto cleanup;
-        }
-
-        char options_str[1024];
-        snprintf(options_str, sizeof(options_str),
-                "sample_fmts=%s:sample_rates=%d:channel_layouts=stereo",
-                av_get_sample_fmt_name((AVSampleFormat)outAudioCodecPar->format), outAudioCodecPar->sample_rate);
-        ret = avfilter_init_str(aformat_ctx, options_str);
-        if (ret < 0) {
-            err = alloc_error("Could not initialize the aformat filter");
-            goto cleanup;
-        }
-        
-        // TODO: add custom effects here
-        // test with modified compressor
-        // const char* acompressor_desc = "attack=26.85600:release=664.43903:ratio=20.00000:threshold=0.04800:level_in=11.61000:makeup=1.00000";
-        // test with default settings (no compressor)
-        const char* acompressor_desc = "attack=20.00000:release=250.00000:ratio=2.00000:threshold=0.12500:level_in=1.00000:makeup=1.00000";
-
-        const AVFilter* acompressor = avfilter_get_by_name("acompressor");
-        AVFilterContext* acompressor_ctx = NULL;
-
-        ret = avfilter_graph_create_filter(&acompressor_ctx, acompressor, "acompressor", acompressor_desc, NULL, filter_graph);
-        if (ret < 0) {
-            err = alloc_error("Failed adding user effect");
-            goto cleanup;
-        }
-
-
-        const AVFilter* abuffersink = avfilter_get_by_name("abuffersink");
-        if (!abuffersink) {
-            err = alloc_error("Could not find the abuffersink filter");
-            goto cleanup;
-        }
-
-        abuffersink_ctx = avfilter_graph_alloc_filter(filter_graph, abuffersink, "sink");
-        if (!abuffersink_ctx) {
-            err = alloc_error("Could not allocate the abuffersink instance");
-            goto cleanup;
-        }
-
-        // Set the output format constraints to match the encoder
-        AVSampleFormat sample_fmts[] = { (AVSampleFormat)outAudioCodecPar->format, AV_SAMPLE_FMT_NONE };
-        ret = av_opt_set_int_list(abuffersink_ctx, "sample_fmts", sample_fmts, AV_SAMPLE_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
-        if (ret < 0) {
-            err = alloc_error("Could not set output sample format");
-            goto cleanup;
-        }
-
-        int sample_rates[] = { outAudioCodecPar->sample_rate, -1 };
-        ret = av_opt_set_int_list(abuffersink_ctx, "sample_rates", sample_rates, -1, AV_OPT_SEARCH_CHILDREN);
-        if (ret < 0) {
-            err = alloc_error("Could not set output sample rate");
-            goto cleanup;
-        }
+            int sample_rates[] = { outAudioCodecPar->sample_rate, -1 };
+            ret = av_opt_set_int_list(abuffersink_ctx, "sample_rates", sample_rates, -1, AV_OPT_SEARCH_CHILDREN);
+            if (ret < 0) {
+                err = alloc_error("Could not set output sample rate");
+                goto cleanup;
+            }
 
 
 
-        /* This filter takes no options. */
-        ret = avfilter_init_str(abuffersink_ctx, NULL);
-        if (ret < 0) {
-            err = alloc_error("Could not initialize the abuffersink instance.");
-            goto cleanup;
-        }
+            /* This filter takes no options. */
+            ret = avfilter_init_str(abuffersink_ctx, NULL);
+            if (ret < 0) {
+                err = alloc_error("Could not initialize the abuffersink instance.");
+                goto cleanup;
+            }
 
-        for (int i=0; i < enabledAudioStreamCount; i++) {
+            for (int i=0; i < enabledAudioStreamCount; i++) {
+                if (ret >= 0)
+                    ret = avfilter_link(abufferCtxs[i], 0, amix_ctx, i);
+            }
             if (ret >= 0)
-                ret = avfilter_link(abufferCtxs[i], 0, amix_ctx, i);
-        }
-        if (ret >= 0)
-            ret = avfilter_link(amix_ctx, 0, aformat_ctx, 0);
-        if (ret >= 0)
-            ret = avfilter_link(aformat_ctx, 0, acompressor_ctx, 0);
-        if (ret >= 0)
-            ret = avfilter_link(acompressor_ctx, 0, abuffersink_ctx, 0);
-        if (ret < 0) {
-            err = alloc_error("Error connecting filters");
-            goto cleanup;
-        }
+                ret = avfilter_link(amix_ctx, 0, aformat_ctx, 0);
+            if (ret >= 0)
+                ret = avfilter_link(aformat_ctx, 0, acompressor_ctx, 0);
+            if (ret >= 0)
+                ret = avfilter_link(acompressor_ctx, 0, abuffersink_ctx, 0);
+            if (ret < 0) {
+                err = alloc_error("Error connecting filters");
+                goto cleanup;
+            }
 
 
-        ret = avfilter_graph_config(filter_graph, NULL);
-        if (ret < 0) {
-            err = alloc_error("Error configuring the filter graph");
-            goto cleanup;
+            ret = avfilter_graph_config(filter_graph, NULL);
+            if (ret < 0) {
+                err = alloc_error("Error configuring the filter graph");
+                goto cleanup;
+            }
+
         }
+
 
         // create audio encoder
-        {
+        if (enabledAudioStreamCount != 0) {
             audioEnc = (AVCodec*) avcodec_find_encoder(ofmt_ctx->oformat->audio_codec);            
 
             if (!audioEnc) {
@@ -806,6 +799,7 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
 
         // last_audio_dts = 0;
         
+        log_debug("entering main decoding encoding loop");
         // main decoding/encoding loop
         bool isPastEndTSVideo = false;
         bool isPastEndTSAudio = false;
