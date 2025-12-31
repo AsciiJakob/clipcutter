@@ -261,6 +261,10 @@ char* recieveAndProcessFramesVideo(
             continue;
         }
 
+        if ((*exportState->audioStreamDisabled)[in_index]) {
+            continue;
+        }
+
         // calculate pts_offset if needed
         if (!found_rebase_pts[in_index]) {
             pts_offset[in_index] = frame->pts; // frame->pts is in enc TB
@@ -330,9 +334,9 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
     memset(audioDecCtx, NULL, sizeof(audioDecCtx));
     int inVideoStreamIdx = -1;
     int outAudioStreamIdx = -1;
-    int audioStreamIdx[MAX_SUPPORTED_AUDIO_TRACKS];
-    memset(audioStreamIdx, -1, sizeof(audioStreamIdx));
-    int audioStreamCount = 0;
+    int enabledAudioStreamIdx[MAX_SUPPORTED_AUDIO_TRACKS];
+    memset(enabledAudioStreamIdx, -1, sizeof(enabledAudioStreamIdx));
+    int enabledAudioStreamCount = 0;
     // int64_t streamRescaledStartSeconds[MAX_SUPPORTED_AUDIO_TRACKS+1];
     // int64_t streamRescaledEndSeconds[MAX_SUPPORTED_AUDIO_TRACKS+1];
     int ret;
@@ -400,12 +404,16 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
 
                 inVideoStreamIdx = i;
             } else if (in_codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
-                log_debug("found audio");
-                audioStreamIdx[audioStreamCount++] = i;
+                log_debug("found audio at stream index %d", i);
+                if (!(*exportState->audioStreamDisabled)[i]) {
+                    enabledAudioStreamIdx[enabledAudioStreamCount++] = i;
+                } else {
+                    log_debug("ignoring the audio track as it is disabled.");
+                }
             }
         }
 
-        if (audioStreamIdx[0] == -1) {
+        if (enabledAudioStreamIdx[0] == -1) {
             err = alloc_error("found no audio sources");
             goto cleanup;
         }
@@ -448,8 +456,8 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
         }
 
         { // get decoders from audio streams
-            for (int i=0; i < audioStreamCount; i++) {
-                const AVStream* stream = ifmt_ctx->streams[audioStreamIdx[i]];
+            for (int i=0; i < enabledAudioStreamCount; i++) {
+                const AVStream* stream = ifmt_ctx->streams[enabledAudioStreamIdx[i]];
                 const AVCodec* decoder = avcodec_find_decoder(stream->codecpar->codec_id);
                 if (!decoder) {
                     err = alloc_error("Failed to find audio decoder from audio stream");
@@ -507,6 +515,11 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             }
         }
 
+        if (enabledAudioStreamCount == 0) {
+            log_debug("No audio tracks. only exporting video.");
+            // TODO: implement
+        }
+
 
         const AVFilter* amix = avfilter_get_by_name("amix");
         if (!amix) {
@@ -520,7 +533,7 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             goto cleanup;
         }
 
-        av_opt_set_int(amix_ctx, "inputs", audioStreamCount, AV_OPT_SEARCH_CHILDREN);
+        av_opt_set_int(amix_ctx, "inputs", enabledAudioStreamCount, AV_OPT_SEARCH_CHILDREN);
 
         // NULL since we set the options with av_opt above.
         ret = avfilter_init_str(amix_ctx, NULL);
@@ -603,19 +616,7 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             goto cleanup;
         }
 
-        // for (int i=0; i < audioStreamCount; i++) {
-        //     if (ret >= 0)
-        //         ret = avfilter_link(abufferCtxs[i], 0, amix_ctx, i);
-        // }
-        // if (ret >= 0)
-        //     ret = avfilter_link(amix_ctx, 0, aformat_ctx, 0);
-        // if (ret >= 0)
-        //     ret = avfilter_link(aformat_ctx, 0, abuffersink_ctx, 0);
-        // if (ret < 0) {
-        //     err = alloc_error("Error connecting filters");
-        //     goto cleanup;
-        // }
-        for (int i=0; i < audioStreamCount; i++) {
+        for (int i=0; i < enabledAudioStreamCount; i++) {
             if (ret >= 0)
                 ret = avfilter_link(abufferCtxs[i], 0, amix_ctx, i);
         }
@@ -787,7 +788,7 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
 
         // only necessary after seek if we are encoding video.
         if (videoDecCtx) avcodec_flush_buffers(videoDecCtx);
-        for (int i = 0; i < audioStreamCount; i++) {
+        for (int i = 0; i < enabledAudioStreamCount; i++) {
             avcodec_flush_buffers(audioDecCtx[i]);
         }
 
@@ -816,9 +817,10 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             int in_index = pkt->stream_index;
             AVStream *in_stream = ifmt_ctx->streams[in_index];
 
-            // if (is_muted_track[in_index)) {
-            //     continue;
-            // }
+            if ((*exportState->audioStreamDisabled)[in_index]) {
+                av_packet_unref(pkt);
+                continue;
+            }
 
             if (isPastEndTSVideo && isPastEndTSAudio) {
                 break;
@@ -864,8 +866,8 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
 
                 int idx = -1;
 
-                for (int i=0; i < audioStreamCount; i++) {
-                    if (in_index == audioStreamIdx[i]) {
+                for (int i=0; i < enabledAudioStreamCount; i++) {
+                    if (in_index == enabledAudioStreamIdx[i]) {
                         idx = i;
                         break;
                     }

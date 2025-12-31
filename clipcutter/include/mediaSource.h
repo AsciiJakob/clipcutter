@@ -3,7 +3,6 @@
 #include "pch.h"
 #include "app.h"
 
-#define MAX_SUPPORTED_AUDIO_TRACKS 100
 
 typedef struct App App;
 
