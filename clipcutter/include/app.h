@@ -11,11 +11,11 @@
 typedef struct MediaClip MediaClip;
 typedef struct MediaSource MediaSource;
 struct ExportOptions {
-    bool exportVideoSelected;
     bool exportAudio;
     bool mergeAudioTracks;
     float CBRRateFactor;
-    int encoderPresetIndex;
+    int encoderPresetComboIndex;
+    int exportAsComboIndex;
 };
 
 struct ExportState {
