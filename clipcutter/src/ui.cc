@@ -76,24 +76,14 @@ void UI_DrawEditor(App* app) {
 
         if (ImGui::BeginPopupModal("Export options")) {
             ExportOptions* options = &app->exportState.exportOptions;
-            const char* exportVideoStr = "Export as Video";
-            const char* exportAudioStr = "Export as Audio (dummy)";
-            const char** selected = nullptr;
-            if (options->exportVideoSelected) {
-                selected = &exportVideoStr;
-            } else {
-                selected = &exportAudioStr;
-            }
-            if (ImGui::BeginCombo("##exportvideoaudio", *selected)) {
-                if (ImGui::Selectable(exportVideoStr, options->exportVideoSelected)) {
+
+            if (ImGui::Combo("##", &options->exportAsComboIndex, EXPORT_AS_OPTIONS_STRS, EXPORT_AS_OPTIONS_COUNT, -1)) {
+                if (options->exportAsComboIndex == EXPORT_AS_OPTION_VIDEO)
                     Export_SetDefaultExportOptionsVideo(app);
-                }
-                if (ImGui::Selectable(exportAudioStr, !options->exportVideoSelected)) {
+                } else {
                     Export_SetDefaultExportOptionsAudio(app);
                 }
 
-                ImGui::EndCombo();
-            }
 
             ImGui::Text("Output path:");
             ImGui::InputTextWithHint("##exportpath", "Path to export to", app->exportPath, sizeof(app->exportPath), ImGuiInputTextFlags_AutoSelectAll, NULL, nullptr);
@@ -134,53 +124,53 @@ void UI_DrawEditor(App* app) {
                 SDL_ShowSaveFileDialog(callback, app, app->window, filters, 3, app->exportPath);
             }
 
-            if (options->exportVideoSelected) {
+            if (options->exportAsComboIndex == EXPORT_AS_OPTION_VIDEO) {
                 ImGui::Checkbox("include audio (dummy)", &options->exportAudio);
                 ImGui::Text("Encoding Options:");
 
-            if (ImGui::BeginCombo("##crforcb", "Constant Rate Factor (CRF)")) {
-                if (ImGui::Selectable("Constant Rate Factor (CRF)", true)) {
+                if (ImGui::BeginCombo("##crforcb", "Constant Rate Factor (CRF)")) {
+                    if (ImGui::Selectable("Constant Rate Factor (CRF)", true)) {
 
+                    }
+                    if (ImGui::Selectable("Constant Bitrate (CBR) (unimplemented)", false)) {
+
+                    }
+
+                    ImGui::EndCombo();
                 }
-                if (ImGui::Selectable("Constant Bitrate (CBR) (unimplemented)", false)) {
 
+                ImGui::SliderFloat("CRF rate factor", &options->CBRRateFactor, 0, 50);
+                if (ImGui::IsItemHovered()) {
+                    ImGui::BeginTooltip();
+                    ImGui::Text("The rate factor for CRF compression. The lower, the higher quality.");
+                    ImGui::Text("A sane range is most likely between 17-28.");
+                    ImGui::Text("0: lossless");
+                    ImGui::Text("18: visually lossless");
+                    ImGui::Text("51: worst possible, heavily compressed");
+                    ImGui::Text("");
+                    ImGui::Text("Default: 23");
+
+                    ImGui::EndTooltip();
                 }
 
-                ImGui::EndCombo();
-            }
-
-            ImGui::SliderFloat("CRF rate factor", &options->CBRRateFactor, 0, 50);
-            if (ImGui::IsItemHovered()) {
-                ImGui::BeginTooltip();
-                ImGui::Text("The rate factor for CRF compression. The lower, the higher quality.");
-                ImGui::Text("A sane range is most likely between 17-28.");
-                ImGui::Text("0: lossless");
-                ImGui::Text("18: visually lossless");
-                ImGui::Text("51: worst possible, heavily compressed");
-                ImGui::Text("");
-                ImGui::Text("Default: 23");
-
-                ImGui::EndTooltip();
-            }
-
-            ImGui::Combo("encoding speed preset", &options->encoderPresetIndex, ENCODER_PRESETS, ENCODER_PRESET_COUNT, -1);
-            if (ImGui::IsItemHovered()) {
-                ImGui::BeginTooltip();
-                ImGui::Text("Slower preset will provide better compression (lower filesizes) at the cost of time.");
-                ImGui::Text("medium->ultrafast: 55%% faster (with much lower quality)");
-                ImGui::Text("medium->faster: 25%% faster");
-                ImGui::Text("medium->fast: 10%% faster");
-                ImGui::Text("medium->slower: 40%% slower");
-                ImGui::Text("medium->slow: 100%% slower");
-                ImGui::Text("medium->veryslow: 280%% slower (with minimal quality improvements over slow)");
-                ImGui::Text("");
-                ImGui::Text("Default: medium");
+                ImGui::Combo("encoding speed preset", &options->encoderPresetComboIndex, ENCODER_PRESETS, ENCODER_PRESET_COUNT, -1);
+                if (ImGui::IsItemHovered()) {
+                    ImGui::BeginTooltip();
+                    ImGui::Text("Slower preset will provide better compression (lower filesizes) at the cost of time.");
+                    ImGui::Text("medium->ultrafast: 55%% faster (with much lower quality)");
+                    ImGui::Text("medium->faster: 25%% faster");
+                    ImGui::Text("medium->fast: 10%% faster");
+                    ImGui::Text("medium->slower: 40%% slower");
+                    ImGui::Text("medium->slow: 100%% slower");
+                    ImGui::Text("medium->veryslow: 280%% slower (with minimal quality improvements over slow)");
+                    ImGui::Text("");
+                    ImGui::Text("Default: medium");
 
 
-                ImGui::EndTooltip();
-            }
+                    ImGui::EndTooltip();
+                }
 
-            ImGui::Checkbox("Merge audio-tracks (dummy)", &options->mergeAudioTracks);
+                ImGui::Checkbox("Merge audio-tracks (dummy)", &options->mergeAudioTracks);
             } else { // we chose "Export as audio"
                 ImGui::Text("Encoding Options:");
                 ImGui::Checkbox("Merge audio-tracks", &options->mergeAudioTracks);
@@ -276,7 +266,7 @@ void UI_DrawEditor(App* app) {
 
         ImGui::InputDouble("Force seek", &app->playbackTime, -1, -1, "%.2f", 0);
         if (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter, false)) {
-            log_debug("thing is called");
+            log_info("user is force seeking");
             Playback_SetPlaybackPos(app, app->playbackTime);
         }
 
