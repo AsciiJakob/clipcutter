@@ -135,21 +135,23 @@ cleanup:
     return err;
 }
 
-char* remuxClip(MediaClip* mediaClip, ExportState* exportState);
+ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState);
 
-char* remuxMultipleClips(MediaClip** mediaClips, ExportState* exportState, const char* out_filename) {
+ExportError* remuxMultipleClips(MediaClip** mediaClips, ExportState* exportState, const char* out_filename) {
     AVFormatContext *ofmt_ctx = NULL;
     char* err = nullptr;
+    int ret;
+    ExportError* exportErr = nullptr;
     exportState->offsetPtsEncTBVideo = 0; 
     // exportState->offsetPtsEncTBAudio = 0; 
     exportState->lastPtsEncTBVideo = AV_NOPTS_VALUE;
     exportState->lastPtsEncTBAudio = AV_NOPTS_VALUE;
     exportState->out_filename = out_filename;
     
-    avformat_alloc_output_context2(&ofmt_ctx, NULL, NULL, exportState->out_filename);
+    ret = avformat_alloc_output_context2(&ofmt_ctx, NULL, NULL, exportState->out_filename);
     if (!ofmt_ctx) {
         err = alloc_error("Could not create output context");
-        return err;
+        goto cleanup;
     }
     exportState->ofmt_ctx = ofmt_ctx;
 
@@ -185,8 +187,8 @@ char* remuxMultipleClips(MediaClip** mediaClips, ExportState* exportState, const
         char* statusStrPtr = (char*) malloc(strlen(mediaClip->source->filename) + sizeof("Processing ") + 1);
         sprintf(statusStrPtr, "Processing %s", mediaClip->source->filename);
         exportState->statusString = statusStrPtr;
-        err = remuxClip(mediaClip, exportState);
-        if (err) {
+        exportErr = remuxClip(mediaClip, exportState);
+        if (exportErr) {
             goto cleanup;
         }
         exportState->statusString = nullptr;
@@ -204,10 +206,23 @@ cleanup:
         avio_closep(&ofmt_ctx->pb);
     avformat_free_context(ofmt_ctx);
 
-    log_debug("finished remuxing with errored as: %d", err);
 
-    return err;
+    if (exportErr) {
+        log_info("export was cancelled because of error.");
+        return exportErr;
+    }
+    if (err) {
+        exportErr = (ExportError*) malloc(sizeof(ExportError));
 
+        if (ret < 0 && ret != AVERROR_EOF) {
+            char* errbuf = (char*) malloc(MAX_ERROR_LENGTH);
+            av_strerror(ret, errbuf, MAX_ERROR_LENGTH);
+            exportErr->errorMsg = errbuf;
+        }
+        return exportErr;
+    }
+
+    return nullptr;
 };
 
 
@@ -333,7 +348,7 @@ char* recieveAndProcessFramesVideo(
 }
 
 // returns pointer to error message or nullptr if successful
-char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
+ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
     const char* in_filename = mediaClip->source->path;
     AVFormatContext* ofmt_ctx = exportState->ofmt_ctx;
     AVPacket* pkt = NULL;
@@ -383,7 +398,8 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
 
     AVFilterGraph* filter_graph = avfilter_graph_alloc();
     if (!filter_graph) {
-        return alloc_error("Unable to create filter graph");
+        err = alloc_error("Unable to create filter graph");
+        goto cleanup;
     }
 
     if ((ret = avformat_open_input(&ifmt_ctx, in_filename, 0, 0)) < 0) {
@@ -676,7 +692,6 @@ char* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             }
 
             // Set the output format constraints to match the encoder
-            // AVSampleFormat sample_fmts[] = { (AVSampleFormat)outAudioCodecPar->format, AV_SAMPLE_FMT_NONE };
             AVSampleFormat sample_fmts[] = { (AVSampleFormat)audioEncCtx->sample_fmt, AV_SAMPLE_FMT_NONE };
             ret = av_opt_set_int_list(abuffersink_ctx, "sample_fmts", sample_fmts, AV_SAMPLE_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
             if (ret < 0) {
@@ -1141,25 +1156,31 @@ cleanup:
     if (audio_fifo)
         av_audio_fifo_free(audio_fifo);
 
-    avformat_close_input(&ifmt_ctx);
+    if (ifmt_ctx)
+        avformat_close_input(&ifmt_ctx);
 
-    avfilter_graph_free(&filter_graph);
+    if (filter_graph)
+        avfilter_graph_free(&filter_graph);
 
     // /* close output */
     // if (ofmt_ctx && !(ofmt->flags & AVFMT_NOFILE))
     //     avio_closep(&ofmt_ctx->pb);
     // avformat_free_context(ofmt_ctx);
 
-    // TODO: ability to get multiple error messages
-    if (err == nullptr && ret < 0 && ret != AVERROR_EOF) {
-        char* errbuf = (char*) malloc(MAX_ERROR_LENGTH);
-        av_strerror(ret, errbuf, MAX_ERROR_LENGTH);
-        err = errbuf;
+    if (err) {
+        ExportError* exportErr = (ExportError*) malloc(sizeof(ExportError));
+        exportErr->message = err;
+
+        if (ret < 0 && ret != AVERROR_EOF) {
+            char* errbuf = (char*) malloc(MAX_ERROR_LENGTH);
+            av_strerror(ret, errbuf, MAX_ERROR_LENGTH);
+            exportErr->errorMsg = errbuf;
+        }
+        return exportErr;
     }
 
-    log_debug("finished remuxing with errored as: %d", err);
-
-    return err;
+    // return err;
+    return nullptr;
 }
 
 
@@ -1178,16 +1199,23 @@ void exportVideo(App* app, bool combineAudioStreams) {
 
     if (combineAudioStreams) {
         /*char* errMsg = remux(firstClip, &app->exportFrame, app->exportPath);*/
-        char* errMsg = remuxMultipleClips(app->mediaClips, &app->exportState, app->exportPath);
-        if (errMsg != nullptr) {
-            log_info("Exporting failed with error: %s", errMsg);
+        ExportError* exportErr = remuxMultipleClips(app->mediaClips, &app->exportState, app->exportPath);
+        if (exportErr != nullptr) {
+            // TODO, allocate proper size 
+            char* errBuff = (char*) malloc(MAX_ERROR_LENGTH);
+            sprintf(errBuff, "Exporting failed.\n%s\nError: %s", exportErr->message, exportErr->errorMsg);
+
+            // log_info("Exporting failed.\n%s\nerror: %s", exportErr->message, exportErr->errorMsg);
+            log_info("%s", errBuff);
             app->exportState.statusString = (char*) "Failed";
-            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Exporting Failed", errMsg, app->window);
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Exporting Failed", errBuff, app->window);
+            free(exportErr->message);
+            free(exportErr->errorMsg);
+            free(errBuff);
         } else {
             app->exportState.statusString = (char*) "Completed";
             SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Export", "Sucessfully exported video", app->window);
         }
-        free(errMsg);
     } else {
         /*int err = remux_keepMultipleAudioTracks(firstClip, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");*/
         // int err = remux_keepMultipleAudioTracks(firstClip,app->exportPath);
