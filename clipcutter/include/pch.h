@@ -36,6 +36,7 @@ extern "C" {
 #include <libavutil/mem.h>
 #include <libavutil/opt.h>
 #include <libavutil/timestamp.h>
+#include <libavutil/audio_fifo.h>
 
 #include "libavutil/samplefmt.h"
 #include "libavutil/channel_layout.h"
