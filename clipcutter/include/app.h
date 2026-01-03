@@ -29,7 +29,7 @@ struct ExportState {
     AVStream* out_video_stream;
     AVStream* out_audio_stream;
     int64_t offsetPtsEncTBVideo;
-    int64_t offsetPtsEncTBAudio;
+    // int64_t offsetPtsEncTBAudio; // not used for audio after switch to fifo
     int64_t lastPtsEncTBVideo;
     int64_t lastPtsEncTBAudio;
     AVFormatContext* ofmt_ctx;

@@ -77,7 +77,7 @@ void UI_DrawEditor(App* app) {
         if (ImGui::BeginPopupModal("Export options")) {
             ExportOptions* options = &app->exportState.exportOptions;
 
-            if (ImGui::Combo("##", &options->exportAsComboIndex, EXPORT_AS_OPTIONS_STRS, EXPORT_AS_OPTIONS_COUNT, -1)) {
+            if (ImGui::Combo("##exportAsCombo", &options->exportAsComboIndex, EXPORT_AS_OPTIONS_STRS, EXPORT_AS_OPTIONS_COUNT, -1)) {
                 if (options->exportAsComboIndex == EXPORT_AS_OPTION_VIDEO)
                     Export_SetDefaultExportOptionsVideo(app);
                 } else {
@@ -125,8 +125,16 @@ void UI_DrawEditor(App* app) {
             }
 
             if (options->exportAsComboIndex == EXPORT_AS_OPTION_VIDEO) {
-                ImGui::Checkbox("include audio (dummy)", &options->exportAudio);
-                ImGui::Text("Encoding Options:");
+                ImGui::SeparatorText("Video Encoding Options:");
+
+                if (ImGui::BeginCombo("Video codec", "H.264/MPEG-4 AVC")) {
+                    if (ImGui::Selectable("H.264/MPEG-4 AVC", true)) {
+
+                    }
+                    ImGui::EndCombo();
+                }
+
+
 
                 if (ImGui::BeginCombo("##crforcb", "Constant Rate Factor (CRF)")) {
                     if (ImGui::Selectable("Constant Rate Factor (CRF)", true)) {
@@ -170,10 +178,24 @@ void UI_DrawEditor(App* app) {
                     ImGui::EndTooltip();
                 }
 
+                ImGui::SeparatorText("Audio Encoding Options:");
+                ImGui::Text("Audio codec: AAC");
+                // if (ImGui::BeginCombo("Audio codec", "AAC")) {
+                //     if (ImGui::Selectable("AAC", true)) {
+                //
+                //     }
+                //     ImGui::EndCombo();
+                // }
                 ImGui::Checkbox("Merge audio-tracks (dummy)", &options->mergeAudioTracks);
             } else { // we chose "Export as audio"
-                ImGui::Text("Encoding Options:");
-                ImGui::Checkbox("Merge audio-tracks", &options->mergeAudioTracks);
+                ImGui::SeparatorText("Encoding Options:");
+                if (ImGui::BeginCombo("Audio codec", "MP3")) {
+                    if (ImGui::Selectable("MP3", true)) {
+
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::Checkbox("Merge audio-tracks (dummy)", &options->mergeAudioTracks);
             }
             if (ImGui::Button("Render")) {
                 std::thread thread_obj(exportVideo, app, true);
