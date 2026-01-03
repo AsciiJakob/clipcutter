@@ -18,6 +18,11 @@ struct ExportOptions {
     int exportAsComboIndex;
 };
 
+struct ExportError {
+    char* message;
+    char* errorMsg;
+};
+
 struct ExportState {
     ExportOptions exportOptions;
 
