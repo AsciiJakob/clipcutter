@@ -226,6 +226,60 @@ cleanup:
 };
 
 
+char* ProcessAudioFramesFromFifo(
+        ExportState* exportState,
+        AVAudioFifo* audio_fifo,
+        AVFormatContext* ofmt_ctx,
+        AVFrame* enc_frame,
+        AVPacket* pkt,
+        AVCodecContext* audioEncCtx,
+        int outAudioStreamIdx
+        ) {
+
+    int64_t* last_audio_pts_enc_tb = &exportState->lastPtsEncTBAudio;
+    int ret;
+
+    //enc_frame->nb_samples is set before calling this function
+    enc_frame->format      = audioEncCtx->sample_fmt;
+    enc_frame->sample_rate = audioEncCtx->sample_rate;
+    enc_frame->ch_layout   = audioEncCtx->ch_layout;
+    if (*last_audio_pts_enc_tb == AV_NOPTS_VALUE) {
+        *last_audio_pts_enc_tb = 0;
+    } else {
+        *last_audio_pts_enc_tb += enc_frame->nb_samples;
+    }
+    enc_frame->pts = *last_audio_pts_enc_tb;
+
+    av_frame_get_buffer(enc_frame, 0);
+
+    ret = av_audio_fifo_read(audio_fifo, (void **)enc_frame->data, enc_frame->nb_samples);
+    if (ret < 0) {
+        return alloc_error("error reading frame from fifo");
+    }
+
+
+    ret = avcodec_send_frame(audioEncCtx, enc_frame);
+    if (ret < 0) {
+        return alloc_error("error sending frame to encoder");
+    }
+
+    while (ret >= 0) {
+        ret = avcodec_receive_packet(audioEncCtx, pkt);
+        pkt->stream_index = outAudioStreamIdx; // as calling avcodec_receive_packet resets it
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            break;
+        } else if (ret < 0) {
+            return alloc_error("error decoding audio frame");
+        }
+
+        ret = av_interleaved_write_frame(ofmt_ctx, pkt);
+        if (ret < 0) {
+            return alloc_error("Error writing audio frame");
+        }
+    }
+
+    return nullptr;
+}
 
 
 // process any frames that ffmpeg has finished decoding
@@ -393,8 +447,6 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
     const char* out_filename = exportState->out_filename;
     log_debug("filename is: %s", out_filename);
     AVStream* out_audio_stream  = exportState->out_audio_stream;
-    int64_t* last_audio_pts_enc_tb = &exportState->lastPtsEncTBAudio;
-
 
     AVFilterGraph* filter_graph = avfilter_graph_alloc();
     if (!filter_graph) {
@@ -1032,53 +1084,28 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
 
                         int target_samples = audioEncCtx->frame_size > 0 ? audioEncCtx->frame_size : frame->nb_samples;
 
+                        AVFrame *enc_frame = av_frame_alloc();
                         while (av_audio_fifo_size(audio_fifo) >= target_samples) {
-                            AVFrame *enc_frame = av_frame_alloc();
                             enc_frame->nb_samples  = target_samples;
-                            enc_frame->format      = audioEncCtx->sample_fmt;
-                            enc_frame->sample_rate = audioEncCtx->sample_rate;
-                            enc_frame->ch_layout   = audioEncCtx->ch_layout;
-                            if (*last_audio_pts_enc_tb == AV_NOPTS_VALUE) {
-                                *last_audio_pts_enc_tb = 0;
-                            } else {
-                                *last_audio_pts_enc_tb += target_samples;
-                            }
-                            enc_frame->pts = *last_audio_pts_enc_tb;
 
-                            av_frame_get_buffer(enc_frame, 0);
+                            err = ProcessAudioFramesFromFifo(exportState,
+                                    audio_fifo,
+                                    ofmt_ctx,
+                                    enc_frame,
+                                    pkt,
+                                    audioEncCtx,
+                                    outAudioStreamIdx
+                            );
 
-                            ret = av_audio_fifo_read(audio_fifo, (void **)enc_frame->data, target_samples);
-                            if (ret < 0) {
-                                err = alloc_error("error reading frame from fifo");
+                            if (err) {
+                                av_frame_free(&enc_frame);
+                                av_frame_unref(frame);
+                                av_packet_unref(pkt);
                                 goto cleanup;
-                            }
-
-
-                            ret = avcodec_send_frame(audioEncCtx, enc_frame);
-                            if (ret < 0) {
-                                err = alloc_error("error sending frame to encoder");
-                                goto cleanup;
-                            }
-                            av_frame_free(&enc_frame);
-
-                            while (ret >= 0) {
-                                ret = avcodec_receive_packet(audioEncCtx, pkt);
-                                pkt->stream_index = outAudioStreamIdx; // as calling avcodec_receive_packet resets it
-                                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-                                    break;
-                                } else if (ret < 0) {
-                                    err = alloc_error("error decoding audio frame");
-                                    goto cleanup;
-                                }
-
-                                ret = av_interleaved_write_frame(ofmt_ctx, pkt);
-                                if (ret < 0) {
-                                    err = alloc_error("Error writing audio frame");
-                                    goto cleanup;
-                                }
                             }
 
                         }
+                        av_frame_free(&enc_frame);
 
                         av_frame_unref(frame);
                     }
@@ -1092,7 +1119,7 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
         // after we are done encoding clip, flush encoders so that we may re-use them for the next clip.
         
         // https://www.ffmpeg.org/doxygen/trunk/group__lavc__encdec.html
-        log_debug("draining decoder");
+        log_info("draining decoder");
         exportState->statusString = (char*) "Draining decoder/encoder";
 
         avcodec_send_packet(videoDecCtx, NULL); // enters "draining mode"
@@ -1117,7 +1144,7 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             goto cleanup;
         }
 
-        log_debug("draining encoder");
+        log_info("draining encoder");
         if (shouldExportVideo) {
             avcodec_send_frame(videoEncCtx, NULL);
 
@@ -1136,10 +1163,38 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             av_packet_free(&outpkt);
         }
 
+        log_info("draining remaining audio fifo samples");
 
-        log_debug("finished draining");
 
-        // Similar flushing for audio encoder
+        // send remaining partial samples to encoder
+        if (av_audio_fifo_size(audio_fifo) > 0) {
+            log_debug("sending remaining audio fifo samples")
+            AVFrame *enc_frame = av_frame_alloc();
+            enc_frame->nb_samples = av_audio_fifo_size(audio_fifo);
+
+
+            err = ProcessAudioFramesFromFifo(exportState,
+                    audio_fifo,
+                    ofmt_ctx,
+                    enc_frame,
+                    pkt,
+                    audioEncCtx,
+                    outAudioStreamIdx
+                );
+
+            av_frame_free(&enc_frame);
+
+            if (err) {
+                goto cleanup;
+            }
+        }
+
+        // Flush encoder
+        avcodec_send_frame(audioEncCtx, NULL);
+
+        log_info("finished draining");
+
+
 
 
     }
@@ -1201,7 +1256,7 @@ void exportVideo(App* app, bool combineAudioStreams) {
         /*char* errMsg = remux(firstClip, &app->exportFrame, app->exportPath);*/
         ExportError* exportErr = remuxMultipleClips(app->mediaClips, &app->exportState, app->exportPath);
         if (exportErr != nullptr) {
-            // TODO, allocate proper size 
+            // TODO, allocate proper size, or display with ImGui and skip buff alloc
             char* errBuff = (char*) malloc(MAX_ERROR_LENGTH);
             sprintf(errBuff, "Exporting failed.\n%s\nError: %s", exportErr->message, exportErr->errorMsg);
 
