@@ -85,8 +85,8 @@ void UI_DrawEditor(App* app) {
                 }
 
 
-            ImGui::Text("Output path:");
-            ImGui::InputTextWithHint("##exportpath", "Path to export to", app->exportPath, sizeof(app->exportPath), ImGuiInputTextFlags_AutoSelectAll, NULL, nullptr);
+            // ImGui::InputTextWithHint("##exportpath", "Path to export to", app->exportPath, sizeof(app->exportPath), ImGuiInputTextFlags_AutoSelectAll, NULL, nullptr);
+            ImGui::Text("Output path: %s", app->exportPath);
 
             if (ImGui::Button("Select in file explorer")) {
 
