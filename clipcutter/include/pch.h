@@ -4,7 +4,9 @@
 #include "log.h"
 #include "dynArr.h"
 
+#ifdef CC_PLATFORM_WINDOWS
 #include <Windows.h>
+#endif
 
 #include <cstdlib>
 #include <cstdio>

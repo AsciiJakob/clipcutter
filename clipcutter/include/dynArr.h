@@ -1,5 +1,6 @@
 #ifndef DYNARR_H
 #define DYNARR_H
+#include <cstddef>
 
 struct DynArr {
     size_t size;
