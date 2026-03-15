@@ -155,7 +155,7 @@ void UI_DrawEditor(App* app) {
                     ImGui::Text("0: lossless");
                     ImGui::Text("18: visually lossless");
                     ImGui::Text("51: worst possible, heavily compressed");
-                    ImGui::Text("");
+                    ImGui::Spacing();
                     ImGui::Text("Default: 23");
 
                     ImGui::EndTooltip();
@@ -171,7 +171,7 @@ void UI_DrawEditor(App* app) {
                     ImGui::Text("medium->slower: 40%% slower");
                     ImGui::Text("medium->slow: 100%% slower");
                     ImGui::Text("medium->veryslow: 280%% slower (with minimal quality improvements over slow)");
-                    ImGui::Text("");
+                    ImGui::Spacing();
                     ImGui::Text("Default: medium");
 
 
@@ -256,12 +256,12 @@ void UI_DrawEditor(App* app) {
 
     if (ImGui::Begin("Help")) {
         ImGui::TextWrapped("Welcome to Clipcutter!");
-        ImGui::TextWrapped("");
+        ImGui::Spacing();
         ImGui::TextWrapped("Playback:");
         ImGui::TextWrapped("SPACE - toggle pause of video playback");
         ImGui::TextWrapped("Left arrow - navigate one frame to the left");
         ImGui::TextWrapped("Right arrow - navigate one frame to the right");
-        ImGui::TextWrapped("");
+        ImGui::Spacing();
         ImGui::TextWrapped("Timeline:");
         ImGui::TextWrapped("DEL - delete selected clip");
         ImGui::TextWrapped("ctrl + a - select all clips");
@@ -269,7 +269,7 @@ void UI_DrawEditor(App* app) {
         ImGui::TextWrapped("Scroll wheel - zoom in and out");
         ImGui::TextWrapped("Shift + Scroll wheel - scroll horizontally");
         ImGui::TextWrapped("middle mouse - pan timeline");
-        ImGui::TextWrapped("");
+        ImGui::Spacing();
         ImGui::TextWrapped("Misc:");
         ImGui::TextWrapped("F9 - open export modal");
     }
@@ -387,7 +387,7 @@ void UI_DrawEditor(App* app) {
 
                 if (i != 0) {
                     char muteButtonLabel[10];
-                    snprintf(muteButtonLabel, sizeof(muteButtonLabel), "Mute##%d", i);
+                    snprintf(muteButtonLabel, sizeof(muteButtonLabel), "Mute##%d", (unsigned char) i);
                     if (ImGui::SmallButton(muteButtonLabel)) {
                         app->audioStreamDisabled[i] = !app->audioStreamDisabled[i];
                         Playback_SetAudioTracks(app, app->loadedMediaSource->audioTracks);

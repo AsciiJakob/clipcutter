@@ -2,6 +2,7 @@
 #include "app.h"
 
 void registerOpenWith() {
+#ifdef CC_PLATFORM_WINDOWS
     LONG result;
     HKEY hKey;
 
@@ -137,9 +138,13 @@ void registerOpenWith() {
 
 
     }
+#endif
 }
 
-void deleteKey(HKEY root, const char* path) {
+void deleteKey(void* root, const char* path) {
+    cc_unused(root);
+    cc_unused(path);
+#ifdef CC_PLATFORM_WINDOWS
     LONG res = RegDeleteKeyA(root, path);
     if (res == ERROR_SUCCESS) {
         log_info("Deleted key: %s\n", path);
@@ -148,8 +153,13 @@ void deleteKey(HKEY root, const char* path) {
     } else {
         log_error("Failed to delete key %s (Error %ld)\n", path, res);
     }
+#endif
 };
-void deleteValue(HKEY root, const char* path, const char* name) {
+void deleteValue(void* root, const char* path, const char* name) {
+    cc_unused(root);
+    cc_unused(path);
+    cc_unused(name);
+#ifdef CC_PLATFORM_WINDOWS
     HKEY hKey;
     if (RegOpenKeyExA(root, path, 0, KEY_SET_VALUE, &hKey) == ERROR_SUCCESS) {
         LONG res = RegDeleteValueA(hKey, name);
@@ -164,9 +174,11 @@ void deleteValue(HKEY root, const char* path, const char* name) {
     } else {
         log_error("Cannot open key: %s\n", path);
     }
+#endif
 };
 
 void unregisterOpenWith() {
+#ifdef CC_PLATFORM_WINDOWS
     const char* commandKey     = "Software\\Classes\\Applications\\clipcutter.exe\\shell\\open\\command";
     const char* openKey        = "Software\\Classes\\Applications\\clipcutter.exe\\shell\\open";
     const char* shellKey       = "Software\\Classes\\Applications\\clipcutter.exe\\shell";
@@ -189,6 +201,7 @@ void unregisterOpenWith() {
 
         deleteValue(HKEY_CURRENT_USER, progidsKey, "Applications\\clipcutter.exe");
     }
+#endif
 }
 
 void Settings_DrawSettings(App* app) {

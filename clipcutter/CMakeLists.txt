@@ -28,6 +28,9 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         -Wextra      # extra warnings
         -Wpedantic   # Strictly ISO C/C++
         -Wno-unused-value # ignore Wunused-value
+        -Wno-class-memaccess # ignore complaining about using memset on structs (it's fine for my datastructures)
+        -Wno-conversion-null # allow using NULL in the C way
+        -Wno-pointer-arith # allow doing comparisons to NULL
         -Werror    # Treat warnings as errors
     )
 endif()
@@ -50,25 +53,66 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 
+if(WIN32)
 target_link_directories(${PROJECT_NAME} PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/deps/sdl3/lib/x64"
     "${CMAKE_CURRENT_SOURCE_DIR}/deps/libmpv/lib"
 	"${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/lib"
 )
+elseif(UNIX)
+    target_link_directories(${PROJECT_NAME} PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/deps/sdl3/lib/x64"
+    "${CMAKE_CURRENT_SOURCE_DIR}/deps/libmpv/lib"
+       "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/lib"
+    #/usr/lib
+    )
+
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+        SDL3
+        mpv
+        avformat
+        avcodec
+        avutil
+        avfilter
+        GL
+        dl
+        pthread
+    )
+
+    # set rpath so the binary can find shared libs in ./deps/ffmpeg/lib
+    set(CMAKE_INSTALL_RPATH "\$ORIGIN/deps/ffmpeg/lib")
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    sdl3
-    libmpv
     avformat
     avcodec
     avutil
     avfilter
+)
+if(WIN32)
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    sdl3
+    libmpv
     opengl32
     kernel32
     user32
     gdi32
     # msvcrt
 )
+else()
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    SDL3
+    mpv
+)
+
+target_link_directories(${PROJECT_NAME} PRIVATE
+        /usr/lib/
+)
+target_include_directories(${PROJECT_NAME} PRIVATE
+        /usr/include/
+)
+endif()
 
 if(WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE CC_PLATFORM_WINDOWS NOMINMAX)

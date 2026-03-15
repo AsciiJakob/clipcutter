@@ -3,20 +3,27 @@
 
 void Playback_SetAudioTracks(App* app, int count) {
     log_trace("Playback_SetAudioTracks() with %d as count", count);
-	cc_unused(app);
+    cc_unused(app);
     // https://mpv.io/manual/stable/#options-lavfi-complex
 
     assert(app->loadedMediaSource != nullptr && "loadedMediaSource was null");
 
-    char valueOptionStr[20+6*MAX_SUPPORTED_AUDIO_TRACKS] = "";
+    const int BUF_SIZE = 20 + 6 * MAX_SUPPORTED_AUDIO_TRACKS;
+    char valueOptionStr[BUF_SIZE] = "";
+    int offset = 0;
     int enabledTrackCount = 0;
+
     for (int i=1; i < count+1; i++) { // assuming video has one video track
         if (!app->audioStreamDisabled[i]) {
-            sprintf(valueOptionStr, "%s[aid%d]", valueOptionStr, i);
+	    offset += snprintf(valueOptionStr + offset, BUF_SIZE - offset,
+		   "[aid%d]", i);
+            // sprintf(valueOptionStr, "%s[aid%d]", valueOptionStr, i);
             enabledTrackCount++;
         } 
     }
-    sprintf(valueOptionStr, "%samix=inputs=%d[ao]", valueOptionStr, enabledTrackCount);
+    snprintf(valueOptionStr + offset, BUF_SIZE - offset,
+	 "amix=inputs=%d[ao]", enabledTrackCount);
+    // sprintf(valueOptionStr, "%samix=inputs=%d[ao]", valueOptionStr, enabledTrackCount);
     // Examples of what valueOptionStr should look like:
     // 3 audio tracks: [aid1][aid2][aid3]amix=inputs=3[ao]
     // 4 audio tracks: [aid1][aid2][aid3][aid4]amix=inputs=4[ao]
