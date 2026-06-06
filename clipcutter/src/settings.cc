@@ -145,7 +145,7 @@ void deleteKey(void* root, const char* path) {
     cc_unused(root);
     cc_unused(path);
 #ifdef CC_PLATFORM_WINDOWS
-    LONG res = RegDeleteKeyA(root, path);
+    LONG res = RegDeleteKeyA((HKEY)root, path);
     if (res == ERROR_SUCCESS) {
         log_info("Deleted key: %s\n", path);
     } else if (res == ERROR_FILE_NOT_FOUND) {
@@ -161,7 +161,7 @@ void deleteValue(void* root, const char* path, const char* name) {
     cc_unused(name);
 #ifdef CC_PLATFORM_WINDOWS
     HKEY hKey;
-    if (RegOpenKeyExA(root, path, 0, KEY_SET_VALUE, &hKey) == ERROR_SUCCESS) {
+    if (RegOpenKeyExA((HKEY)root, path, 0, KEY_SET_VALUE, &hKey) == ERROR_SUCCESS) {
         LONG res = RegDeleteValueA(hKey, name);
         if (res == ERROR_SUCCESS) {
             log_info("Deleted value '%s' from %s\n", name, path);
