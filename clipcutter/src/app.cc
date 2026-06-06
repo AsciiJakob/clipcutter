@@ -310,8 +310,8 @@ void App_MovePlaybackMarker(App* app, float secs) {
             App_LoadEvent(app, currentEvent);
         }
 
-        int seekPos = secs-currentEvent->start+currentEvent->clip->startCutoff;
-        log_info("seeking to: %d\n", seekPos);
+        float seekPos = secs-currentEvent->start+currentEvent->clip->startCutoff;
+        log_info("seeking to: %.2f\n", seekPos);
         Playback_SetPlaybackPos(app, seekPos);
 
     } else {
