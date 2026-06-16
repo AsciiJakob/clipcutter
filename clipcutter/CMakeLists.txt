@@ -28,10 +28,15 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         -Wextra      # extra warnings
         -Wpedantic   # Strictly ISO C/C++
         -Wno-unused-value # ignore Wunused-value
-        -Wno-class-memaccess # ignore complaining about using memset on structs (it's fine for my datastructures)
         -Wno-conversion-null # allow using NULL in the C way
         -Wno-pointer-arith # allow doing comparisons to NULL
         -Werror    # Treat warnings as errors
+    )
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        -Wno-class-memaccess # ignore complaining about using memset on structs (it's fine for my datastructures)
     )
 endif()
 
