@@ -4,6 +4,8 @@
 #include "mediaClip.h"
 #include "playback.h"
 #include "export.h"
+#include "dynArr.h"
+#include "effects.h"
 
 void App_Init(App* app) {
 	memset(app, 0, sizeof(App));
@@ -29,6 +31,10 @@ void App_Init(App* app) {
     Export_SetDefaultExportOptionsVideo(app);
 
     app->exportState.audioStreamDisabled = &app->audioStreamDisabled;
+
+    app->availableFilterNames = Effects_GetAllFilterNames(&app->availableFilterNamesCount);
+
+    DynArr_Init(&app->exportState.userAudioFilters, sizeof(AudioEffect));
 
     app->temp_attack = 20;
     app->temp_release = 250;

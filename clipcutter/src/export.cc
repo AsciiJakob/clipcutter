@@ -1,4 +1,5 @@
 #include "export.h"
+#include "effects.h"
 #include "pch.h"
 #include "app.h"
 #include "mediaSource.h"
@@ -669,7 +670,7 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
         }
 
         if (enabledAudioStreamCount == 0) {
-            log_debug("No audio tracks. only exporting video.");
+            log_info("No audio tracks. only exporting video.");
         } else {
 
             const AVFilter* amix = avfilter_get_by_name("amix");
@@ -716,18 +717,36 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             }
             
             // TODO: add custom effects here
-            // test with modified compressor
-            // const char* acompressor_desc = "attack=26.85600:release=664.43903:ratio=20.00000:threshold=0.04800:level_in=11.61000:makeup=1.00000";
             // test with default settings (no compressor)
-            const char* acompressor_desc = "attack=20.00000:release=250.00000:ratio=2.00000:threshold=0.12500:level_in=1.00000:makeup=1.00000";
+            // const char* acompressor_desc = "attack=20.00000:release=250.00000:ratio=2.00000:threshold=0.12500:level_in=1.00000:makeup=1.00000";
+            //
+            // const AVFilter* acompressor = avfilter_get_by_name("acompressor");
+            // AVFilterContext* acompressor_ctx = NULL;
+            //
+            // ret = avfilter_graph_create_filter(&acompressor_ctx, acompressor, "acompressor", acompressor_desc, NULL, filter_graph);
+            // if (ret < 0) {
+            //     err = alloc_error("Failed adding user effect");
+            //     goto cleanup;
+            // }
 
-            const AVFilter* acompressor = avfilter_get_by_name("acompressor");
-            AVFilterContext* acompressor_ctx = NULL;
+            AVFilterContext** userEffect_ctxs = (AVFilterContext**) alloca(exportState->userAudioFilters.size * sizeof(AVFilterContext*));
+            for (size_t i=0; i < exportState->userAudioFilters.size; i++) {
+                AudioEffect* effect = (AudioEffect*) exportState->userAudioFilters.items[i];
 
-            ret = avfilter_graph_create_filter(&acompressor_ctx, acompressor, "acompressor", acompressor_desc, NULL, filter_graph);
-            if (ret < 0) {
-                err = alloc_error("Failed adding user effect");
-                goto cleanup;
+                const AVFilter* filter = avfilter_get_by_name(effect->filter_name);
+                AVFilterContext* filter_ctx = NULL;
+                SB filter_desc = AudioEffect_BuildLavfiStringOfOptions(effect);
+
+                ret = avfilter_graph_create_filter(&filter_ctx, filter, effect->filter_name, filter_desc.buf, NULL, filter_graph);
+                if (ret < 0) {
+                    err = alloc_error("Failed adding user effect %s", effect->filter_name);
+                    SB_free(&filter_desc);
+                    goto cleanup;
+                }
+
+                userEffect_ctxs[i] = filter_ctx;
+
+                SB_free(&filter_desc);
             }
 
 
@@ -762,7 +781,7 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
 
             ret = avfilter_init_str(abuffersink_ctx, NULL);
             if (ret < 0) {
-                err = alloc_error("Could not initialize the abuffersink instance.");
+                err = alloc_error("Could not initialize the abuffersink instance");
                 goto cleanup;
             }
 
@@ -772,10 +791,26 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             }
             if (ret >= 0)
                 ret = avfilter_link(amix_ctx, 0, aformat_ctx, 0);
-            if (ret >= 0)
-                ret = avfilter_link(aformat_ctx, 0, acompressor_ctx, 0);
-            if (ret >= 0)
-                ret = avfilter_link(acompressor_ctx, 0, abuffersink_ctx, 0);
+
+            // handle filters applied by the user
+            if (exportState->userAudioFilters.size > 0 && ret >= 0) {
+                for (size_t i=0; i < exportState->userAudioFilters.size; i++) {
+                    if (i==0) {
+                        ret = avfilter_link(aformat_ctx, 0, userEffect_ctxs[i], 0);
+                    } else {
+                        if (ret >= 0)
+                            ret = avfilter_link(userEffect_ctxs[i-1], 0, userEffect_ctxs[i], 0);
+                    }
+                }
+                // map last audio effect to abuffersink
+                if (ret >= 0)
+                    ret = avfilter_link(userEffect_ctxs[exportState->userAudioFilters.size-1], 0, abuffersink_ctx, 0);
+
+            } else {
+                ret = avfilter_link(aformat_ctx, 0, abuffersink_ctx, 0);
+            }
+
+
             if (ret < 0) {
                 err = alloc_error("Error connecting filters");
                 goto cleanup;

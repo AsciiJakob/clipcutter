@@ -4,9 +4,9 @@ project(clipcutter)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED OFF)
 
-# set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# option(USE_ASAN "Enable Address Sanitizer" OFF)
+option(USE_ASAN "Enable Address Sanitizer" OFF)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
 
 file(GLOB_RECURSE SOURCES 
     src/*.cc
@@ -132,11 +132,11 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE CC_BUILD_DEBUG _CRT_SECURE_NO
 
 if(USE_ASAN)
     if(MSVC)
-        target_compile_options(${PROJECT_NAME} PRIVATE /fsanitize=address)
-        target_link_options(${PROJECT_NAME} PRIVATE /fsanitize=address)
+        target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:/fsanitize=address>)
+        target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:/fsanitize=address>)
     else()
-        target_compile_options(${PROJECT_NAME} PRIVATE -fsanitize=address)
-        target_link_options(${PROJECT_NAME} PRIVATE -fsanitize=address)
+        target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)
+        target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)
     endif()
     target_compile_definitions(${PROJECT_NAME} PRIVATE CC_USE_ASAN)
 endif()

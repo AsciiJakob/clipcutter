@@ -5,6 +5,7 @@
 #include "mediaClip.h"
 #include "settings.h"
 #include "playback.h"
+#include "effects.h"
 
 int exportPathInputCallback(ImGuiInputTextCallbackData data) {
     /*if (data.EventFlag == ImGuiInputTextFlags_CallbackCompletion) {*/
@@ -13,6 +14,8 @@ int exportPathInputCallback(ImGuiInputTextCallbackData data) {
     log_debug("Buffer: %s", data.Buf);
     return 0;
 }
+
+
 
 void UI_DrawEditor(App* app) {
     app->scale = ImGui::GetFontSize()/13.0*app->userScaleFactor; // divide by 13 so we can use higher, readable values rather than decimal numbers like 0.052
@@ -309,46 +312,98 @@ void UI_DrawEditor(App* app) {
 	ImGui::End();
 
 	if (ImGui::Begin("Effects")) {
-		ImGui::Text("Audio effects:");
-        float pitchValue = 1.0;
-        ImGui::InputFloat("Pitch", &pitchValue);
-        if (ImGui::IsItemDeactivatedAfterEdit()) {
-            log_debug("setting pitch to: %.2f", pitchValue);
-            char lavfiString[100];
-            sprintf(lavfiString, "lavfi=[rubberband=pitch=%.2f:tempo=1]", pitchValue);
+        ImGui::TextWrapped("Tip: when sliders are used, ctr-click to enter precise values, double click to reset to default.\nFor detailed effect descriptions, see:");
+        ImGui::TextLinkOpenURL("https://ffmpeg.org/ffmpeg-filters.html", "https://ffmpeg.org/ffmpeg-filters.html");
+		ImGui::SeparatorText("Audio effects:");
 
-            const char* cmd[] = { "set", "options/af", lavfiString, NULL };
-            App_Queue_AddCommand(app, cmd);
+        for (size_t i=0; i < app->exportState.userAudioFilters.size ; i++) {
+            AudioEffect* effect = (AudioEffect*) app->exportState.userAudioFilters.items[i];
+            bool showHeader = true;
+            char label[64];
+            snprintf(label, sizeof(label), "%s##%zu", effect->filter_name, i);
+            if (ImGui::CollapsingHeader(label)) {
+                bool shouldUpdate = Effects_RenderEffectOptions(app, effect, i);
+
+                if (shouldUpdate) {
+                    Effects_ApplyAudioEffects(app);
+                }
+            }
+            if (!showHeader) {
+                // delete
+            }
+
         }
 
-        
-		ImGui::Text("Compressor");
-        bool updateEffect = false;
-        ImGui::SliderFloat("attack", &app->temp_attack, 0.01, 2000);
-        if (ImGui::IsItemDeactivatedAfterEdit())
-            updateEffect = true;
-        ImGui::SliderFloat("release", &app->temp_release, 0.01, 9000);
-        if (ImGui::IsItemDeactivatedAfterEdit())
-            updateEffect = true;
-        ImGui::SliderFloat("ratio", &app->temp_ratio, 1, 20);
-        if (ImGui::IsItemDeactivatedAfterEdit())
-            updateEffect = true;
-        ImGui::SliderFloat("threshold", &app->temp_threshold, 0.00097563, 1);
-        if (ImGui::IsItemDeactivatedAfterEdit())
-            updateEffect = true;
-        ImGui::SliderFloat("level in", &app->temp_level_in, 0.015625, 64);
-        if (ImGui::IsItemDeactivatedAfterEdit())
-            updateEffect = true;
-        ImGui::SliderFloat("level out", &app->temp_makeup, 1, 64);
-        if (ImGui::IsItemDeactivatedAfterEdit())
-            updateEffect = true;
-        if (updateEffect) {
-            char lavfiString[300];
-            sprintf(lavfiString, "lavfi=[acompressor=attack=%.5f:release=%.5f:ratio=%.5f:threshold=%.5f:level_in=%.5f:makeup=%.5f]", app->temp_attack, app->temp_release, app->temp_ratio, app->temp_threshold, app->temp_level_in, app->temp_makeup);
+        static size_t item_selected_idx = 0; 
 
-            const char* cmd[] = { "set", "options/af", lavfiString, NULL };
-            App_Queue_AddCommand(app, cmd);
+        const char* combo_preview_value = app->availableFilterNames[item_selected_idx];
+        if (ImGui::BeginCombo("Effect", combo_preview_value, 0)) {
+            static ImGuiTextFilter filter;
+            if (ImGui::IsWindowAppearing()) {
+                ImGui::SetKeyboardFocusHere();
+                filter.Clear();
+            }
+            ImGui::SetNextItemShortcut(ImGuiMod_Ctrl | ImGuiKey_F);
+            filter.Draw("##Filter", -FLT_MIN);
+
+            for (size_t n = 0; n < app->availableFilterNamesCount; n++) {
+                const bool is_selected = (item_selected_idx == n);
+                if (filter.PassFilter(app->availableFilterNames[n]))
+                    if (ImGui::Selectable(app->availableFilterNames[n], is_selected)) {
+                        item_selected_idx = n;
+                        log_debug("selected filter: %s", app->availableFilterNames[item_selected_idx]);
+                        
+                        AudioEffect_Create(app, app->availableFilterNames[item_selected_idx]);
+                    }
+            }
+            ImGui::EndCombo();
         }
+
+
+
+        // bool showHeader = true;
+        // if (ImGui::CollapsingHeader("Pitch##header", &showHeader)) {
+        //     float pitchValue = 1.0;
+        //     ImGui::InputFloat("Pitch", &pitchValue);
+        //     if (ImGui::IsItemDeactivatedAfterEdit()) {
+        //         log_debug("setting pitch to: %.2f", pitchValue);
+        //         char lavfiString[100];
+        //         sprintf(lavfiString, "lavfi=[rubberband=pitch=%.2f:tempo=1]", pitchValue);
+        //
+        //         const char* cmd[] = { "set", "options/af", lavfiString, NULL };
+        //         App_Queue_AddCommand(app, cmd);
+        //     }
+        // }
+        //
+        // 
+        // if (ImGui::CollapsingHeader("Compressor")) {
+        //     bool updateEffect = false;
+        //     ImGui::SliderFloat("attack", &app->temp_attack, 0.01, 2000);
+        //     if (ImGui::IsItemDeactivatedAfterEdit())
+        //         updateEffect = true;
+        //     ImGui::SliderFloat("release", &app->temp_release, 0.01, 9000);
+        //     if (ImGui::IsItemDeactivatedAfterEdit())
+        //         updateEffect = true;
+        //     ImGui::SliderFloat("ratio", &app->temp_ratio, 1, 20);
+        //     if (ImGui::IsItemDeactivatedAfterEdit())
+        //         updateEffect = true;
+        //     ImGui::SliderFloat("threshold", &app->temp_threshold, 0.00097563, 1);
+        //     if (ImGui::IsItemDeactivatedAfterEdit())
+        //         updateEffect = true;
+        //     ImGui::SliderFloat("level in", &app->temp_level_in, 0.015625, 64);
+        //     if (ImGui::IsItemDeactivatedAfterEdit())
+        //         updateEffect = true;
+        //     ImGui::SliderFloat("level out", &app->temp_makeup, 1, 64);
+        //     if (ImGui::IsItemDeactivatedAfterEdit())
+        //         updateEffect = true;
+        //     if (updateEffect) {
+        //         char lavfiString[300];
+        //         sprintf(lavfiString, "lavfi=[acompressor=attack=%.5f:release=%.5f:ratio=%.5f:threshold=%.5f:level_in=%.5f:makeup=%.5f]", app->temp_attack, app->temp_release, app->temp_ratio, app->temp_threshold, app->temp_level_in, app->temp_makeup);
+        //
+        //         const char* cmd[] = { "set", "options/af", lavfiString, NULL };
+        //         App_Queue_AddCommand(app, cmd);
+        //     }
+        // }
 
 	}
 	ImGui::End();

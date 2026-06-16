@@ -21,17 +21,11 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 int main(int argc, char* argv[]) {
 #endif
 
-    log_info("Clipcutter v0.0.1 ");
-    App* app = (App*) malloc(sizeof(App));
-    App_Init(app);
-    /*app->playbackActive = true;*/
-    App_CalculateTimelineEvents(app);
 
-
+    // do not judge, it is temp until i write an arg parser lol.
     if (argc > 1) {
         for (int i=1; i < argc; i++) {
             char* arg = argv[i];
-			
 			// todo: Fix bug with program not launching if you specify parameter that doesn't exist.
             if (strcmp(arg, "--debug-console") == 0) {
                 #if defined(CC_PLATFORM_WINDOWS)
@@ -41,9 +35,24 @@ int main(int argc, char* argv[]) {
                     freopen_s(&f, "conout$", "w", stdout);
                     freopen_s(&f, "conout$", "w", stderr);
                     // }
-                    
                 #endif
-            } else {
+                break;
+            }
+        }
+
+    }
+    log_info("Clipcutter v0.0.1 ");
+    App* app = (App*) malloc(sizeof(App));
+    App_Init(app);
+    /*app->playbackActive = true;*/
+    App_CalculateTimelineEvents(app);
+
+
+    // TODO: write an argument parser.
+    if (argc > 1) {
+        for (int i=1; i < argc; i++) {
+            char* arg = argv[i];
+            if (strcmp(arg, "--debug-console") != 0) {
                 MediaSource* argVideo = App_CreateMediaSource(app, arg);
                 if (argVideo != nullptr)  {
                     App_CreateMediaClip(app, argVideo);

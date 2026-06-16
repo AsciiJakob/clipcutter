@@ -122,8 +122,12 @@ struct App {
     #define MPV_CMD_QUEUE_SIZE 30
     MpvCommand MpvCmdQueue[MPV_CMD_QUEUE_SIZE];
 
+    char** availableFilterNames;
+    size_t availableFilterNamesCount;
+
     ExportState exportState;
     char exportPath[1024];
+    char* lavfiString;
 
     float temp_threshold;
     float temp_ratio;

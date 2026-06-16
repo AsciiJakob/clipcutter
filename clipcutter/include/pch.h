@@ -3,6 +3,7 @@
 
 #include "log.h"
 #include "dynArr.h"
+#include "sb.h"
 
 #ifdef CC_PLATFORM_WINDOWS
 #include <Windows.h>

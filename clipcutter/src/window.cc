@@ -7,7 +7,8 @@ static void* get_proc_address_func(void* fn_ctx, const char* name) {
 }
 
 bool initWindow(App* app) {
-    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
+    // if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
         log_fatal("SDL failed to init: %s", SDL_GetError());
         return false;
     }
