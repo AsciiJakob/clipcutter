@@ -359,52 +359,6 @@ void UI_DrawEditor(App* app) {
             ImGui::EndCombo();
         }
 
-
-
-        // bool showHeader = true;
-        // if (ImGui::CollapsingHeader("Pitch##header", &showHeader)) {
-        //     float pitchValue = 1.0;
-        //     ImGui::InputFloat("Pitch", &pitchValue);
-        //     if (ImGui::IsItemDeactivatedAfterEdit()) {
-        //         log_debug("setting pitch to: %.2f", pitchValue);
-        //         char lavfiString[100];
-        //         sprintf(lavfiString, "lavfi=[rubberband=pitch=%.2f:tempo=1]", pitchValue);
-        //
-        //         const char* cmd[] = { "set", "options/af", lavfiString, NULL };
-        //         App_Queue_AddCommand(app, cmd);
-        //     }
-        // }
-        //
-        // 
-        // if (ImGui::CollapsingHeader("Compressor")) {
-        //     bool updateEffect = false;
-        //     ImGui::SliderFloat("attack", &app->temp_attack, 0.01, 2000);
-        //     if (ImGui::IsItemDeactivatedAfterEdit())
-        //         updateEffect = true;
-        //     ImGui::SliderFloat("release", &app->temp_release, 0.01, 9000);
-        //     if (ImGui::IsItemDeactivatedAfterEdit())
-        //         updateEffect = true;
-        //     ImGui::SliderFloat("ratio", &app->temp_ratio, 1, 20);
-        //     if (ImGui::IsItemDeactivatedAfterEdit())
-        //         updateEffect = true;
-        //     ImGui::SliderFloat("threshold", &app->temp_threshold, 0.00097563, 1);
-        //     if (ImGui::IsItemDeactivatedAfterEdit())
-        //         updateEffect = true;
-        //     ImGui::SliderFloat("level in", &app->temp_level_in, 0.015625, 64);
-        //     if (ImGui::IsItemDeactivatedAfterEdit())
-        //         updateEffect = true;
-        //     ImGui::SliderFloat("level out", &app->temp_makeup, 1, 64);
-        //     if (ImGui::IsItemDeactivatedAfterEdit())
-        //         updateEffect = true;
-        //     if (updateEffect) {
-        //         char lavfiString[300];
-        //         sprintf(lavfiString, "lavfi=[acompressor=attack=%.5f:release=%.5f:ratio=%.5f:threshold=%.5f:level_in=%.5f:makeup=%.5f]", app->temp_attack, app->temp_release, app->temp_ratio, app->temp_threshold, app->temp_level_in, app->temp_makeup);
-        //
-        //         const char* cmd[] = { "set", "options/af", lavfiString, NULL };
-        //         App_Queue_AddCommand(app, cmd);
-        //     }
-        // }
-
 	}
 	ImGui::End();
 
