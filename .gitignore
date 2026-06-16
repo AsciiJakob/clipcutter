@@ -1,6 +1,4 @@
 meta-files
 build
 .cache
-clipcutter/deps
-*.dll
 start_env.bat

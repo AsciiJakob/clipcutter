@@ -24,9 +24,11 @@ void log_message(LOG_LEVEL level, const char* filePath, int lineNum, const char*
     vsnprintf(logBuffer, sizeof(logBuffer), fmt, args);
     va_end(args);
 
-    if (!CC_BUILD_DEBUG && (level == LOG_LEVEL_DEBUG || level == LOG_LEVEL_TRACE)) {
+#ifndef CC_BUILD_DEBUG
+    if (level == LOG_LEVEL_DEBUG || level == LOG_LEVEL_TRACE) {
         return;
     }
+#endif
 
     char timeStr[80];
     { 
