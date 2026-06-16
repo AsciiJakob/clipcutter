@@ -155,7 +155,6 @@ set_source_files_properties(
 )
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    # 1. Copy all DLLs from the FFmpeg bin directory
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/avcodec-61.dll"
         "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/avdevice-61.dll"
@@ -167,10 +166,13 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/swscale-8.dll"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
 
-    # 2. Copy the SDL3 DLL from your specified architecture folder
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/deps/sdl3/lib/x64/SDL3.dll"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
 
-    COMMENT "Copying runtime dependencies (FFmpeg and SDL3 DLLs) to build directory"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/deps/libmpv/lib/libmpv-2.dll"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+
+    COMMENT "copying runtime dependencies to build directory"
 )
