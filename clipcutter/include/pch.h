@@ -7,6 +7,9 @@
 
 #ifdef CC_PLATFORM_WINDOWS
 #include <Windows.h>
+#include <direct.h>
+#else
+#include <<unistd.h>
 #endif
 
 #include <cstdlib>

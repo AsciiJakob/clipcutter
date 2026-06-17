@@ -7,6 +7,7 @@
 #include "dynArr.h"
 #include "effects.h"
 
+
 void App_Init(App* app) {
 	memset(app, 0, sizeof(App));
 	app->mpv_width = 1280;
@@ -26,7 +27,13 @@ void App_Init(App* app) {
     app->timeline.highestTrackCount = MINIMUM_DRAW_TRACK_COUNT;
     DynArr_Init(&app->selectedClips, sizeof(MediaClip*));
 
-    strcpy(app->exportPath, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");
+    getcwd(app->exportPath, sizeof(app->exportPath));
+#ifdef CC_PLATFORM_WINDOWS
+    memcpy(app->exportPath+strlen(app->exportPath), "\\cc_output.mp4", sizeof(app->exportPath)-strlen(app->exportPath));
+#else
+    memcpy(app->exportPath+strlen(app->exportPath), "/cc_output.mp4", sizeof(app->exportPath)-strlen(app->exportPath));
+#endif
+
     app->exportState.statusString = (char*) "Not started";
     Export_SetDefaultExportOptionsVideo(app);
 
