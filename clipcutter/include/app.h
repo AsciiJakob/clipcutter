@@ -11,7 +11,7 @@
 typedef struct MediaClip MediaClip;
 typedef struct MediaSource MediaSource;
 struct ExportOptions {
-    bool exportAudio;
+    bool includeAudio;
     bool mergeAudioTracks;
     float CBRRateFactor;
     int encoderPresetComboIndex;

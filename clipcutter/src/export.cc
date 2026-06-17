@@ -38,14 +38,14 @@ char* alloc_error(const char* fmt, ...) {
 }
 
 void Export_SetDefaultExportOptionsVideo(App* app) {
-    app->exportState.exportOptions.exportAudio = true;
+    app->exportState.exportOptions.includeAudio = true;
     app->exportState.exportOptions.mergeAudioTracks = true;
     app->exportState.exportOptions.CBRRateFactor = 23.0;
     app->exportState.exportOptions.encoderPresetComboIndex = 5; // medium
 }
 
 void Export_SetDefaultExportOptionsAudio(App* app) {
-    app->exportState.exportOptions.exportAudio = true;
+    app->exportState.exportOptions.includeAudio = true;
     app->exportState.exportOptions.mergeAudioTracks = true;
 
     // unused options 
@@ -56,11 +56,13 @@ void Export_SetDefaultExportOptionsAudio(App* app) {
 char* setOutputParameters(MediaClip* firstClip, ExportState* exportState) {
     AVFormatContext* ofmt_ctx = exportState->ofmt_ctx;
     AVFormatContext *ifmt_ctx = NULL;
-    int audioStreamIdx[MAX_SUPPORTED_AUDIO_TRACKS];
+    int enabledAudioStreamIdx[MAX_SUPPORTED_AUDIO_TRACKS];
     char* err = nullptr;
     int ret;
     int inVideoStreamIdx = -1;
     bool shouldExportVideo = exportState->exportOptions.exportAsComboIndex == EXPORT_AS_OPTION_VIDEO;
+    bool shouldExportAudio = exportState->exportOptions.includeAudio;
+    int enabledAudioStreamCount = 0;
     
     if ((ret = avformat_open_input(&ifmt_ctx, firstClip->source->path, 0, 0)) < 0) {
         err = alloc_error("Could not open input file '%s'", firstClip->source->path);
@@ -77,7 +79,6 @@ char* setOutputParameters(MediaClip* firstClip, ExportState* exportState) {
 
 
     { // find audio and video track
-        int audioStreamCount = 0;
         log_debug("nb sttream is: %d", ifmt_ctx->nb_streams);
         for (unsigned int i = 0; i < ifmt_ctx->nb_streams; i++) {
             AVStream *inStream = ifmt_ctx->streams[i];
@@ -91,7 +92,11 @@ char* setOutputParameters(MediaClip* firstClip, ExportState* exportState) {
                 inVideoStreamIdx = i;
             } else if (in_codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
                 log_debug("found audio");
-                audioStreamIdx[audioStreamCount++] = i;
+                if (shouldExportAudio && !(*exportState->audioStreamDisabled)[i]) {
+                    enabledAudioStreamIdx[enabledAudioStreamCount++] = i;
+                } else {
+                    log_debug("ignoring the audio track as it is disabled.");
+                }
             }
         }
 
@@ -103,6 +108,12 @@ char* setOutputParameters(MediaClip* firstClip, ExportState* exportState) {
     }
 
     if (shouldExportVideo) {
+        exportState->out_video_stream = avformat_new_stream(ofmt_ctx, NULL);
+        if (!exportState->out_video_stream) {
+            err = alloc_error("Failed allocating video output stream");
+            goto cleanup;
+        }
+
         ret = avcodec_parameters_copy(exportState->out_video_stream->codecpar, ifmt_ctx->streams[inVideoStreamIdx]->codecpar);
         if (ret < 0) {
             err = alloc_error("Failed to copy video codec parameters");
@@ -110,10 +121,18 @@ char* setOutputParameters(MediaClip* firstClip, ExportState* exportState) {
         }
     }
 
-    ret = avcodec_parameters_copy(exportState->out_audio_stream->codecpar, ifmt_ctx->streams[audioStreamIdx[0]]->codecpar);
-    if (ret < 0) {
-        err = alloc_error("Failed to copy audio codec parameters");
-        goto cleanup;
+    if (enabledAudioStreamCount > 0) {
+        exportState->out_audio_stream = avformat_new_stream(ofmt_ctx, NULL);
+        if (!exportState->out_audio_stream) {
+            err = alloc_error("Failed allocating audio output stream");
+            goto cleanup;
+        }
+
+        ret = avcodec_parameters_copy(exportState->out_audio_stream->codecpar, ifmt_ctx->streams[enabledAudioStreamIdx[0]]->codecpar);
+        if (ret < 0) {
+            err = alloc_error("Failed to copy audio codec parameters");
+            goto cleanup;
+        }
     }
 
     av_dump_format(ofmt_ctx, 0, exportState->out_filename, 1);
@@ -136,9 +155,9 @@ cleanup:
     return err;
 }
 
-ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState);
+ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState);
 
-ExportError* remuxMultipleClips(MediaClip** mediaClips, ExportState* exportState, const char* out_filename) {
+ExportError* encodeAndConcatenateClips(MediaClip** mediaClips, ExportState* exportState, const char* out_filename) {
     AVFormatContext *ofmt_ctx = NULL;
     char* err = nullptr;
     int ret;
@@ -155,19 +174,6 @@ ExportError* remuxMultipleClips(MediaClip** mediaClips, ExportState* exportState
         goto cleanup;
     }
     exportState->ofmt_ctx = ofmt_ctx;
-
-    if (exportState->exportOptions.exportAsComboIndex == EXPORT_AS_OPTION_VIDEO) {
-        exportState->out_video_stream = avformat_new_stream(ofmt_ctx, NULL);
-        if (!exportState->out_video_stream) {
-            err = alloc_error("Failed allocating video output stream");
-            goto cleanup;
-        }
-    }
-    exportState->out_audio_stream = avformat_new_stream(ofmt_ctx, NULL);
-    if (!exportState->out_audio_stream) {
-        err = alloc_error("Failed allocating audio output stream");
-        goto cleanup;
-    }
 
     err = setOutputParameters(mediaClips[0], exportState);
     if (err)
@@ -188,7 +194,7 @@ ExportError* remuxMultipleClips(MediaClip** mediaClips, ExportState* exportState
         char* statusStrPtr = (char*) malloc(strlen(mediaClip->source->filename) + sizeof("Processing ") + 1);
         sprintf(statusStrPtr, "Processing %s", mediaClip->source->filename);
         exportState->statusString = statusStrPtr;
-        exportErr = remuxClip(mediaClip, exportState);
+        exportErr = encodeClip(mediaClip, exportState);
         if (exportErr) {
             goto cleanup;
         }
@@ -403,7 +409,7 @@ char* recieveAndProcessFramesVideo(
 }
 
 // returns pointer to error message or nullptr if successful
-ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
+ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
     const char* in_filename = mediaClip->source->path;
     AVFormatContext* ofmt_ctx = exportState->ofmt_ctx;
     AVPacket* pkt = NULL;
@@ -425,6 +431,7 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
     memset(enabledAudioStreamIdx, -1, sizeof(enabledAudioStreamIdx));
     int enabledAudioStreamCount = 0;
     bool shouldExportVideo = exportState->exportOptions.exportAsComboIndex == EXPORT_AS_OPTION_VIDEO;
+    bool shouldExportAudio = exportState->exportOptions.includeAudio;
     // int64_t streamRescaledStartSeconds[MAX_SUPPORTED_AUDIO_TRACKS+1];
     // int64_t streamRescaledEndSeconds[MAX_SUPPORTED_AUDIO_TRACKS+1];
     int ret;
@@ -447,7 +454,6 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
 
     const char* out_filename = exportState->out_filename;
     log_debug("filename is: %s", out_filename);
-    AVStream* out_audio_stream  = exportState->out_audio_stream;
 
     AVFilterGraph* filter_graph = avfilter_graph_alloc();
     if (!filter_graph) {
@@ -477,11 +483,6 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
             // streamRescaledStartSeconds[i] = av_rescale_q(mediaClip->startCutoff * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
             // streamRescaledEndSeconds[i] = av_rescale_q((mediaClip->source->length-mediaClip->endCutoff) * AV_TIME_BASE, AV_TIME_BASE_Q, inStream->time_base);
 
-            if (in_codecpar->codec_type != AVMEDIA_TYPE_AUDIO &&
-                in_codecpar->codec_type != AVMEDIA_TYPE_VIDEO) {
-                continue;
-            }
-
             if (in_codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
                 log_debug("found video");
                 if (inVideoStreamIdx != -1) {
@@ -492,7 +493,7 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
                 inVideoStreamIdx = i;
             } else if (in_codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
                 log_debug("found audio at stream index %d", i);
-                if (!(*exportState->audioStreamDisabled)[i]) {
+                if (shouldExportAudio && !(*exportState->audioStreamDisabled)[i]) {
                     enabledAudioStreamIdx[enabledAudioStreamCount++] = i;
                 } else {
                     log_debug("ignoring the audio track as it is disabled.");
@@ -506,10 +507,15 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
         }
 
 
-        AVCodecParameters* outAudioCodecPar = exportState->out_audio_stream->codecpar;
+        AVCodecParameters* outAudioCodecPar;
+        AVStream* out_audio_stream;
+        if (enabledAudioStreamCount > 0) {
+            out_audio_stream = exportState->out_audio_stream;
+            outAudioCodecPar = out_audio_stream->codecpar;
+            outAudioStreamIdx = out_audio_stream->index;
+        }
 
 
-        outAudioStreamIdx = out_audio_stream->index;
 
         { // get video decoder
             const AVStream* vidStream = ifmt_ctx->streams[inVideoStreamIdx];
@@ -601,7 +607,7 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
 
 
         // create audio encoder
-        if (enabledAudioStreamCount != 0) {
+        if (enabledAudioStreamCount > 0) {
             if (exportState->exportOptions.exportAsComboIndex == EXPORT_AS_OPTION_VIDEO) {
                 // audioEnc = (AVCodec*) avcodec_find_encoder(ofmt_ctx->oformat->audio_codec);            
                 audioEnc = (AVCodec*) avcodec_find_encoder(AV_CODEC_ID_AAC);            
@@ -997,8 +1003,9 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
                 }
 
 
-            } else { // if stream is audio
+            } else if (enabledAudioStreamCount > 0) { // if stream is audio
                 pkt->stream_index = outAudioStreamIdx;
+
 
                 int idx = -1;
 
@@ -1202,30 +1209,32 @@ ExportError* remuxClip(MediaClip* mediaClip, ExportState* exportState) {
 
 
         // send remaining partial samples to encoder
-        if (av_audio_fifo_size(audio_fifo) > 0) {
-            log_debug("sending remaining audio fifo samples")
-            AVFrame *enc_frame = av_frame_alloc();
-            enc_frame->nb_samples = av_audio_fifo_size(audio_fifo);
+        if (enabledAudioStreamCount > 0) {
+            if (av_audio_fifo_size(audio_fifo) > 0) {
+                log_debug("sending remaining audio fifo samples")
+                AVFrame *enc_frame = av_frame_alloc();
+                enc_frame->nb_samples = av_audio_fifo_size(audio_fifo);
 
 
-            err = ProcessAudioFramesFromFifo(exportState,
-                    audio_fifo,
-                    ofmt_ctx,
-                    enc_frame,
-                    pkt,
-                    audioEncCtx,
-                    outAudioStreamIdx
-                );
+                err = ProcessAudioFramesFromFifo(exportState,
+                        audio_fifo,
+                        ofmt_ctx,
+                        enc_frame,
+                        pkt,
+                        audioEncCtx,
+                        outAudioStreamIdx
+                    );
 
-            av_frame_free(&enc_frame);
+                av_frame_free(&enc_frame);
 
-            if (err) {
-                goto cleanup;
+                if (err) {
+                    goto cleanup;
+                }
             }
-        }
 
-        // Flush encoder
-        avcodec_send_frame(audioEncCtx, NULL);
+            // Flush encoder
+            avcodec_send_frame(audioEncCtx, NULL);
+        }
 
         log_info("finished draining");
 
@@ -1289,7 +1298,7 @@ void exportVideo(App* app, bool combineAudioStreams) {
 
     if (combineAudioStreams) {
         /*char* errMsg = remux(firstClip, &app->exportFrame, app->exportPath);*/
-        ExportError* exportErr = remuxMultipleClips(app->mediaClips, &app->exportState, app->exportPath);
+        ExportError* exportErr = encodeAndConcatenateClips(app->mediaClips, &app->exportState, app->exportPath);
         if (exportErr != nullptr) {
             // TODO, allocate proper size, or display with ImGui and skip buff alloc
             char* errBuff = (char*) malloc(MAX_ERROR_LENGTH);

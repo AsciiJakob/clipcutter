@@ -123,6 +123,7 @@ int App_FindFirstNullptr(void** array, int maxLength) {
 
 void App_ProcessKeyboardShortcuts(App* app) {
     const int global = ImGuiInputFlags_RouteGlobal;
+    const int repeat = ImGuiInputFlags_Repeat;
 
     if (ImGui::Shortcut(ImGuiKey_End, global)) {
         log_debug("Pressing debug key");
@@ -160,11 +161,11 @@ void App_ProcessKeyboardShortcuts(App* app) {
         Playback_SetPaused(app, !app->playbackActive);
     }
 
-    if (ImGui::Shortcut(ImGuiKey_RightArrow, global | ImGuiInputFlags_Repeat)) {
+    if (ImGui::Shortcut(ImGuiKey_RightArrow, global | repeat)) {
         Playback_StepFrames(app, true);
     }
 
-    if (ImGui::Shortcut(ImGuiKey_LeftArrow, global | ImGuiInputFlags_Repeat)) {
+    if (ImGui::Shortcut(ImGuiKey_LeftArrow, global | repeat)) {
         Playback_StepFrames(app, false);
     }
 

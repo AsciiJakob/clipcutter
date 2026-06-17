@@ -81,11 +81,12 @@ void UI_DrawEditor(App* app) {
             ExportOptions* options = &app->exportState.exportOptions;
 
             if (ImGui::Combo("##exportAsCombo", &options->exportAsComboIndex, EXPORT_AS_OPTIONS_STRS, EXPORT_AS_OPTIONS_COUNT, -1)) {
-                if (options->exportAsComboIndex == EXPORT_AS_OPTION_VIDEO)
+                if (options->exportAsComboIndex == EXPORT_AS_OPTION_VIDEO) {
                     Export_SetDefaultExportOptionsVideo(app);
                 } else {
                     Export_SetDefaultExportOptionsAudio(app);
                 }
+            }
 
 
             // ImGui::InputTextWithHint("##exportpath", "Path to export to", app->exportPath, sizeof(app->exportPath), ImGuiInputTextFlags_AutoSelectAll, NULL, nullptr);
@@ -182,14 +183,17 @@ void UI_DrawEditor(App* app) {
                 }
 
                 ImGui::SeparatorText("Audio Encoding Options:");
-                ImGui::Text("Audio codec: AAC");
-                // if (ImGui::BeginCombo("Audio codec", "AAC")) {
-                //     if (ImGui::Selectable("AAC", true)) {
-                //
-                //     }
-                //     ImGui::EndCombo();
-                // }
-                ImGui::Checkbox("Merge audio-tracks (dummy)", &options->mergeAudioTracks);
+                ImGui::Checkbox("Include audio", &options->includeAudio);
+                if (options->includeAudio) {
+                    ImGui::Text("Audio codec: AAC");
+                    // if (ImGui::BeginCombo("Audio codec", "AAC")) {
+                    //     if (ImGui::Selectable("AAC", true)) {
+                    //
+                    //     }
+                    //     ImGui::EndCombo();
+                    // }
+                    ImGui::Checkbox("Merge audio-tracks (dummy)", &options->mergeAudioTracks);
+                }
             } else { // we chose "Export as audio"
                 ImGui::SeparatorText("Encoding Options:");
                 if (ImGui::BeginCombo("Audio codec", "MP3")) {
