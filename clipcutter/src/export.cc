@@ -304,8 +304,9 @@ char* recieveAndProcessFramesVideo(
         bool* isPastEndTSVideo,
         bool decoderIsBeingDrained,
         int found_rebase_pts[MAX_SUPPORTED_AUDIO_TRACKS+1],
-        int64_t pts_offset[MAX_SUPPORTED_AUDIO_TRACKS+1]
-        ) {
+        int64_t pts_offset[MAX_SUPPORTED_AUDIO_TRACKS+1],
+        int enabledAudioStreamCount
+) {
 
 
     cc_unused(decoderIsBeingDrained);
@@ -376,6 +377,16 @@ char* recieveAndProcessFramesVideo(
         *last_video_pts_enc_tb = rebased_pts;
 
         frame->pts = rebased_pts;
+
+        // TODO: FIX THIS SO WE HAVE PROGRESS BAR EVEN WHEN NOT EXPORTING AUDIO
+        // progressbar logic
+        if (enabledAudioStreamCount == 0) {
+            // double duration = (double) (ifmt_ctx->duration) / AV_TIME_BASE ; // duration in seconds
+            // duration = duration - mediaClip->startCutoff - mediaClip->endCutoff;
+            // double currentTime = (double) (pts_us_frame / AV_TIME_BASE);
+            // currentTime = currentTime-mediaClip->startCutoff;
+            // exportState->exportProgress = (float) (currentTime / duration);
+        }
 
         int ret_send_frame = avcodec_send_frame(videoEncCtx, frame);
         if (ret_send_frame < 0 && ret_send_frame != AVERROR(EAGAIN)) {
@@ -994,7 +1005,8 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
                     &isPastEndTSVideo,
                     false,
                     found_rebase_pts,
-                    pts_offset
+                    pts_offset,
+                    enabledAudioStreamCount
                 );
 
                 if (err) {
