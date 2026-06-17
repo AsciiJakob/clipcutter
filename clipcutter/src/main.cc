@@ -94,64 +94,7 @@ int main(int argc, char* argv[]) {
             } else if (event.type == SDL_EVENT_WINDOW_EXPOSED) {
                 mpvRedraw = true;
             } else if (event.type == SDL_EVENT_KEY_DOWN) {
-                if (event.key.key == SDLK_END) {
-                    log_debug("Pressing debug key");
-                }
-
-                if (event.key.key == SDLK_DELETE) {
-                    if (app->selectedClips.size != 0)  {
-                        for (size_t i=0; i < app->selectedClips.size; i++) {
-                            App_DeleteMediaClip(app, (MediaClip*) app->selectedClips.items[i]);
-                        }
-                        DynArr_Init(&app->selectedClips, sizeof(MediaClip*));
-
-                    }
-                }
-
-                // split clip
-                if (event.key.key == SDLK_S) {
-                    TimelineEvent* currentEvent = &app->timelineEvents[app->timelineEventIndex];
-                    if (currentEvent->type == TIMELINE_EVENT_VIDEO) {
-                        MediaClip_Split(app, currentEvent->clip, app->playbackTime);
-
-                        App_CalculateTimelineEvents(app);
-                    }
-
-                }
-
-                // move marker to start of timeline
-                if (event.key.key == SDLK_0) {
-                    app->playbackTime = 0;
-                    App_MovePlaybackMarker(app, 0);
-                }
-
-                if (event.key.key == SDLK_SPACE) {
-                    app->playbackActive = !app->playbackActive;
-                    Playback_SetPaused(app, !app->playbackActive);
-                }
-
-                if (event.key.key == SDLK_RIGHT) {
-                    Playback_StepFrames(app, true);
-                }
-
-                if (event.key.key == SDLK_LEFT) {
-                    Playback_StepFrames(app, false);
-                }
-
-                if (SDL_GetModState() & SDL_KMOD_CTRL) {
-                    if (event.key.key == SDLK_A) {
-                        for (int i=0; i < MEDIACLIPS_SIZE; i++) {
-                            MediaClip* clip = app->mediaClips[i];
-                            if (clip == nullptr) break;
-                            clip->isSelected = true;
-                            DynArr_Append(&app->selectedClips, clip);
-                        }
-                    }
-                }
-
-                //if (event.key.keysym.sym == SDLK_RIGHT) {
-                    //setPositionRelative(app->mpv, 5);
-                //}
+                // handled by ImGui. See App_ProcessKeyboardShortcuts().
             } else if (event.type == SDL_EVENT_DROP_BEGIN) {
                 log_debug("file hovering");
             } else if (event.type == SDL_EVENT_DROP_FILE) {
@@ -294,6 +237,7 @@ int main(int argc, char* argv[]) {
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
+        App_ProcessKeyboardShortcuts(app);
         UI_DrawEditor(app);
 
         // Rendering

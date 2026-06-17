@@ -121,6 +121,63 @@ int App_FindFirstNullptr(void** array, int maxLength) {
 	return -1;
 }
 
+void App_ProcessKeyboardShortcuts(App* app) {
+    const int global = ImGuiInputFlags_RouteGlobal;
+
+    if (ImGui::Shortcut(ImGuiKey_End, global)) {
+        log_debug("Pressing debug key");
+    }
+
+    if (ImGui::Shortcut(ImGuiKey_Delete, global)) {
+        if (app->selectedClips.size != 0)  {
+            for (size_t i=0; i < app->selectedClips.size; i++) {
+                App_DeleteMediaClip(app, (MediaClip*) app->selectedClips.items[i]);
+            }
+            DynArr_Init(&app->selectedClips, sizeof(MediaClip*));
+
+        }
+    }
+
+    // split clip
+    if (ImGui::Shortcut(ImGuiKey_S, global)) {
+        TimelineEvent* currentEvent = &app->timelineEvents[app->timelineEventIndex];
+        if (currentEvent->type == TIMELINE_EVENT_VIDEO) {
+            MediaClip_Split(app, currentEvent->clip, app->playbackTime);
+
+            App_CalculateTimelineEvents(app);
+        }
+
+    }
+
+    // move marker to start of timeline
+    if (ImGui::Shortcut(ImGuiKey_0, global)) {
+        app->playbackTime = 0;
+        App_MovePlaybackMarker(app, 0);
+    }
+
+    if (ImGui::Shortcut(ImGuiKey_Space, global | ImGuiInputFlags_Repeat)) {
+        app->playbackActive = !app->playbackActive;
+        Playback_SetPaused(app, !app->playbackActive);
+    }
+
+    if (ImGui::Shortcut(ImGuiKey_RightArrow, global | ImGuiInputFlags_Repeat)) {
+        Playback_StepFrames(app, true);
+    }
+
+    if (ImGui::Shortcut(ImGuiKey_LeftArrow, global | ImGuiInputFlags_Repeat)) {
+        Playback_StepFrames(app, false);
+    }
+
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_A, global)) {
+        for (int i=0; i < MEDIACLIPS_SIZE; i++) {
+            MediaClip* clip = app->mediaClips[i];
+            if (clip == nullptr) break;
+            clip->isSelected = true;
+            DynArr_Append(&app->selectedClips, clip);
+        }
+    }
+}
+
 
 void App_DeleteMediaClip(App* app, MediaClip* mediaClip) {
     bool isBeingPlayed = MediaClip_IsBeingPlayed(app, mediaClip);
