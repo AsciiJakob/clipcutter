@@ -119,6 +119,12 @@ int main(int argc, char* argv[]) {
 
                 }
 
+                // move marker to start of timeline
+                if (event.key.key == SDLK_0) {
+                    app->playbackTime = 0;
+                    App_MovePlaybackMarker(app, 0);
+                }
+
                 if (event.key.key == SDLK_SPACE) {
                     app->playbackActive = !app->playbackActive;
                     Playback_SetPaused(app, !app->playbackActive);

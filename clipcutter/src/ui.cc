@@ -272,6 +272,7 @@ void UI_DrawEditor(App* app) {
         ImGui::TextWrapped("Scroll wheel - zoom in and out");
         ImGui::TextWrapped("Shift + Scroll wheel - scroll horizontally");
         ImGui::TextWrapped("middle mouse - pan timeline");
+        ImGui::TextWrapped("0 - move marker to start of timeline");
         ImGui::Spacing();
         ImGui::TextWrapped("Misc:");
         ImGui::TextWrapped("F9 - open export modal");
