@@ -1,18 +1,18 @@
 ﻿# Clipcutter
 A humble, simple video editor written in c-style c++ using SDL3, Dear ImGUI, LibMPV and the FFmpeg c api.
 
-Under development, not suitable for usage. Hoping to have a MVP released Q1 2026.
+Under development, not suitable for usage.
 
 ## Features
 * Video playback
 * Cutting/trimming
 * Video concatenation
-* Exporting (somewhat unstable)
+* Exporting
 * * exporting video and audio
-* * exporting video only (unimplemented)
-* * exporting audio only (unimplemented)
-* * muting cerain audio tracks (unimplemented)
-* Audio effects (WIP)
+* * exporting video only
+* * exporting audio only
+* * muting cerain audio tracks
+* FFMPEG Audio effects 
 * Clip audio waveform preview (under consideration)
 * Fast workflow
 * * Drag video files to the Clipcutter window to open them
@@ -26,7 +26,9 @@ Under development, not suitable for usage. Hoping to have a MVP released Q1 2026
 * TODO
 
 ## Building
+Like any other cmake project. Dependencies are all included, except ffmpeg dlls. In the future dependencies will be compiled along the program.
 
 ## Bug reports
+Make a file explaining the bug and save it in /dev/null (you can also make a github issue)
 
 ## Contributing
