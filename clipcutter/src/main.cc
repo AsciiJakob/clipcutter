@@ -127,8 +127,10 @@ int main(int argc, char* argv[]) {
 
                     if (mp_event->event_id == MPV_EVENT_LOG_MESSAGE) {
                         mpv_event_log_message* msg = (mpv_event_log_message*) (mp_event->data);
-                        if (strstr(msg->text, "DR image"))
-                            /*log_info("MPV: %s", msg->text);*/
+                        LOG_LEVEL level = LOG_LEVEL_INFO;
+                        if (strcmp(msg->level, "error") == 0) level = LOG_LEVEL_ERROR;
+                        if (strcmp(msg->level, "fatal") == 0) level = LOG_LEVEL_FATAL;
+                        log_message(level, __FILE__, __LINE__, "[MPV] %s", msg->text);
                         continue;
                     }
                     //log_debug("event: %s", mpv_event_name(mp_event->event_id));
@@ -136,6 +138,15 @@ int main(int argc, char* argv[]) {
                         log_info("Unloading video file\n");
                         if (!app->isLoadingVideo) {
 							app->loadedMediaSource = nullptr;
+                        }
+
+                        mpv_end_file_reason* reason = (mpv_end_file_reason*) mp_event->data;
+                        if (*reason == MPV_END_FILE_REASON_ERROR) {
+                            log_error("mpv playback of video stopped because of an error.");
+                            if (app->isLoadingVideo) {
+                                app->isLoadingVideo = false;
+                                app->loadedMediaSource = nullptr;
+                            }
                         }
                     }
                     if (mp_event->event_id == MPV_EVENT_FILE_LOADED) {

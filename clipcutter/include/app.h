@@ -57,7 +57,7 @@ struct TimelineEvent {
 };
 
 struct AppRender {
-	// put rendering things in here instead and make a part of App
+	// TODO: put rendering things in here instead and make a part of App
 };
 
 struct Timeline {
@@ -70,10 +70,10 @@ struct Timeline {
 	ImVec2 cursTopLeft;
 };
 
-// double-null-terminated list of commands
 struct MpvCommand {
     bool unsent;
     int id;
+    int argc;
     #define MPVCOMMAND_STR_SIZE 512 
     char command[MPVCOMMAND_STR_SIZE];
 };
@@ -104,7 +104,6 @@ struct App {
 	DynArr selectedClips;
 	MediaSource* loadedMediaSource;
 	bool isLoadingVideo;
-	bool isLoadingNewSource;
 
     float userScaleFactor;
     float scale;

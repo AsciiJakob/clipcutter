@@ -65,6 +65,7 @@ void MediaSource_Init(MediaSource** mediaSourceP, const char* path) {
 }
 
 void MediaSource_Load(App* app, MediaSource* source) {
+    log_trace("MediaSource_Load()");
 	app->playbackBlocked = true;
 	app->isLoadingVideo = true;
 	app->loadedMediaSource = source;

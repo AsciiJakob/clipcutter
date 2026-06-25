@@ -3,7 +3,7 @@ project(clipcutter)
 
 set(CMAKE_CXX_STANDARD 20)
 
-option(USE_ASAN "Enable Address Sanitizer" OFF)
+option(USE_ASAN "Enable Address Sanitizer" ON)
 
 if(USE_ASAN AND CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")

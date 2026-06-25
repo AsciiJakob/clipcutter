@@ -29,6 +29,12 @@ void Playback_SetAudioTracks(App* app, int count) {
     // 4 audio tracks: [aid1][aid2][aid3][aid4]amix=inputs=4[ao]
     // log_debug("%s", valueOptionStr);
 
+    if (enabledTrackCount == 0) {
+        const char* cmd[] = { "set", "options/lavfi-complex", "", NULL };
+        App_Queue_AddCommand(app, cmd);
+        return;
+    }
+
     const char* cmd[] = { "set", "options/lavfi-complex", valueOptionStr, NULL };
     App_Queue_AddCommand(app, cmd);
 

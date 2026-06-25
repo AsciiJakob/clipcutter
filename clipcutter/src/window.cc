@@ -69,7 +69,7 @@ bool initWindow(App* app) {
             return false;
 		}
 
-		mpv_request_log_messages(mpv, "debug");
+		mpv_request_log_messages(mpv, "error");
 
         mpv_opengl_init_params opengl_init_params = {
 			.get_proc_address = get_proc_address_func,

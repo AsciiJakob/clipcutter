@@ -28,10 +28,13 @@ void App_Init(App* app) {
     DynArr_Init(&app->selectedClips, sizeof(MediaClip*));
 
     getcwd(app->exportPath, sizeof(app->exportPath));
+    size_t len = strlen(app->exportPath);
+    size_t remaining = sizeof(app->exportPath) - len;
+
 #ifdef CC_PLATFORM_WINDOWS
-    memcpy(app->exportPath+strlen(app->exportPath), "\\cc_output.mp4", sizeof(app->exportPath)-strlen(app->exportPath));
+        snprintf(app->exportPath + len, remaining, "\\cc_output.mp4");
 #else
-    memcpy(app->exportPath+strlen(app->exportPath), "/cc_output.mp4", sizeof(app->exportPath)-strlen(app->exportPath));
+        snprintf(app->exportPath + len, remaining, "/cc_output.mp4");
 #endif
 
     app->exportState.statusString = (char*) "Not started";
@@ -468,7 +471,7 @@ bool App_Queue_AddCommand(App* app, const char** input) {
     // we always want the id 1 higher so that it is never zero
     // since that's the default userdata value.
     (*writeI)++;
-    cmd->id == *writeI;
+    cmd->id = *writeI;
 
     if (cmd->unsent) {
         log_fatal("MPV command queue overflowed");
@@ -480,6 +483,7 @@ bool App_Queue_AddCommand(App* app, const char** input) {
     // command name and arguments seperated by null terminated character.
     // terminated by double null character.
     int offset = 0;
+    int argc = 0;
     for (int i=0; i < 20; i++) {
         if (input[i] == NULL) break;
         //                         +2 for string end null char & array end null char
@@ -489,10 +493,9 @@ bool App_Queue_AddCommand(App* app, const char** input) {
         }
         strcpy(cmd->command+offset, input[i]);
         offset += strlen(input[i])+1;
+        argc++;
     }
-    // end is marked with two NULL characters. one for last str and one for end of data
-    /*cmd.command[offset+2] = NULL;*/
-    cmd->command[offset] = NULL;
+    cmd->argc = argc;
 
     if (queueEmpty) {
         App_Queue_SendNext(app);
@@ -512,23 +515,14 @@ void App_Queue_SendNext(App* app) {
     }
 
 
-    char* sendCmd[20];
-    int sendCmdIndx = 0;
+    char* sendCmd[21];
+    char* strP = cmdStr;
 
-    // first string starts from zero until first NULL
-    sendCmd[sendCmdIndx++] = cmdStr;
-
-    for (int i=0; i < MPVCOMMAND_STR_SIZE; i++) {
-        char c = cmdStr[i];
-        if (c == NULL) {
-            // the array is terminated by two NULL signs after each other
-            if (cmdStr[i+1] == NULL) {
-                break;
-            }
-            sendCmd[sendCmdIndx++] = cmdStr+i+1;
-        }
+    for (int i=0; i < cmd->argc; i++) {
+        sendCmd[i] = strP;
+        strP += strlen(strP)+1;
     }
-    sendCmd[sendCmdIndx] = NULL;
+    sendCmd[cmd->argc] = NULL;
 
     //                                              using +1 to avoid having zero
     int ret;

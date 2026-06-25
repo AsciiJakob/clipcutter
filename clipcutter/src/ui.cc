@@ -293,6 +293,8 @@ void UI_DrawEditor(App* app) {
 		if (app->loadedMediaSource != nullptr) {
 			ImGui::Text("currentLoaded: %s", app->loadedMediaSource->filename); }
 
+		ImGui::Text("isLoadingVideo: %d", app->isLoadingVideo);
+
 
         ImGui::InputDouble("Force seek", &app->playbackTime, -1, -1, "%.2f", 0);
         if (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter, false)) {
