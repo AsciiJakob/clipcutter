@@ -291,22 +291,6 @@ char* ProcessAudioFramesFromFifo(
 
 // process any frames that ffmpeg has finished decoding
 // returns nullptr on success, else err message pointer
-// char* recieveAndProcessFramesVideo(
-//         ExportState* exportState,
-//         AVFormatContext *ifmt_ctx,
-//         AVFormatContext* ofmt_ctx,
-//         AVFrame* frame,
-//         int64_t start_TS,
-//         int64_t end_TS,
-//         AVCodecContext* videoDecCtx,
-//         AVCodecContext* videoEncCtx,
-//         int in_index,
-//         bool* isPastEndTSVideo,
-//         bool decoderIsBeingDrained,
-//         int found_rebase_pts[MAX_SUPPORTED_AUDIO_TRACKS+1],
-//         int64_t pts_offset[MAX_SUPPORTED_AUDIO_TRACKS+1],
-//         int enabledAudioStreamCount
-// ) {
 char* recieveAndProcessFramesVideo(
         ExportState* exportState,
         AVFormatContext *ifmt_ctx,
@@ -320,9 +304,10 @@ char* recieveAndProcessFramesVideo(
         bool* isPastEndTSVideo,
         bool decoderIsBeingDrained,
         int found_rebase_pts[MAX_SUPPORTED_AUDIO_TRACKS+1],
-        int64_t pts_offset[MAX_SUPPORTED_AUDIO_TRACKS+1]
+        int64_t pts_offset[MAX_SUPPORTED_AUDIO_TRACKS+1],
+        bool updateProgressBar,
+        MediaClip* mediaClip
 ) {
-
 
     cc_unused(decoderIsBeingDrained);
     int64_t* last_video_pts_enc_tb = &exportState->lastPtsEncTBVideo;
@@ -393,15 +378,14 @@ char* recieveAndProcessFramesVideo(
 
         frame->pts = rebased_pts;
 
-        // TODO: FIX THIS SO WE HAVE PROGRESS BAR EVEN WHEN NOT EXPORTING AUDIO
         // progressbar logic
-        // if (enabledAudioStreamCount == 0) {
-            // double duration = (double) (ifmt_ctx->duration) / AV_TIME_BASE ; // duration in seconds
-            // duration = duration - mediaClip->startCutoff - mediaClip->endCutoff;
-            // double currentTime = (double) (pts_us_frame / AV_TIME_BASE);
-            // currentTime = currentTime-mediaClip->startCutoff;
-            // exportState->exportProgress = (float) (currentTime / duration);
-        // }
+        if (updateProgressBar && mediaClip) {
+            double duration = (double) (ifmt_ctx->duration) / AV_TIME_BASE ; // duration in seconds
+            duration = duration - mediaClip->startCutoff - mediaClip->endCutoff;
+            double currentTime = (double) (pts_us_frame / AV_TIME_BASE);
+            currentTime = currentTime-mediaClip->startCutoff;
+            exportState->exportProgress = (float) (currentTime / duration);
+        }
 
         int ret_send_frame = avcodec_send_frame(videoEncCtx, frame);
         if (ret_send_frame < 0 && ret_send_frame != AVERROR(EAGAIN)) {
@@ -1007,22 +991,6 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
                     goto cleanup;
                 }
 
-                // err = recieveAndProcessFramesVideo(
-                //     exportState,
-                //     ifmt_ctx,
-                //     ofmt_ctx,
-                //     frame,
-                //     start_TS,
-                //     end_TS,
-                //     videoDecCtx,
-                //     videoEncCtx,
-                //     in_index,
-                //     &isPastEndTSVideo,
-                //     false,
-                //     found_rebase_pts,
-                //     pts_offset,
-                //     enabledAudioStreamCount
-                // );
                 err = recieveAndProcessFramesVideo(
                     exportState,
                     ifmt_ctx,
@@ -1036,8 +1004,11 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
                     &isPastEndTSVideo,
                     false,
                     found_rebase_pts,
-                    pts_offset
+                    pts_offset,
+                    enabledAudioStreamCount==0,
+                    mediaClip
                 );
+
 
                 if (err) {
                     av_frame_free(&frame);
@@ -1220,7 +1191,9 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
             &isPastEndTSVideo,
             false,
             found_rebase_pts,
-            pts_offset
+            pts_offset,
+            false,
+            mediaClip
         );
 
         if (err) {
