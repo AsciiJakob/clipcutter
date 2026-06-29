@@ -81,6 +81,15 @@ void App_Free(App* app) {
 	free(app);
 }
 
+const char* TimelineEventType_ToString(enum TimelineEventType type) {
+    switch (type) {
+        case TIMELINE_EVENT_VIDEO: return "TIMELINE_EVENT_VIDEO";
+        case TIMELINE_EVENT_END: return "TIMELINE_EVENT_END";
+        case TIMELINE_EVENT_BLANKSPACE: return "TIMELINE_EVENT_BLANKSPACE";
+        default: return "UNKNOWN";
+    }
+}
+
 // creates a new MediaSource and adds it to app megastruct, if failed returns nullpointer
 MediaSource* App_CreateMediaSource(App* app, const char* path) {
 	int avail_index = App_FindFirstNullptr((void**) &app->mediaSources, MEDIASOURCES_SIZE);
@@ -146,6 +155,7 @@ void App_ProcessKeyboardShortcuts(App* app) {
     if (ImGui::Shortcut(ImGuiKey_S, global)) {
         TimelineEvent* currentEvent = &app->timelineEvents[app->timelineEventIndex];
         if (currentEvent->type == TIMELINE_EVENT_VIDEO) {
+            log_info("Splitting clip");
             MediaClip_Split(app, currentEvent->clip, app->playbackTime);
 
             App_CalculateTimelineEvents(app);
@@ -329,16 +339,29 @@ void App_CalculateTimelineEvents(App* app) {
 	//mediaClip* mediaClipBefore = app->timelineEvents[TIMELINE_EVENTS_SIZE-2].type = TIMELINE_EVENT_END;
 }
 
-// onlyLoad is used by App_MovePlaybackMarker() so that this func doesn't set the playback position
-void App_LoadEvent(App* app, TimelineEvent* event) {
+// properly load an event from the timeline, such as loading a new video or seeking if there has been a cut etc.
+// loadedNaturallyByPlaying is set to true if the event was loaded because the video is being played
+// and the cursor walked past one event over to the next. It is false if you for example skip forward by clicking in the timeline.
+void App_LoadEvent(App* app, TimelineEvent* event, bool loadedNaturallyByPlaying) {
     log_trace("App_LoadEvent: called");
 	if (event->type == TIMELINE_EVENT_VIDEO) {
 		if (event->clip->source != app->loadedMediaSource) {
+            float seekPos = app->playbackTime - event->start + event->clip->startCutoff;
             log_trace("App_LoadEvent: video source is not loaded. Loading now");
-			MediaSource_Load(app, event->clip->source);
+			MediaSource_Load(app, event->clip->source, seekPos);
 			app->loadedMediaSource = event->clip->source;
 		} else {
-            Playback_SetPlaybackPos(app, event->clip->startCutoff);
+            log_trace("App_LoadEvent: video source is already loaded.");
+            TimelineEvent eventBefore = app->timelineEvents[app->timelineEventIndex];
+            if (loadedNaturallyByPlaying &&
+                eventBefore.type == TIMELINE_EVENT_VIDEO &&
+                eventBefore.clip->startCutoff+eventBefore.clip->width == event->clip->startCutoff) {
+                log_trace("App_LoadEvent: The two clips end and start at the same moment in the source file, so we will not seek.");
+            } else {
+                log_trace("App_LoadEvent: seeking to startCutoff.");
+                Playback_SetPlaybackPos(app, event->clip->startCutoff);
+            }
+
         }
 	} else if (event->type == TIMELINE_EVENT_BLANKSPACE) {
         log_trace("App_LoadEvent: loading blank space");
@@ -356,6 +379,7 @@ void App_LoadEvent(App* app, TimelineEvent* event) {
 // Playback_SetPlaybackPos() only sets the playback within the video in MPV,
 // this function updates the visual marker and loads the appropriate events
 void App_MovePlaybackMarker(App* app, float secs) {
+    log_trace("App_MovePlaybackMarker(): called");
 
 	// set timelineEventIndex
 	for (int i=0; i < TIMELINE_EVENTS_SIZE; i++) {
@@ -381,15 +405,18 @@ void App_MovePlaybackMarker(App* app, float secs) {
 	
     if (currentEvent->type == TIMELINE_EVENT_VIDEO) {
         if (currentEvent->clip->source != app->loadedMediaSource) {
-            App_LoadEvent(app, currentEvent);
+            log_trace("App_MovePlaybackMarker(): source not loaded, calling LoadEvent");
+            App_LoadEvent(app, currentEvent, false);
+        } else {
+            float seekPos = secs-currentEvent->start+currentEvent->clip->startCutoff;
+            log_trace("App_MovePlaybackMarker(): source already loaded, seeking to: %.2f", seekPos);
+            Playback_SetPlaybackPos(app, seekPos);
         }
 
-        float seekPos = secs-currentEvent->start+currentEvent->clip->startCutoff;
-        log_info("seeking to: %.2f\n", seekPos);
-        Playback_SetPlaybackPos(app, seekPos);
 
     } else {
-        App_LoadEvent(app, currentEvent);
+        log_trace("App_MovePlaybackMarker(): target event is not video, loading its event");
+        App_LoadEvent(app, currentEvent, false);
     }
 }
 

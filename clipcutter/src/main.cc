@@ -150,6 +150,7 @@ int main(int argc, char* argv[]) {
                         }
                     }
                     if (mp_event->event_id == MPV_EVENT_FILE_LOADED) {
+                        log_debug("MPV event: file loaded!")
                         app->isLoadingVideo = false;
                         app->playbackBlocked = false;
                         if (app->playbackActive == false) {
@@ -237,9 +238,9 @@ int main(int argc, char* argv[]) {
             log_debug("holding down test key");
         }
         if (nextEvent != nullptr && app->playbackTime >= nextEvent->start) {
-            log_debug("new event! Type: %d\n", nextEvent->type);
+            log_debug("new event! Type: %s\n", TimelineEventType_ToString(nextEvent->type));
+            App_LoadEvent(app, nextEvent, true);
             app->timelineEventIndex++;
-            App_LoadEvent(app, nextEvent);
         }
 
 

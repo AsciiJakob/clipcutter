@@ -289,7 +289,8 @@ void UI_DrawEditor(App* app) {
 		ImGui::Text("scaling: %.2f", app->scale);
 		ImGui::Text("scaling X: %.2f", app->scaleX);
 		ImGui::Text("timeline width: %.2f", app->timeline.width);
-		ImGui::Text("timelineEvent: %d", app->timelineEvents[app->timelineEventIndex].type);
+		// ImGui::Text("timelineEvent: %d", app->timelineEvents[app->timelineEventIndex].type);
+		ImGui::Text("timelineEvent: %s", TimelineEventType_ToString(app->timelineEvents[app->timelineEventIndex].type));
 		if (app->loadedMediaSource != nullptr) {
 			ImGui::Text("currentLoaded: %s", app->loadedMediaSource->filename); }
 

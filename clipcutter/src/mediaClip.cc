@@ -186,13 +186,13 @@ ClipSplitResult MediaClip_Split(App* app, MediaClip* clip, float timestamp) {
     leftClip->endCutoff = rightClip->endCutoff;
     leftClip->width = rightClip->width;
 
-    float ClipLengthRightOfMarker = leftClip->padding+leftClip->width-timestamp;
+    float ClipLengthRightOfMarker = leftClip->padding + leftClip->width - timestamp;
     leftClip->endCutoff += ClipLengthRightOfMarker;
-    leftClip->width -= ClipLengthRightOfMarker;
+    leftClip->width = timestamp - leftClip->padding;
 
-    float clipLengthLeftOfMarker = timestamp-rightClip->padding;
+    float clipLengthLeftOfMarker = timestamp - rightClip->padding;
     rightClip->startCutoff += clipLengthLeftOfMarker;
-    rightClip->padding += clipLengthLeftOfMarker;
+    rightClip->padding = timestamp;
     rightClip->width -= clipLengthLeftOfMarker;
 
     ClipSplitResult result = {leftClip, rightClip};

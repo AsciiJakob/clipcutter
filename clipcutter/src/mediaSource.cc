@@ -64,11 +64,11 @@ void MediaSource_Init(MediaSource** mediaSourceP, const char* path) {
 	avformat_close_input(&s);
 }
 
-void MediaSource_Load(App* app, MediaSource* source) {
+void MediaSource_Load(App* app, MediaSource* source, float startTime) {
     log_trace("MediaSource_Load()");
 	app->playbackBlocked = true;
 	app->isLoadingVideo = true;
 	app->loadedMediaSource = source;
-	Playback_LoadVideo(app, source->path);
+	Playback_LoadVideo(app, source->path, startTime);
     Playback_SetAudioTracks(app, app->loadedMediaSource->audioTracks);
 }

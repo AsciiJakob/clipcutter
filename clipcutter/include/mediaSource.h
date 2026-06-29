@@ -15,6 +15,6 @@ typedef struct App App;
 };
 
 void MediaSource_Init(MediaSource** mediaSourceP, const char* path);
-void MediaSource_Load(App* app, MediaSource* source);
+void MediaSource_Load(App* app, MediaSource* source, float startTime);
 
 #endif

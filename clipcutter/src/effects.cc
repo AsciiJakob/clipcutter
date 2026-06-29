@@ -3,8 +3,7 @@
 #include "pch.h"
 #include "imgui_internal.h"
 
-static const char* AVOption_TypeToString(enum AVOptionType type)
-{
+static const char* AVOption_TypeToString(enum AVOptionType type) {
     switch (type) {
         case AV_OPT_TYPE_FLAGS: return "FLAGS";
         case AV_OPT_TYPE_INT: return "INT";
@@ -30,6 +29,7 @@ static const char* AVOption_TypeToString(enum AVOptionType type)
         default: return "UNKNOWN";
     }
 }
+
 static void AVOption_DefaultValueString(const EffectOption* opt, char* out, size_t n)
 {
     if (opt->enumValueCount > 0) {

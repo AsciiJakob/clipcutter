@@ -57,10 +57,13 @@ void Playback_SetPlaybackPos(App* app, float secs) {
 	/*}*/
 }
 
-void Playback_LoadVideo(App* app, char* path) {
-    // TODO: maybe there is a better way for the program to load a video when we already know it's going to be offset to play after a certain amount of time. Like when you're resuming a movie. Might make it load a little faster, who knows. not a major problem though
+void Playback_LoadVideo(App* app, char* path, float startTime) {
 	log_trace("Playback_LoadVideo()");
-	const char* cmd[] = { "loadfile", path, NULL };
+    // https://mpv.io/manual/stable/#command-interface-[%3Coptions%3E]]]
+	// const char* cmd[] = { "loadfile", path, NULL };
+    char startStr[64];
+    snprintf(startStr, sizeof(startStr), "start=%.6f", startTime);
+	const char* cmd[] = { "loadfile", path, "replace", "-1", startStr, NULL };
     App_Queue_AddCommand(app, cmd);
 
 	/*if (mpv_command_async(app->mpv, 0, cmd) != MPV_ERROR_SUCCESS) {*/
