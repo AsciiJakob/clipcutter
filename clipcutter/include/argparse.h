@@ -18,7 +18,7 @@ char* ArgParse_GetErrorStr();
 
 ArgParseError ArgParse_Parse(int argc, char** argv);
 
-ArgParseError ArgParse_RegisterFlag(const char* name, const char* abbreviation);
+ArgParseError ArgParse_RegisterFlag(const char* name, const char abbreviation);
 
 ArgParseError ArgParse_RegisterFlagParameter(const char* flagName, const char* name,
                                     ArgType dataType);

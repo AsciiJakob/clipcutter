@@ -40,9 +40,14 @@ void log_message(LOG_LEVEL level, const char* filePath, int lineNum, const char*
     }
 
     const char* type = LOG_LEVEL_STRINGS[level];
+    FILE* stream = (level <= LOG_LEVEL_WARN) ? stderr : stdout;
+
     #ifdef LOG_SHOW_FILEPATHS
-    printf("%s [%s] [%s:%d] %s\n", timeStr, type, filePath, lineNum, logBuffer);
+    fprintf(stream, "%s [%s] [%s:%d] %s\n", timeStr, type, filePath, lineNum, logBuffer);
     #else
-    printf("%s [%s] %s\n", timeStr, type, logBuffer);
+    fprintf(stream, "%s [%s] %s\n", timeStr, type, logBuffer);
     #endif
+
+    if (stream == stderr)
+        fflush(stream);
 }

@@ -26,16 +26,17 @@ typedef union {
 } ArgValue;
 
 struct FlagParameter {
-    char* name;
+    const char* name;
     ArgValue value;
     ArgType dataType;
     bool isSet;
 } typedef FlagParameter;
 
 struct Flag {
-    char* name;
-    char* abbreviation;
-    FlagParameter* parameter; // NULL if flag takes no parameter.
+    const char* name;
+    char abbreviation;
+    bool hasParameter;
+    FlagParameter parameter; // NULL if flag takes no parameter.
     bool isSet;
 } typedef Flag;
 
@@ -46,10 +47,9 @@ static struct {
     int flagCount;
     int flagsCapacity; // for realloc growth
 
-    char* VariadicName; // NULL, if none has been registered
+    const char* VariadicName; // NULL, if none has been registered
     char** VariadicValues; 
     int VariadicValuesCount; 
-    int VariadicValuesCapacity; 
 
     bool hasParsed;
     char* lastErr;
@@ -74,12 +74,12 @@ char* ArgParse_GetErrorStr() {
     return g_ArgsData.lastErr;
 }
 
-Flag* findFlagByAbbreviation(const char* abbreviation) {
+Flag* findFlagByAbbreviation(char abbreviation) {
     if (!abbreviation) return NULL;
 
     for (int i=0; i < g_ArgsData.flagCount; i++) {
         Flag* flag = &g_ArgsData.flags[i];
-        if (flag->abbreviation && strcmp(abbreviation, flag->abbreviation) == 0) {
+        if (flag->abbreviation && abbreviation == flag->abbreviation) {
             return flag;
         }
     }
@@ -101,11 +101,11 @@ Flag* findFlagByName(const char* flagName) {
 
 
 // returns whether it was succesful or not
-ArgParseError ArgParse_RegisterFlag(const char* name, const char* abbreviation) {
+ArgParseError ArgParse_RegisterFlag(const char* name, const char abbreviation) {
     if (findFlagByName(name)) return error(ARGPARSE_ERROR_DUPLICATE, "A flag with the name '%s'is already in use.", name);
     if (abbreviation && findFlagByAbbreviation(abbreviation)) return error(ARGPARSE_ERROR_DUPLICATE, "Abbreviation '%s' is already in use.", abbreviation);
 
-    if (strlen(abbreviation) > 1) return error(ARGPARSE_ERROR_ABBREVIATION_LENGTH, "Abbreviation '%s' is longer than one character.");
+    // if (strlen(abbreviation) > 1) return error(ARGPARSE_ERROR_ABBREVIATION_LENGTH, "Abbreviation '%s' is longer than one character.");
 
 
     if (g_ArgsData.flagCount+1 > g_ArgsData.flagsCapacity) {
@@ -117,19 +117,15 @@ ArgParseError ArgParse_RegisterFlag(const char* name, const char* abbreviation) 
     }
 
     Flag* flag = &g_ArgsData.flags[g_ArgsData.flagCount];
-    flag->name = (char*) malloc(strlen(name)+1);
-    if (!flag->name) return error(ARGPARSE_ERROR_MEMORY, "Insufficient memory.");
-    strcpy(flag->name, name);
+    flag->name = name;
 
     if (abbreviation) {
-        flag->abbreviation = (char*) malloc(strlen(abbreviation)+1);
-        if (!flag->abbreviation) return error(ARGPARSE_ERROR_MEMORY, "Insufficient memory.");
-        strcpy(flag->abbreviation, abbreviation);
+        flag->abbreviation = abbreviation;
     } else {
         flag->abbreviation = NULL;
     }
 
-    flag->parameter = NULL;
+    flag->hasParameter = false;
 
     flag->isSet = false;
 
@@ -140,23 +136,14 @@ ArgParseError ArgParse_RegisterFlag(const char* name, const char* abbreviation) 
 ArgParseError ArgParse_RegisterFlagParameter(const char* flagName, const char* name,
                                     ArgType dataType) {
     Flag* flag = findFlagByName(flagName);
-    if (!flag) return error(ARGPARSE_ERROR_UNKNOWN_FLAG, "Cannot set flag parameter to ");
+    if (!flag) return error(ARGPARSE_ERROR_UNKNOWN_FLAG, "Cannot set flag parameter to %s as the flag does not exist.", flagName);
 
-    if (flag->parameter) return error(ARGPARSE_ERROR_PARAMETER_ALREADY_REGISTERED, "A parameter '%s' is already registered for the flag '%s'.");
+    if (flag->hasParameter) return error(ARGPARSE_ERROR_PARAMETER_ALREADY_REGISTERED, "A parameter '%s' is already registered for the flag '%s'.", flag->parameter.name, flagName);
 
-    flag->parameter = (FlagParameter*) malloc(sizeof(FlagParameter));
-    if (!flag->parameter) return error(ARGPARSE_ERROR_MEMORY, "Insufficient memory.");
+    flag->parameter.name = name;
 
-    flag->parameter->name = (char*) malloc(sizeof(strlen(name)+1));
-    if (!flag->parameter->name) {
-        free(flag->parameter);
-        flag->parameter = NULL;
-        return error(ARGPARSE_ERROR_MEMORY, "Insufficient memory.");
-    }
-    strcpy(flag->parameter->name, name);
-
-    flag->parameter->isSet = false;
-    flag->parameter->dataType = dataType;
+    flag->parameter.isSet = false;
+    flag->parameter.dataType = dataType;
 
     return ARGPARSE_ERROR_SUCCESS;
 
@@ -167,10 +154,8 @@ ArgParseError ArgParse_RegisterVariadicParameter(const char* name) {
         return error(ARGPARSE_ERROR_DUPLICATE, "Only one variadic may be defined.");
     }
 
-    if (!(g_ArgsData.VariadicName = (char*) malloc(strlen(name)+1))) {
-        return error(ARGPARSE_ERROR_MEMORY, "Insufficient memory.");
-    }
-    strcpy(g_ArgsData.VariadicName, name);
+
+    g_ArgsData.VariadicName = name;
 
     return ARGPARSE_ERROR_SUCCESS;
 };
@@ -192,27 +177,27 @@ int* ArgParse_GetValueInt(const char* argName) {
     Flag* flag =  findFlagByName(argName);
     if (!flag) return NULL;
 
-    if (!flag->parameter || !flag->parameter->isSet || flag->parameter->dataType != ARG_TYPE_INT) return NULL;
+    if (!flag->hasParameter || !flag->parameter.isSet || flag->parameter.dataType != ARG_TYPE_INT) return NULL;
 
-    return &flag->parameter->value.intVal;
+    return &flag->parameter.value.intVal;
 }
 
 char* ArgParse_GetValueStr(const char* argName) {
     Flag* flag =  findFlagByName(argName);
     if (!flag) return NULL;
 
-    if (!flag->parameter || !flag->parameter->isSet || flag->parameter->dataType != ARG_TYPE_STRING) return NULL;
+    if (!flag->hasParameter || !flag->parameter.isSet || flag->parameter.dataType != ARG_TYPE_STRING) return NULL;
 
-    return flag->parameter->value.strVal;
+    return flag->parameter.value.strVal;
 }
 
 float* ArgParse_GetValueFloat(const char* argName) {
     Flag* flag =  findFlagByName(argName);
     if (!flag) return NULL;
 
-    if (!flag->parameter || !flag->parameter->isSet || flag->parameter->dataType != ARG_TYPE_FLOAT) return NULL;
+    if (!flag->hasParameter || !flag->parameter.isSet || flag->parameter.dataType != ARG_TYPE_FLOAT) return NULL;
 
-    return &flag->parameter->value.floatVal;
+    return &flag->parameter.value.floatVal;
 }
 
 // register the last option, that can take any number of parameters.
@@ -251,6 +236,35 @@ void setParameterValue(FlagParameter* parameter, char* argParameterVal) {
     }
 }
 
+ArgParseError parseFlag(Flag* flag, int argc, char** argv, int* i) {
+    if (flag->hasParameter) {
+        char* argParameterVal = NULL;
+        bool missingParameterVal = false;
+        if (*i+1 == argc) { // if last argument
+            missingParameterVal = true;
+        } else {
+
+            argParameterVal = argv[*i+1];
+
+            if (strncmp(argParameterVal, "-", 1) == 0) {
+                missingParameterVal = true;
+            }
+        }
+
+        if (missingParameterVal) {
+            return error(ARGPARSE_ERROR_USER_MISSING_PARAMETER, "Missing parameter for flag '%s'. Please see usage.", flag->name);
+        }
+
+        setParameterValue(&flag->parameter, argParameterVal);
+        flag->parameter.isSet = true;
+        *i = *i + 1; // skip the parameter on next loop iteration
+    }
+
+    flag->isSet = true;
+
+    return ARGPARSE_ERROR_SUCCESS;
+}
+
 // if any error is returned it should be displayed to the user.
 ArgParseError ArgParse_Parse(int argc, char** argv) {
     // i=1 to start at arguments rather than program path
@@ -262,65 +276,39 @@ ArgParseError ArgParse_Parse(int argc, char** argv) {
             if (strncmp(arg, "--", 2) == 0) {
                 flag = findFlagByName(arg+2);
 
-            } else {
-                // TODO: I need to handle things like -abc = -a -b -c
-                flag = findFlagByAbbreviation(arg+1);
-
-                for (size_t i=1; i < strlen(arg); i++) {
-                    
-
-                }
-                // if (strlen(arg+1))
-            }
-
-            if (!flag) {
-                return error(ARGPARSE_ERROR_USER_UNKNOWN_ARGUMENT, "Argument '%s' is not recognised. Please see usage.", arg);
-            }
-
-
-            if (flag->parameter) {
-                char* argParameterVal = NULL;
-                bool missingParameterVal = false;
-                if (i+1 == argc) { // if last argument
-                    missingParameterVal = true;
-                } else {
-
-                    argParameterVal = argv[i+1];
-
-                    if (strncmp(argParameterVal, "-", 1) == 0) {
-                        missingParameterVal = true;
+                    if (!flag) {
+                        return error(ARGPARSE_ERROR_USER_UNKNOWN_ARGUMENT, "Argument '%s' is not recognised. Please see usage.", argv[i]);
                     }
-                }
 
-                if (missingParameterVal) {
-                    return error(ARGPARSE_ERROR_USER_MISSING_PARAMETER, "Missing parameter for flag '%s'. Please see usage.", flag->name);
-                }
+                ArgParseError ret = parseFlag(flag, argc, argv, &i);
+                if (ret != ARGPARSE_ERROR_SUCCESS)
+                    return ret;
+            } else { // abbreviated arguments like "-a -b -c" or "-abc"
+                for (size_t x=1; x < strlen(arg); x++) {
+                    char abbreviation = *(arg+x);
+                    flag = findFlagByAbbreviation(abbreviation);
 
-                setParameterValue(flag->parameter, argParameterVal);
-                flag->parameter->isSet = true;
-                i = i + 1; // skip the parameter on next loop iteration
+                    if (!flag) {
+                        return error(ARGPARSE_ERROR_USER_UNKNOWN_ARGUMENT, "Argument abbreviation '%c' in '%s' is not recognised. Please see usage.", abbreviation, argv[i]);
+                    }
+
+                    ArgParseError ret = parseFlag(flag, argc, argv, &i);
+                    if (ret != ARGPARSE_ERROR_SUCCESS)
+                        return ret;
+                }
             }
-
-            flag->isSet = true;
 
         } else { // Variatic argument(s)
             if (!g_ArgsData.VariadicName) {
                 return error(ARGPARSE_ERROR_USER_UNKNOWN_VARIADIC, "Cannot parse argument '%s'. This program does not accept variadic arguments.", arg);
             }
 
-            if (g_ArgsData.VariadicValuesCount+1 > g_ArgsData.VariadicValuesCapacity) {
-                int newCapacity = g_ArgsData.VariadicValuesCapacity == 0 ? 4 : g_ArgsData.VariadicValuesCapacity * 2;
-                char** n = (char**) realloc(g_ArgsData.VariadicValues, sizeof(char*) * newCapacity);
-                if (!n) return error(ARGPARSE_ERROR_MEMORY, "Program ran out of memory.");
-                g_ArgsData.VariadicValues = n;
-                g_ArgsData.VariadicValuesCapacity = newCapacity;
+            if (!g_ArgsData.VariadicValues) {
+                g_ArgsData.VariadicValues = (char**) malloc(sizeof(char*) * (argc-1)); // it can't be more than argc-1
+                if (!g_ArgsData.VariadicValues) return error(ARGPARSE_ERROR_MEMORY, "Insufficient memory.");
             }
 
-            char* newStr = (char*) malloc(strlen(arg)+1);
-            if (!newStr) error(ARGPARSE_ERROR_MEMORY, "Program ran out of memory.");
-            strcpy(newStr, arg);
-            g_ArgsData.VariadicValues[g_ArgsData.VariadicValuesCount] = newStr;
-
+            g_ArgsData.VariadicValues[g_ArgsData.VariadicValuesCount] = arg;
             g_ArgsData.VariadicValuesCount++;
 
         }

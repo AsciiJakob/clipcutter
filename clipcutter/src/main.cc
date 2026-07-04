@@ -8,6 +8,11 @@
 #include "export.h"
 #include <SDL3/SDL_keycode.h>
 
+void initConsole() {
+     FILE* f;
+     freopen_s(&f, "conout$", "w", stdout);
+     freopen_s(&f, "conout$", "w", stderr);
+}
 
 #if defined(CC_PLATFORM_WINDOWS)
 int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
@@ -20,42 +25,53 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 #else
 int main(int argc, char* argv[]) {
 #endif
-    if (AttachConsole(ATTACH_PARENT_PROCESS))
-    {
-        freopen_s(...);
+    bool consoleAttached;
+    if ((consoleAttached = AttachConsole(ATTACH_PARENT_PROCESS))) {
+        initConsole();
     }
 
-    ArgParseError suc = ARGPARSE_ERROR_SUCCESS;
-    suc = ArgParse_RegisterVariadicParameter("video file(s)");
-    if (suc)
-        suc = ArgParse_RegisterFlag("debug-console", "d");
-    if (suc)
-        suc = ArgParse_RegisterFlag("export-path", NULL);
-    if (suc)
-        suc = ArgParse_RegisterFlagParameter("export-path", "path", ARG_TYPE_STRING);
-    if (suc)
-        suc = ArgParse_Parse(argc, argv);
+    ArgParseError err = ARGPARSE_ERROR_SUCCESS;
+    err = ArgParse_RegisterVariadicParameter("video file(s)");
+    if (!err)
+        err = ArgParse_RegisterFlag("debug-console", 'd');
+    if (!err)
+        err = ArgParse_RegisterFlag("test", 't');
+    if (!err)
+        err = ArgParse_RegisterFlag("export-path", NULL);
+    if (!err)
+        err = ArgParse_RegisterFlagParameter("export-path", "path", ARG_TYPE_STRING);
+    if (!err)
+        err = ArgParse_Parse(argc, argv);
     
-    if (!suc) {
-        log_error("%s", ArgParse_GetErrorStr());
-        ArgParse_ShowHelpMessage();
-        //ArgParse_Free()
+    if (err != ARGPARSE_ERROR_SUCCESS) {
+        if (!consoleAttached) {
+            // TODO: message box for linux
+#if defined(CC_PLATFORM_WINDOWS)
+            MessageBoxA(
+                nullptr,
+                ArgParse_GetErrorStr(),
+                "Failed parsing arguments",
+                MB_OK | MB_ICONERROR
+            );
+#endif
+        } else {
+            log_error("%s", ArgParse_GetErrorStr());
+            ArgParse_ShowHelpMessage();
+        }
         exit(1);
+        //ArgParse_Free()
     }
 
-    if (ArgParse_IsFlagSet("debug-console")) {
-         #if defined(CC_PLATFORM_WINDOWS)
-             // if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
-             AllocConsole();
-             FILE* f;
-             freopen_s(&f, "conout$", "w", stdout);
-             freopen_s(&f, "conout$", "w", stderr);
-             // }
-         #endif
+    if (!consoleAttached && ArgParse_IsFlagSet("debug-console")) {
+#if defined(CC_PLATFORM_WINDOWS)
+        AllocConsole();
+        initConsole();
+#endif
 
     }
 
     log_debug("--debug-console: %d", ArgParse_IsFlagSet("debug-console"));
+    log_debug("--test: %d", ArgParse_IsFlagSet("test"));
     log_debug("--export-path: %s", ArgParse_GetValueStr("export-path"));
 
 
