@@ -33,11 +33,11 @@ int main(int argc, char* argv[]) {
     ArgParseError err = ARGPARSE_ERROR_SUCCESS;
     err = ArgParse_RegisterVariadicParameter("video file(s)");
     if (!err)
-        err = ArgParse_RegisterFlag("debug-console", 'd');
+        err = ArgParse_RegisterFlag("debug", 'd', "Enable debug logging");
     if (!err)
-        err = ArgParse_RegisterFlag("test", 't');
+        err = ArgParse_RegisterFlag("test", 't', NULL);
     if (!err)
-        err = ArgParse_RegisterFlag("export-path", NULL);
+        err = ArgParse_RegisterFlag("export-path", NULL, "where to export to");
     if (!err)
         err = ArgParse_RegisterFlagParameter("export-path", "path", ARG_TYPE_STRING);
     if (!err)

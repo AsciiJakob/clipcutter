@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <cstring>
 #include "argparse.h"
+#include "sb.h"
 
 typedef union {
     char* strVal;
@@ -35,6 +36,7 @@ struct FlagParameter {
 struct Flag {
     const char* name;
     char abbreviation;
+    const char* description;
     bool hasParameter;
     FlagParameter parameter; // NULL if flag takes no parameter.
     bool isSet;
@@ -53,6 +55,7 @@ static struct {
 
     bool hasParsed;
     char* lastErr;
+    char* executableName;
 } g_ArgsData = {};
 
 ArgParseError error(ArgParseError err, const char* fmt, ...) {
@@ -101,7 +104,7 @@ Flag* findFlagByName(const char* flagName) {
 
 
 // returns whether it was succesful or not
-ArgParseError ArgParse_RegisterFlag(const char* name, const char abbreviation) {
+ArgParseError ArgParse_RegisterFlag(const char* name, const char abbreviation, const char* description) {
     if (findFlagByName(name)) return error(ARGPARSE_ERROR_DUPLICATE, "A flag with the name '%s'is already in use.", name);
     if (abbreviation && findFlagByAbbreviation(abbreviation)) return error(ARGPARSE_ERROR_DUPLICATE, "Abbreviation '%s' is already in use.", abbreviation);
 
@@ -123,6 +126,12 @@ ArgParseError ArgParse_RegisterFlag(const char* name, const char abbreviation) {
         flag->abbreviation = abbreviation;
     } else {
         flag->abbreviation = NULL;
+    }
+
+    if (description) {
+        flag->description = description;
+    } else {
+        flag->description = NULL;
     }
 
     flag->hasParameter = false;
@@ -213,12 +222,60 @@ char** ArgParse_GetVariadicValues(int* outCount) {
     return g_ArgsData.VariadicValues;
 };
 
+// programTitle is recommended to be the program name and version
 void ArgParse_ShowHelpMessage() {
-    // TODO: add help message
-    // make sure it retunrs strings instead of printing
-    // iterate through all registered commands and show them as well as their
-    // options
-    printf("(help message)");
+    char* helpStr = ArgParse_GetHelpMessage();
+    printf("%s", helpStr);
+    free(helpStr);
+
+}
+
+
+// Freed char* must be freed.
+// programTitle is recommended to be the program name and version
+char* ArgParse_GetHelpMessage() {
+    SB sb;
+    SB_init(&sb, 512);
+
+    const char* prog = g_ArgsData.executableName ? g_ArgsData.executableName : "program";
+    SB_appendf(&sb, "Usage: %s [OPTIONS]", prog);
+    if (g_ArgsData.VariadicName) SB_appendf(&sb, " [%s...]", g_ArgsData.VariadicName);
+    SB_appendf(&sb, "\n\nOptions:\n");
+
+    // first pass: figure out column width for alignment
+    int maxLeftWidth = 0;
+    for (int i = 0; i < g_ArgsData.flagCount; i++) {
+        Flag* f = &g_ArgsData.flags[i];
+        int w = (int)strlen(f->name) + 6; // "--name" + padding
+        if (f->abbreviation)
+            w += 4; // "-x, "
+        if (f->hasParameter)
+            w += (int)strlen(f->parameter.name) + 3; // " <NAME>"
+        if (w > maxLeftWidth)
+            maxLeftWidth = w;
+    }
+
+    for (int i = 0; i < g_ArgsData.flagCount; i++) {
+        Flag* f = &g_ArgsData.flags[i];
+
+        SB left;
+        SB_init(&left, 256);
+        SB_appendf(&left, "  ");
+        if (f->abbreviation)
+            SB_appendf(&left, "-%c, ", f->abbreviation);
+        SB_appendf(&left, "--%s", f->name);
+        if (f->hasParameter)
+            SB_appendf(&left, " <%s>", f->parameter.name);
+
+        SB_appendf(&sb, "%-*s", maxLeftWidth + 2, left.buf);
+        if (f->description)
+            SB_appendf(&sb, "%s", f->description);
+        SB_appendf(&sb, "\n");
+
+        free(left.buf);
+    }
+
+    return sb.buf; // caller owns this, must free()
 }
 
 void setParameterValue(FlagParameter* parameter, char* argParameterVal) {
@@ -265,8 +322,17 @@ ArgParseError parseFlag(Flag* flag, int argc, char** argv, int* i) {
     return ARGPARSE_ERROR_SUCCESS;
 }
 
+const char* basenameOf(const char* path) {
+    const char* slash = strrchr(path, '/');
+    const char* backslash = strrchr(path, '\\');
+    const char* last = slash;
+    if (backslash && (!last || backslash > last)) last = backslash;
+    return last ? last + 1 : path;
+}
+
 // if any error is returned it should be displayed to the user.
 ArgParseError ArgParse_Parse(int argc, char** argv) {
+    g_ArgsData.executableName = (char*) basenameOf(argv[0]);
     // i=1 to start at arguments rather than program path
     for (int i=1; i < argc; i++) {
         char* arg = argv[i];

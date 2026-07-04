@@ -18,7 +18,7 @@ char* ArgParse_GetErrorStr();
 
 ArgParseError ArgParse_Parse(int argc, char** argv);
 
-ArgParseError ArgParse_RegisterFlag(const char* name, const char abbreviation);
+ArgParseError ArgParse_RegisterFlag(const char* name, const char abbreviation, const char* description);
 
 ArgParseError ArgParse_RegisterFlagParameter(const char* flagName, const char* name,
                                     ArgType dataType);
@@ -30,5 +30,6 @@ char* ArgParse_GetValueStr(const char* argName);
 float* ArgParse_GetValueFloat(const char* argName);
 char** ArgParse_GetVariadicValues(int* outCount);
 void ArgParse_ShowHelpMessage();
+char* ArgParse_GetHelpMessage();
 
 #endif
