@@ -20,49 +20,65 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 #else
 int main(int argc, char* argv[]) {
 #endif
+    if (AttachConsole(ATTACH_PARENT_PROCESS))
+    {
+        freopen_s(...);
+    }
 
+    ArgParseError suc = ARGPARSE_ERROR_SUCCESS;
+    suc = ArgParse_RegisterVariadicParameter("video file(s)");
+    if (suc)
+        suc = ArgParse_RegisterFlag("debug-console", "d");
+    if (suc)
+        suc = ArgParse_RegisterFlag("export-path", NULL);
+    if (suc)
+        suc = ArgParse_RegisterFlagParameter("export-path", "path", ARG_TYPE_STRING);
+    if (suc)
+        suc = ArgParse_Parse(argc, argv);
+    
+    if (!suc) {
+        log_error("%s", ArgParse_GetErrorStr());
+        ArgParse_ShowHelpMessage();
+        //ArgParse_Free()
+        exit(1);
+    }
 
-    // do not judge, it is temp until i write an arg parser lol.
-    if (argc > 1) {
-        for (int i=1; i < argc; i++) {
-            char* arg = argv[i];
-			// todo: Fix bug with program not launching if you specify parameter that doesn't exist.
-            if (strcmp(arg, "--debug-console") == 0) {
-                #if defined(CC_PLATFORM_WINDOWS)
-                    // if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
-                    AllocConsole();
-                    FILE* f;
-                    freopen_s(&f, "conout$", "w", stdout);
-                    freopen_s(&f, "conout$", "w", stderr);
-                    // }
-                #endif
-                break;
-            }
-        }
+    if (ArgParse_IsFlagSet("debug-console")) {
+         #if defined(CC_PLATFORM_WINDOWS)
+             // if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
+             AllocConsole();
+             FILE* f;
+             freopen_s(&f, "conout$", "w", stdout);
+             freopen_s(&f, "conout$", "w", stderr);
+             // }
+         #endif
 
     }
+
+    log_debug("--debug-console: %d", ArgParse_IsFlagSet("debug-console"));
+    log_debug("--export-path: %s", ArgParse_GetValueStr("export-path"));
+
+
+
     log_info("Clipcutter v0.0.1 ");
     App* app = (App*) malloc(sizeof(App));
     App_Init(app);
     /*app->playbackActive = true;*/
     App_CalculateTimelineEvents(app);
 
+    int inputVideoCount = 0;
+    char** inputVideos = ArgParse_GetVariadicValues(&inputVideoCount);
+    for (int i=0; i < inputVideoCount; i++) {
+        char* vidPath = inputVideos[i];
+        log_debug("Video arg path: %s", vidPath);
 
-    // TODO: write an argument parser.
-    if (argc > 1) {
-        for (int i=1; i < argc; i++) {
-            char* arg = argv[i];
-            if (strcmp(arg, "--debug-console") != 0) {
-                MediaSource* argVideo = App_CreateMediaSource(app, arg);
-                if (argVideo != nullptr)  {
-                    App_CreateMediaClip(app, argVideo);
-                    App_CalculateTimelineEvents(app);
-                } else {
-                    log_error("Failed to import video source");
-                }
-            }
+        MediaSource* argVideo = App_CreateMediaSource(app, vidPath);
+        if (argVideo != nullptr)  {
+            App_CreateMediaClip(app, argVideo);
+            App_CalculateTimelineEvents(app);
+        } else {
+            log_error("Failed to import video source");
         }
-
     }
 
     // window init
