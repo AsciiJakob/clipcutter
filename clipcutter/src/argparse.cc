@@ -1,17 +1,4 @@
 // Argument parser library by AsciiJakob 2026-07-01
-//
-// if one hyphen is followed by two or more letters it may mean two options are
-// being specified, or it may mean the second and subsequent letters are a
-// parameter (such as filename or date) for the first option
-//
-//
-// Built-in usage help and man pages commonly employ a small syntax to describe
-// the valid command form:
-// angle brackets for required parameters: ping <hostname>
-// square brackets for optional parameters: mkdir [-p] <dirname>
-// ellipses for repeated items: cp <source1> [source2…] <dest>
-// vertical bars for choice of items: netstat {-t|-u}
-
 
 #include <cstdio>
 #include <cstdarg>
@@ -71,7 +58,7 @@ ArgParseError error(ArgParseError err, const char* fmt, ...) {
     return err;
 }
 
-// returns a string explaining the last error that occured. If the error
+// Return a string explaining the last error that occured. If the error
 // came from ArgParse_Parse() then it is appropriate to display this to the user.
 char* ArgParse_GetErrorStr() {
     return g_ArgsData.lastErr;
@@ -103,7 +90,11 @@ Flag* findFlagByName(const char* flagName) {
 
 
 
-// returns whether it was succesful or not
+// Register a new flag.
+// Arguments:
+// name: full name of flag, prefixed by double dash "--" in arguments.
+// abbreviation: letter to represent shortened form, prefixed by single  dash "-". Can be NULL
+// description: description to be shown in help message. Can be NULL.
 ArgParseError ArgParse_RegisterFlag(const char* name, const char abbreviation, const char* description) {
     if (findFlagByName(name)) return error(ARGPARSE_ERROR_DUPLICATE, "A flag with the name '%s'is already in use.", name);
     if (abbreviation && findFlagByAbbreviation(abbreviation)) return error(ARGPARSE_ERROR_DUPLICATE, "Abbreviation '%s' is already in use.", abbreviation);
@@ -142,6 +133,11 @@ ArgParseError ArgParse_RegisterFlag(const char* name, const char abbreviation, c
     return ARGPARSE_ERROR_SUCCESS;
 };
 
+// Register parameter for flag. ex. "5" in "--volume 5"
+// Arguments:
+// flagName: full name of flag to be assosciated with.
+// name: name of parameter, shown in help message.
+// dataType: data type. one of ARG_TYPE_INT, ARG_TYPE_FLOAT or ARG_TYPE_STRING.
 ArgParseError ArgParse_RegisterFlagParameter(const char* flagName, const char* name,
                                     ArgType dataType) {
     Flag* flag = findFlagByName(flagName);
@@ -158,18 +154,18 @@ ArgParseError ArgParse_RegisterFlagParameter(const char* flagName, const char* n
 
 }
 
+// Register variadic parameter. ex. "source.mp4" in "clipcutter --volume 5 source.mp4". Only one variadic parameter can be registered per program, but multiple parameters can be supplied by user, like: "clipcutter source.mp4 source2.wav"
+// Arguments:
+// name: name of variadic parameter, shown in help message.
 ArgParseError ArgParse_RegisterVariadicParameter(const char* name) {
     if (g_ArgsData.VariadicName) {
         return error(ARGPARSE_ERROR_DUPLICATE, "Only one variadic may be defined.");
     }
 
-
     g_ArgsData.VariadicName = name;
 
     return ARGPARSE_ERROR_SUCCESS;
 };
-
-// Getters:
 
 // for arguments that don't take option parameters.
 bool ArgParse_IsFlagSet(const char* flagName) {
@@ -231,8 +227,7 @@ void ArgParse_ShowHelpMessage() {
 }
 
 
-// Freed char* must be freed.
-// programTitle is recommended to be the program name and version
+// Returned char* must be freed.
 char* ArgParse_GetHelpMessage() {
     SB sb;
     SB_init(&sb, 512);
@@ -330,7 +325,9 @@ const char* basenameOf(const char* path) {
     return last ? last + 1 : path;
 }
 
-// if any error is returned it should be displayed to the user.
+// Parse argv and argc so that the getter functions can be used.
+// Make sure this is called after registering flags or else the getter functions will not work.
+// If any error is returned it should be displayed to the user.
 ArgParseError ArgParse_Parse(int argc, char** argv) {
     g_ArgsData.executableName = (char*) basenameOf(argv[0]);
     // i=1 to start at arguments rather than program path
@@ -386,28 +383,10 @@ ArgParseError ArgParse_Parse(int argc, char** argv) {
 }
 
 
-// void ArgParse_Free(void) {
-//     for (int i = 0; i < g_ArgsData.flagCount; i++) {
-//         free(g_ArgsData.flags[i].name);
-//         free(g_ArgsData.flags[i]
-//                  .abbreviation); // free(NULL) is safe, no need to check
-//         if (g_ArgsData.flags[i].parameter) {
-//             free(g_ArgsData.flags[i].parameter->name);
-//             if (g_ArgsData.flags[i].parameter->dataType == ARG_TYPE_STRING) {
-//                 free(g_ArgsData.flags[i].parameter->value.asString);
-//             }
-//             free(g_ArgsData.flags[i].parameter);
-//         }
-//         free(g_ArgsData.flags[i].name); // (only once — watch for this duplicate
-//                                         // if you copy-paste)
-//     }
-//     free(g_ArgsData.flags);
-//
-//     for (int i = 0; i < g_ArgsData.variadicCount; i++) {
-//         free(g_ArgsData.variadicValues[i]);
-//     }
-//     free(g_ArgsData.variadicValues);
-//     free(g_ArgsData.variadicName);
-//
-//     g_ArgsData = (typeof(g_ArgsData)){0}; // reset to zeroed state
-// }
+void ArgParse_Free() {
+    free(g_ArgsData.flags);
+
+    free(g_ArgsData.VariadicValues);
+
+    free(g_ArgsData.lastErr);
+}

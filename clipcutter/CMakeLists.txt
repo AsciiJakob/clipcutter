@@ -21,7 +21,10 @@ file(GLOB_RECURSE SOURCES
     deps/imgui/backends/imgui_impl_sdl3.cpp
 )
 
+# for SUBSYSTEM:WINDOWS
 add_executable(${PROJECT_NAME} WIN32 ${SOURCES})
+# for SUBSYSTEM:CONSOLE
+# add_executable(${PROJECT_NAME} ${SOURCES})
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(${PROJECT_NAME} PRIVATE 

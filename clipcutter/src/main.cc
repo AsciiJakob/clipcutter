@@ -28,6 +28,8 @@ int main(int argc, char* argv[]) {
     bool consoleAttached;
     if ((consoleAttached = AttachConsole(ATTACH_PARENT_PROCESS))) {
         initConsole();
+        fputs("\n", stdout);
+        fflush(stdout);
     }
 
     ArgParseError err = ARGPARSE_ERROR_SUCCESS;
@@ -57,17 +59,20 @@ int main(int argc, char* argv[]) {
         } else {
             log_error("%s", ArgParse_GetErrorStr());
             ArgParse_ShowHelpMessage();
+            ArgParse_Free();
         }
         exit(1);
         //ArgParse_Free()
     }
 
-    if (!consoleAttached && ArgParse_IsFlagSet("debug-console")) {
+    if (ArgParse_IsFlagSet("debug")) {
+        if (consoleAttached)
+            FreeConsole();
 #if defined(CC_PLATFORM_WINDOWS)
         AllocConsole();
         initConsole();
 #endif
-
+        log_debug("Debug console allocated")
     }
 
     log_debug("--debug-console: %d", ArgParse_IsFlagSet("debug-console"));
@@ -307,4 +312,5 @@ int main(int argc, char* argv[]) {
     SDL_Quit();
 
     App_Free(app);
+    ArgParse_Free();
 }

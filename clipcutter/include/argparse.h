@@ -31,5 +31,6 @@ float* ArgParse_GetValueFloat(const char* argName);
 char** ArgParse_GetVariadicValues(int* outCount);
 void ArgParse_ShowHelpMessage();
 char* ArgParse_GetHelpMessage();
+void ArgParse_Free();
 
 #endif
