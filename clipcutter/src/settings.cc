@@ -1,15 +1,21 @@
 #include "pch.h"
 #include "app.h"
+#include <libloaderapi.h>
 
-void registerOpenWith() {
+void registerOpenWith(App* app) {
 #ifdef CC_PLATFORM_WINDOWS
     LONG result;
     HKEY hKey;
 
     // register the application command path
     const char* appCommandKey = "Software\\Classes\\Applications\\clipcutter.exe\\shell\\open\\command";
-    // TODO: don't hardcode this obviously
-    const char* command = "\"Z:\\Programming\\c\\clipcutter_sdl3\\build\\clipcutter\\clipcutter.exe\" \"%1\"";
+
+
+    char executablePath[1024];
+    GetModuleFileNameA(NULL, executablePath, sizeof(executablePath));
+    SB command;
+    SB_init(&command, 1034);
+    SB_appendf(&command, "\"%s\" \"%%1\"", executablePath);
 
     result = RegCreateKeyExA(
         HKEY_CURRENT_USER,
@@ -32,8 +38,8 @@ void registerOpenWith() {
         NULL,
         0,
         REG_SZ,
-        (const BYTE*)command,
-        (DWORD)(strlen(command) + 1)
+        (const BYTE*)command.buf,
+        (DWORD)(command.len + 1)
     );
 
     RegCloseKey(hKey);
@@ -139,6 +145,9 @@ void registerOpenWith() {
 
 
     }
+
+    // TODO: proper error handling
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Success", "Succesfully registered 'open with' shortcut to windows context menu.", app->window);
 #endif
 }
 
@@ -178,7 +187,7 @@ void deleteValue(void* root, const char* path, const char* name) {
 #endif
 };
 
-void unregisterOpenWith() {
+void unregisterOpenWith(App* app) {
 #ifdef CC_PLATFORM_WINDOWS
     const char* commandKey     = "Software\\Classes\\Applications\\clipcutter.exe\\shell\\open\\command";
     const char* openKey        = "Software\\Classes\\Applications\\clipcutter.exe\\shell\\open";
@@ -202,6 +211,7 @@ void unregisterOpenWith() {
 
         deleteValue(HKEY_CURRENT_USER, progidsKey, "Applications\\clipcutter.exe");
     }
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Success", "Succesfully unregistered 'open with' shortcut from windows context menu.", app->window);
 #endif
 }
 
@@ -210,11 +220,11 @@ void Settings_DrawSettings(App* app) {
     ImGui::Text("Register ClipCutter in \"open with\" context menu for video files?");
 
     if (ImGui::Button("Register")) {
-        registerOpenWith();
+        registerOpenWith(app);
     }
 
     if (ImGui::Button("Unregister")) {
-        unregisterOpenWith();
+        unregisterOpenWith(app);
     }
     #endif
 
