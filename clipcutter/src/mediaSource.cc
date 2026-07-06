@@ -70,5 +70,5 @@ void MediaSource_Load(App* app, MediaSource* source, float startTime) {
 	app->isLoadingVideo = true;
 	app->loadedMediaSource = source;
 	Playback_LoadVideo(app, source->path, startTime);
-    Playback_SetAudioTracks(app, app->loadedMediaSource->audioTracks);
+    Playback_ApplyLavfiComplex(app);
 }

@@ -3,7 +3,7 @@
 #include "pch.h"
 #include "app.h"
 
-void Playback_SetAudioTracks(App* app, int count);
+void Playback_ApplyLavfiComplex(App* app);
 void Playback_SetPlaybackPos(App* app, float secs);
 void Playback_LoadVideo(App* app, char* path, float startTime);
 void Playback_StepFrames(App* app, bool forwards);

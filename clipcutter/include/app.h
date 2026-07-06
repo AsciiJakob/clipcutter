@@ -38,7 +38,8 @@ struct ExportState {
     int64_t lastPtsEncTBVideo;
     int64_t lastPtsEncTBAudio;
     AVFormatContext* ofmt_ctx;
-    bool (*audioStreamDisabled)[MAX_SUPPORTED_AUDIO_TRACKS];
+    bool (*streamDisabled)[MAX_SUPPORTED_AUDIO_TRACKS];
+    float (*streamAudioGain)[MAX_SUPPORTED_AUDIO_TRACKS];
     DynArr userAudioFilters;
 };
 
@@ -114,7 +115,8 @@ struct App {
 	TimelineEvent timelineEvents[TIMELINE_EVENTS_SIZE];
 	MediaSource* mediaSources[MEDIASOURCES_SIZE];
 	MediaClip* mediaClips[MEDIACLIPS_SIZE];
-    bool audioStreamDisabled[MAX_SUPPORTED_AUDIO_TRACKS];
+    bool streamDisabled[MAX_SUPPORTED_AUDIO_TRACKS];
+    float streamAudioGain[MAX_SUPPORTED_AUDIO_TRACKS];
 
     int mpvCmdQueueWriteIndex;
     int mpvCmdQueueReadIndex;

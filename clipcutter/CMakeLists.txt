@@ -11,6 +11,7 @@ endif()
 
 file(GLOB_RECURSE SOURCES 
     src/*.cc
+    # imgui
     # "deps/imgui/*.cpp"
     deps/imgui/imgui_demo.cpp
     deps/imgui/imgui_draw.cpp
@@ -19,7 +20,16 @@ file(GLOB_RECURSE SOURCES
     deps/imgui/imgui.cpp
     deps/imgui/backends/imgui_impl_opengl3.cpp
     deps/imgui/backends/imgui_impl_sdl3.cpp
+    #imgui-knobs
+    deps/imgui-knobs/imgui-knobs.cpp
 )
+# workaround. TODO: in the future i should seperate compiling of libraries and my own code
+set_source_files_properties(
+    deps/imgui-knobs/imgui-knobs.cpp
+    PROPERTIES
+        COMPILE_OPTIONS "-Wno-unused-parameter"
+)
+
 
 # for SUBSYSTEM:WINDOWS
 add_executable(${PROJECT_NAME} WIN32 ${SOURCES})
@@ -53,6 +63,7 @@ target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
     deps/sdl3/include
     deps/imgui
     deps/imgui/backends
+    deps/imgui-knobs/
     deps/libmpv/include
 	deps/ffmpeg/include
 )
@@ -154,6 +165,7 @@ endif()
 set_source_files_properties(
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/imgui/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/imgui/backends/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/imgui-knobs/*.cpp
     PROPERTIES SKIP_PRECOMPILE_HEADERS ON
 )
 

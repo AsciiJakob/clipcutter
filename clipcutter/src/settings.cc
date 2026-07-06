@@ -8,6 +8,7 @@ void registerOpenWith() {
 
     // register the application command path
     const char* appCommandKey = "Software\\Classes\\Applications\\clipcutter.exe\\shell\\open\\command";
+    // TODO: don't hardcode this obviously
     const char* command = "\"Z:\\Programming\\c\\clipcutter_sdl3\\build\\clipcutter\\clipcutter.exe\" \"%1\"";
 
     result = RegCreateKeyExA(

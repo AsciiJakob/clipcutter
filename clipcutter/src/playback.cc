@@ -1,33 +1,36 @@
 #include "pch.h"
 #include "app.h"
+#include "mediaClip.h"
 
-void Playback_SetAudioTracks(App* app, int count) {
-    log_trace("Playback_SetAudioTracks() with %d as count", count);
+// Updates lavfi-complex to mix together multiple audio streams 
+// and set the gain of audio streams
+void Playback_ApplyLavfiComplex(App* app) {
+    int audioTrackCount = app->loadedMediaSource ? app->loadedMediaSource->audioTracks : 0;
+    log_trace("Playback_SetAudioTracks() with %d as count", audioTrackCount);
     cc_unused(app);
     // https://mpv.io/manual/stable/#options-lavfi-complex
 
-    assert(app->loadedMediaSource != nullptr && "loadedMediaSource was null");
+    SB valueOptionStr;
+    SB_init(&valueOptionStr, 64);
 
-    const int BUF_SIZE = 20 + 6 * MAX_SUPPORTED_AUDIO_TRACKS;
-    char valueOptionStr[BUF_SIZE] = "";
-    int offset = 0;
+    for (int i=1; i < audioTrackCount+1; i++) { // assuming video has exactly one video track
+        if (!app->streamDisabled[i]) {
+            SB_appendf(&valueOptionStr, "[aid%d]volume=%.3fdB[a%d];", i, app->streamAudioGain[i], i);
+        } 
+    }
+
     int enabledTrackCount = 0;
 
-    for (int i=1; i < count+1; i++) { // assuming video has one video track
-        if (!app->audioStreamDisabled[i]) {
-	    offset += snprintf(valueOptionStr + offset, BUF_SIZE - offset,
-		   "[aid%d]", i);
-            // sprintf(valueOptionStr, "%s[aid%d]", valueOptionStr, i);
+    for (int i=1; i < audioTrackCount+1; i++) { // assuming video has exactly one video track
+        if (!app->streamDisabled[i]) {
+            SB_appendf(&valueOptionStr, "[a%d]", i);
             enabledTrackCount++;
         } 
     }
-    snprintf(valueOptionStr + offset, BUF_SIZE - offset,
-	 "amix=inputs=%d[ao]", enabledTrackCount);
-    // sprintf(valueOptionStr, "%samix=inputs=%d[ao]", valueOptionStr, enabledTrackCount);
-    // Examples of what valueOptionStr should look like:
-    // 3 audio tracks: [aid1][aid2][aid3]amix=inputs=3[ao]
-    // 4 audio tracks: [aid1][aid2][aid3][aid4]amix=inputs=4[ao]
-    // log_debug("%s", valueOptionStr);
+    SB_appendf(&valueOptionStr, "amix=inputs=%d[ao]", enabledTrackCount);
+    // Examples of what valueOptionStr can look like:
+    // two audio tracks and -2dB gain on first audio stream
+    // [aid1]volume=-2.000dB[a1];[aid2]volume=0.000dB[a2];[a1][a2]amix=inputs=2[ao]
 
     if (enabledTrackCount == 0) {
         const char* cmd[] = { "set", "options/lavfi-complex", "", NULL };
@@ -35,17 +38,9 @@ void Playback_SetAudioTracks(App* app, int count) {
         return;
     }
 
-    const char* cmd[] = { "set", "options/lavfi-complex", valueOptionStr, NULL };
+    const char* cmd[] = { "set", "options/lavfi-complex", valueOptionStr.buf, NULL };
     App_Queue_AddCommand(app, cmd);
-
-    // if (count == 2) {
-    //     const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2]amix[ao]", NULL };
-    //     App_Queue_AddCommand(app, cmd);
-    // } else if (count == 3) {
-    //     log_debug("three audiotracks\n");
-    //     const char* cmd[] = { "set", "options/lavfi-complex", "[aid1][aid2][aid3]amix=inputs=3[ao]", NULL };
-    //     App_Queue_AddCommand(app, cmd);
-    // }
+    SB_free(&valueOptionStr);
 }
 
 void Playback_SetPlaybackPos(App* app, float secs) {

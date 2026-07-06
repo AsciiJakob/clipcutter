@@ -12,8 +12,8 @@ Under development, not suitable for usage.
 * * exporting video only
 * * exporting audio only
 * * muting cerain audio tracks
-* FFMPEG Audio effects 
-* Clip audio waveform preview (under consideration)
+* FFMPEG Audio effects (applies to all audio tracks, im interested in trying out a node-based system for effects in the future)
+* Clip audio waveform preview (coming soon)
 * Fast workflow
 * * Drag video files to the Clipcutter window to open them
 * * Register clipcutter to the "Open with" context menu to quickly get the editor up and running

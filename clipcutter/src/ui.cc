@@ -399,17 +399,42 @@ void UI_DrawEditor(App* app) {
 			ImVec2 trackCursor = cursorTrackListBefore;
 			for (int i = 0; i < app->timeline.highestTrackCount+1; i++) {
 
-				ImGui::Text("Track %d", i+1);
+                if (app->streamDisabled[i]) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
+                    ImGui::Text("Track %d", i+1);
+                    ImGui::PopStyleColor();
+                } else {
+                    ImGui::Text("Track %d", i+1);
+                }
 				ImGui::SameLine(tracklistWidth - 40*app->scale);
 
                 if (i != 0) {
                     char muteButtonLabel[10];
                     snprintf(muteButtonLabel, sizeof(muteButtonLabel), "Mute##%d", (unsigned char) i);
+
                     if (ImGui::SmallButton(muteButtonLabel)) {
-                        app->audioStreamDisabled[i] = !app->audioStreamDisabled[i];
-                        Playback_SetAudioTracks(app, app->loadedMediaSource->audioTracks);
+                        app->streamDisabled[i] = !app->streamDisabled[i];
+                        Playback_ApplyLavfiComplex(app);
                     }
+
+                    ImGui::Text("Gain: %.1f", app->streamAudioGain[i]);
+
+                    ImGui::SameLine(tracklistWidth - 30*app->scale);
+
+                    char gainLabel[10];
+                    snprintf(gainLabel, sizeof(gainLabel), "Gain##%d", (unsigned char) i);
+                    if (ImGuiKnobs::Knob(gainLabel, &app->streamAudioGain[i], -2000.0f, 2000.0f, 0.4f, "%.1f", ImGuiKnobVariant_WiperOnly, 22, ImGuiKnobFlags_AlwaysClamp | ImGuiKnobFlags_NoTitle | ImGuiKnobFlags_NoInput)) {
+                    }
+                    if (ImGui::IsItemDeactivated())
+                        Playback_ApplyLavfiComplex(app);
+
+                    if (ImGui::IsItemActive() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                        app->streamAudioGain[i] = 0.0;
+                    }
+
                 }
+
+
 
 				trackCursor.y += app->timeline.clipHeight*app->scale;
 				ImGui::SetCursorScreenPos(trackCursor);

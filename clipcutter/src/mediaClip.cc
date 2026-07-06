@@ -273,7 +273,7 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
         if (i == 0) { // if video track
             track_color = ImGui::GetColorU32(ImVec4(0.96, 0.655, 0., 1));
         }
-        if (app->audioStreamDisabled[i]) { // if track disabled
+        if (app->streamDisabled[i]) { // if track disabled
             track_color = ImGui::GetColorU32(ImVec4(0.2, 0.2, 0.2, 1));
         }
         if (isGhostClip) {

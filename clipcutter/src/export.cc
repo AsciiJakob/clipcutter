@@ -92,7 +92,7 @@ char* setOutputParameters(MediaClip* firstClip, ExportState* exportState) {
                 inVideoStreamIdx = i;
             } else if (in_codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
                 log_debug("found audio");
-                if (shouldExportAudio && !(*exportState->audioStreamDisabled)[i]) {
+                if (shouldExportAudio && !(*exportState->streamDisabled)[i]) {
                     enabledAudioStreamIdx[enabledAudioStreamCount++] = i;
                 } else {
                     log_debug("ignoring the audio track as it is disabled.");
@@ -354,7 +354,7 @@ char* recieveAndProcessFramesVideo(
             continue;
         }
 
-        if ((*exportState->audioStreamDisabled)[in_index]) {
+        if ((*exportState->streamDisabled)[in_index]) {
             continue;
         }
 
@@ -427,6 +427,7 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
     AVFormatContext *ifmt_ctx = NULL;
     AVFilterContext* abufferCtxs[MAX_SUPPORTED_AUDIO_TRACKS] = { NULL};
     AVFilterContext* abuffersink_ctx;
+    AVFilterContext* volume_ctxs[MAX_SUPPORTED_AUDIO_TRACKS] = { NULL };
     AVCodecContext* videoDecCtx;
     AVCodecContext* audioDecCtx[MAX_SUPPORTED_AUDIO_TRACKS];
     AVCodecContext *audioEncCtx;
@@ -503,7 +504,7 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
                 inVideoStreamIdx = i;
             } else if (in_codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
                 log_debug("found audio at stream index %d", i);
-                if (shouldExportAudio && !(*exportState->audioStreamDisabled)[i]) {
+                if (shouldExportAudio && !(*exportState->streamDisabled)[i]) {
                     enabledAudioStreamIdx[enabledAudioStreamCount++] = i;
                 } else {
                     log_debug("ignoring the audio track as it is disabled.");
@@ -689,6 +690,42 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
             log_info("No audio tracks. only exporting video.");
         } else {
 
+
+            //───────────────── volume filter ──────────────────
+            
+            const AVFilter* volume = avfilter_get_by_name("volume");
+            if (!volume) {
+                err = alloc_error("Could not find the volume filter");
+                goto cleanup;
+            }
+
+            for (int i = 0; i < enabledAudioStreamCount; i++) {
+                char name[32];
+                snprintf(name, sizeof(name), "vol%d", i);
+
+                AVFilterContext* vol_ctx = avfilter_graph_alloc_filter(filter_graph, volume, name);
+                if (!vol_ctx) {
+                    err = alloc_error("Could not allocate the volume filter context for stream %d", i);
+                    goto cleanup;
+                }
+
+                char vol_opts[32];
+                // TODO: assumes exactly one video track
+                snprintf(vol_opts, sizeof(vol_opts), "volume=%.1fdB", (*exportState->streamAudioGain)[i+1]);
+                log_debug("%s", vol_opts);
+
+                ret = avfilter_init_str(vol_ctx, vol_opts);
+                if (ret < 0) {
+                    err = alloc_error("Could not initialize the volume filter for stream %d", i);
+                    goto cleanup;
+                }
+
+                volume_ctxs[i] = vol_ctx;
+            }
+
+
+            //────────────────────── amix ──────────────────────
+            //
             const AVFilter* amix = avfilter_get_by_name("amix");
             if (!amix) {
                 err = alloc_error("Could not find the amix filter");
@@ -710,6 +747,9 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
                 goto cleanup;
             }
 
+
+            //──────────────────── aformat ─────────────────────
+
             const AVFilter* aformat = avfilter_get_by_name("aformat");
             if (!aformat) {
                 err = alloc_error("Could not find the aformat filter");
@@ -722,7 +762,7 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
                 goto cleanup;
             }
 
-            char options_str[1024];
+            char options_str[256];
             snprintf(options_str, sizeof(options_str),
                     "sample_fmts=%s:sample_rates=%d:channel_layouts=stereo",
                     av_get_sample_fmt_name((AVSampleFormat)outAudioCodecPar->format), outAudioCodecPar->sample_rate);
@@ -732,18 +772,7 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
                 goto cleanup;
             }
             
-            // TODO: add custom effects here
-            // test with default settings (no compressor)
-            // const char* acompressor_desc = "attack=20.00000:release=250.00000:ratio=2.00000:threshold=0.12500:level_in=1.00000:makeup=1.00000";
-            //
-            // const AVFilter* acompressor = avfilter_get_by_name("acompressor");
-            // AVFilterContext* acompressor_ctx = NULL;
-            //
-            // ret = avfilter_graph_create_filter(&acompressor_ctx, acompressor, "acompressor", acompressor_desc, NULL, filter_graph);
-            // if (ret < 0) {
-            //     err = alloc_error("Failed adding user effect");
-            //     goto cleanup;
-            // }
+            //────────────────── user filters ──────────────────
 
             AVFilterContext** userEffect_ctxs = (AVFilterContext**) alloca(exportState->userAudioFilters.size * sizeof(AVFilterContext*));
             for (size_t i=0; i < exportState->userAudioFilters.size; i++) {
@@ -765,6 +794,8 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
                 SB_free(&filter_desc);
             }
 
+
+            //────────────────── abuffersink ───────────────────
 
             const AVFilter* abuffersink = avfilter_get_by_name("abuffersink");
             if (!abuffersink) {
@@ -794,16 +825,19 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
                 goto cleanup;
             }
 
-
             ret = avfilter_init_str(abuffersink_ctx, NULL);
             if (ret < 0) {
                 err = alloc_error("Could not initialize the abuffersink instance");
                 goto cleanup;
             }
 
+            //───────────── link filters together ──────────────
+
             for (int i=0; i < enabledAudioStreamCount; i++) {
                 if (ret >= 0)
-                    ret = avfilter_link(abufferCtxs[i], 0, amix_ctx, i);
+                    ret = avfilter_link(abufferCtxs[i], 0, volume_ctxs[i], 0);
+                if (ret >= 0)
+                    ret = avfilter_link(volume_ctxs[i], 0, amix_ctx, i);
             }
             if (ret >= 0)
                 ret = avfilter_link(amix_ctx, 0, aformat_ctx, 0);
@@ -963,7 +997,7 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
             int in_index = pkt->stream_index;
             AVStream *in_stream = ifmt_ctx->streams[in_index];
 
-            if ((*exportState->audioStreamDisabled)[in_index]) {
+            if ((*exportState->streamDisabled)[in_index]) {
                 av_packet_unref(pkt);
                 continue;
             }

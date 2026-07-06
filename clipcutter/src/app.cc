@@ -19,7 +19,7 @@ void App_Init(App* app) {
 	app->playbackActive = false;
     app->userScaleFactor = 1.0;
     app->scale = 10.0; // placeholder value, actual value gets set after imgui is initilalized
-	app->timeline.clipHeight = 30;
+	app->timeline.clipHeight = 39;
 	// app->timeline.zoomX = 1.5;
     app->timeline.zoomX = 1.5;
 	app->timeline.width = 2500;
@@ -40,7 +40,8 @@ void App_Init(App* app) {
     app->exportState.statusString = (char*) "Not started";
     Export_SetDefaultExportOptionsVideo(app);
 
-    app->exportState.audioStreamDisabled = &app->audioStreamDisabled;
+    app->exportState.streamDisabled = &app->streamDisabled;
+    app->exportState.streamAudioGain = &app->streamAudioGain;
 
     app->availableFilterNames = Effects_GetAllFilterNames(&app->availableFilterNamesCount);
 
@@ -183,6 +184,9 @@ void App_ProcessKeyboardShortcuts(App* app) {
     }
 
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_A, global)) {
+        // clear previous selections to avoid adding duplicates
+        DynArr_Init(&app->selectedClips, sizeof(MediaClip*));
+
         for (int i=0; i < MEDIACLIPS_SIZE; i++) {
             MediaClip* clip = app->mediaClips[i];
             if (clip == nullptr) break;
