@@ -631,27 +631,37 @@ void UI_DrawEditor(App* app) {
 
 	// 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
 	{
+        ImGui::Begin("Video Player");
+        {
+            ImVec2 contentRegion = ImGui::GetContentRegionAvail();
 
-		ImGui::Begin("Video Player");
-		{
-			ImVec2 contentRegion = ImGui::GetContentRegionAvail();
+            // Calculate aspect ratio preserving size
+            float aspect = (float)app->mpv_width / app->mpv_height;
+            ImVec2 displaySize = contentRegion;
+            if (contentRegion.x / contentRegion.y > aspect) {
+                displaySize.x = contentRegion.y * aspect;
+            } else {
+                displaySize.y = contentRegion.x / aspect;
+            }
 
-			// Calculate aspect ratio preserving size
-			float aspect = (float)app->mpv_width / app->mpv_height;
-			ImVec2 displaySize = contentRegion;
-			if (contentRegion.x / contentRegion.y > aspect) {
-				displaySize.x = contentRegion.y * aspect;
-			}
-			else {
-				displaySize.y = contentRegion.x / aspect;
-			}
+            // Center the image
+            ImVec2 cursorPos = ImGui::GetCursorPos();
+            ImGui::SetCursorPos(
+                cursorPos +
+                ImVec2((contentRegion.x - displaySize.x) * 0.5f,
+                       (contentRegion.y - displaySize.y) * 0.5f));
 
-			// Center the image
-			ImGui::SetCursorPos(ImGui::GetCursorPos() + ImVec2((contentRegion.x - displaySize.x) * 0.5f, (contentRegion.y - displaySize.y) * 0.5f));
+            ImGui::Image((ImTextureID)app->mpv_texture, displaySize);
 
-			ImGui::Image((ImTextureID)app->mpv_texture, displaySize);
-		}
-		ImGui::End();
-	}
+            ImGui::SetCursorPos(
+                cursorPos +
+                ImVec2((contentRegion.x - displaySize.x) * 0.5f,
+                       (contentRegion.y - displaySize.y) * 0.5f));
 
+            if (app->isLoadingVideo) {
+                ImGui::Text("Video source is loading...");
+            }
+        }
+        ImGui::End();
+    }
 }
