@@ -45,6 +45,7 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libavutil/timestamp.h>
 #include <libavutil/audio_fifo.h>
+#include <libswresample/swresample.h>
 
 #include "libavutil/samplefmt.h"
 #include "libavutil/channel_layout.h"
@@ -68,5 +69,8 @@ typedef signed long        s32;
 typedef signed long long   s64;
 
 typedef bool b8;
+
+static inline float minf(float a, float b) { return a < b ? a : b; }
+static inline float maxf(float a, float b) { return a > b ? a : b; }
 
 #endif // PCH_H

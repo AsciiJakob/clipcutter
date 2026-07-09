@@ -2,6 +2,7 @@
 #include "effects.h"
 #include "pch.h"
 #include "app.h"
+#include "errors.h"
 #include "mediaSource.h"
 #include "mediaClip.h"
 #include <SDL3/SDL_messagebox.h>
@@ -26,17 +27,6 @@ const char* const EXPORT_AS_OPTIONS_STRS[] = {
 };
 const int EXPORT_AS_OPTIONS_COUNT = 2;
 
-char* alloc_error(const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    char* errorBuffer = (char*) malloc(MAX_ERROR_LENGTH);
-    vsnprintf(errorBuffer, MAX_ERROR_LENGTH, fmt, args);
-    va_end(args);
-
-    log_error(errorBuffer);
-    return errorBuffer;
-}
-
 void Export_SetDefaultExportOptionsVideo(App* app) {
     app->exportState.exportOptions.includeAudio = true;
     app->exportState.exportOptions.mergeAudioTracks = true;
@@ -53,7 +43,7 @@ void Export_SetDefaultExportOptionsAudio(App* app) {
     app->exportState.exportOptions.encoderPresetComboIndex = 5; // medium
 }
 
-char* setOutputParameters(MediaClip* firstClip, ExportState* exportState) {
+static char* setOutputParameters(MediaClip* firstClip, ExportState* exportState) {
     AVFormatContext* ofmt_ctx = exportState->ofmt_ctx;
     AVFormatContext *ifmt_ctx = NULL;
     int enabledAudioStreamIdx[MAX_SUPPORTED_AUDIO_TRACKS];
@@ -155,13 +145,13 @@ cleanup:
     return err;
 }
 
-ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState);
+CC_FFmpegError* encodeClip(MediaClip* mediaClip, ExportState* exportState);
 
-ExportError* encodeAndConcatenateClips(MediaClip** mediaClips, ExportState* exportState, const char* out_filename) {
+static CC_FFmpegError* encodeAndConcatenateClips(MediaClip** mediaClips, ExportState* exportState, const char* out_filename) {
     AVFormatContext *ofmt_ctx = NULL;
     char* err = nullptr;
     int ret;
-    ExportError* exportErr = nullptr;
+    CC_FFmpegError* exportErr = nullptr;
     exportState->offsetPtsEncTBVideo = 0; 
     // exportState->offsetPtsEncTBAudio = 0; 
     exportState->lastPtsEncTBVideo = AV_NOPTS_VALUE;
@@ -219,12 +209,12 @@ cleanup:
         return exportErr;
     }
     if (err) {
-        exportErr = (ExportError*) malloc(sizeof(ExportError));
+        exportErr = (CC_FFmpegError*) malloc(sizeof(CC_FFmpegError));
 
         if (ret < 0 && ret != AVERROR_EOF) {
             char* errbuf = (char*) malloc(MAX_ERROR_LENGTH);
             av_strerror(ret, errbuf, MAX_ERROR_LENGTH);
-            exportErr->errorMsg = errbuf;
+            exportErr->FFmpegError = errbuf;
         }
         return exportErr;
     }
@@ -233,7 +223,7 @@ cleanup:
 };
 
 
-char* ProcessAudioFramesFromFifo(
+static char* ProcessAudioFramesFromFifo(
         ExportState* exportState,
         AVAudioFifo* audio_fifo,
         AVFormatContext* ofmt_ctx,
@@ -291,7 +281,7 @@ char* ProcessAudioFramesFromFifo(
 
 // process any frames that ffmpeg has finished decoding
 // returns nullptr on success, else err message pointer
-char* recieveAndProcessFramesVideo(
+static char* recieveAndProcessFramesVideo(
         ExportState* exportState,
         AVFormatContext *ifmt_ctx,
         AVFormatContext* ofmt_ctx,
@@ -419,7 +409,7 @@ char* recieveAndProcessFramesVideo(
 }
 
 // returns pointer to error message or nullptr if successful
-ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
+CC_FFmpegError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
     const char* in_filename = mediaClip->source->path;
     AVFormatContext* ofmt_ctx = exportState->ofmt_ctx;
     AVPacket* pkt = NULL;
@@ -776,7 +766,7 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
 
             AVFilterContext** userEffect_ctxs = (AVFilterContext**) alloca(exportState->userAudioFilters.size * sizeof(AVFilterContext*));
             for (size_t i=0; i < exportState->userAudioFilters.size; i++) {
-                AudioEffect* effect = (AudioEffect*) exportState->userAudioFilters.items[i];
+                AudioEffect* effect = *(AudioEffect**) DynArr_Get(&exportState->userAudioFilters, i);
 
                 const AVFilter* filter = avfilter_get_by_name(effect->filter_name);
                 AVFilterContext* filter_ctx = NULL;
@@ -1014,9 +1004,6 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
                 break;
             }
 
-            in_stream  = ifmt_ctx->streams[pkt->stream_index];
-
-            
             if (in_index == inVideoStreamIdx) {
 
                 int ret_send = avcodec_send_packet(videoDecCtx, pkt);
@@ -1070,7 +1057,7 @@ ExportError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
                 }
 
 
-                if (idx != -1) {
+                if (idx != -1) { // if audio stream is not muted/disabled
                     ret = avcodec_receive_frame(audioDecCtx[idx], frame);
                     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
                         if (ret == AVERROR(EAGAIN)) {
@@ -1316,13 +1303,14 @@ cleanup:
     // avformat_free_context(ofmt_ctx);
 
     if (err) {
-        ExportError* exportErr = (ExportError*) malloc(sizeof(ExportError));
+        CC_FFmpegError* exportErr = (CC_FFmpegError*) malloc(sizeof(CC_FFmpegError));
         exportErr->message = err;
+        exportErr->FFmpegError = nullptr;
 
         if (ret < 0 && ret != AVERROR_EOF) {
             char* errbuf = (char*) malloc(MAX_ERROR_LENGTH);
             av_strerror(ret, errbuf, MAX_ERROR_LENGTH);
-            exportErr->errorMsg = errbuf;
+            exportErr->FFmpegError = errbuf;
         }
         return exportErr;
     }
@@ -1347,18 +1335,18 @@ void exportVideo(App* app, bool combineAudioStreams) {
 
     if (combineAudioStreams) {
         /*char* errMsg = remux(firstClip, &app->exportFrame, app->exportPath);*/
-        ExportError* exportErr = encodeAndConcatenateClips(app->mediaClips, &app->exportState, app->exportPath);
+        CC_FFmpegError* exportErr = encodeAndConcatenateClips(app->mediaClips, &app->exportState, app->exportPath);
         if (exportErr != nullptr) {
             // TODO, allocate proper size, or display with ImGui and skip buff alloc
             char* errBuff = (char*) malloc(MAX_ERROR_LENGTH);
-            sprintf(errBuff, "Exporting failed.\n%s\nError: %s", exportErr->message, exportErr->errorMsg);
+            sprintf(errBuff, "Exporting failed.\n%s\nError: %s", exportErr->message, exportErr->FFmpegError);
 
             // log_info("Exporting failed.\n%s\nerror: %s", exportErr->message, exportErr->errorMsg);
             log_info("%s", errBuff);
             app->exportState.statusString = (char*) "Failed";
             SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Exporting Failed", errBuff, app->window);
             free(exportErr->message);
-            free(exportErr->errorMsg);
+            free(exportErr->FFmpegError);
             free(errBuff);
         } else {
             app->exportState.statusString = (char*) "Completed";

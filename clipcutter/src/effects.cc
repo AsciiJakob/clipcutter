@@ -70,7 +70,7 @@ AudioEffect* AudioEffect_Create(App* app, char* name) {
     }
 
 
-    DynArr_Append(&app->exportState.userAudioFilters, effect);
+    DynArr_Append(&app->exportState.userAudioFilters, &effect);
 
 
 
@@ -252,7 +252,7 @@ void Effects_ApplyAudioEffects(App* app) {
 
     SB_appendf(&lavfiStr, "lavfi=[");
     for (size_t i=0; i < app->exportState.userAudioFilters.size; i++) {
-        AudioEffect* effect = (AudioEffect*) app->exportState.userAudioFilters.items[i];
+        AudioEffect* effect = *(AudioEffect**) DynArr_Get(&app->exportState.userAudioFilters, i);
 
         if (i != 0)
             SB_appendf(&lavfiStr, ","); //"," for series, ";" for parallel.
@@ -373,7 +373,7 @@ bool Effects_RenderEffectOptions(App* app, AudioEffect* effect, int effectIndex)
     }
 
     if (ImGui::Button("Remove")) {
-        DynArr_RemoveElement(&app->exportState.userAudioFilters, (void*) effect);
+        DynArr_RemoveAt(&app->exportState.userAudioFilters, effectIndex);
         return true;
     }
 

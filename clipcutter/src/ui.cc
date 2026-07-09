@@ -325,7 +325,7 @@ void UI_DrawEditor(App* app) {
 		ImGui::SeparatorText("Audio effects:");
 
         for (size_t i=0; i < app->exportState.userAudioFilters.size ; i++) {
-            AudioEffect* effect = (AudioEffect*) app->exportState.userAudioFilters.items[i];
+            AudioEffect* effect = *(AudioEffect**) DynArr_Get(&app->exportState.userAudioFilters, i);
             bool showHeader = true;
             char label[64];
             snprintf(label, sizeof(label), "%s##%zu", effect->filter_name, i);

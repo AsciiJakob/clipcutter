@@ -233,6 +233,18 @@ bool shouldPlaybackUpdateAfterMove(App* app, MediaClip* mediaClip, float drawCli
 
 //void MediaClip_Draw(App* app, MediaClip* mediaClip) {
 
+static float PeakGetter_Max(void* data, int idx) {
+    DynArr* arr = (DynArr*)data;
+    PeakBlock* pb = (PeakBlock*)DynArr_Get(arr, (size_t)idx);
+    return pb->max;
+}
+
+static float PeakGetter_Min(void* data, int idx) {
+    DynArr* arr = (DynArr*)data;
+    PeakBlock* pb = (PeakBlock*)DynArr_Get(arr, (size_t)idx);
+    return pb->min;
+}
+
 // actually draw the track, both video and audio tracks
 ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, float drawClipLeftPadding, float drawClipWidth, bool isGhostClip) {
     ImU32 normal_border_color;
@@ -284,17 +296,41 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
 
         mediaClip->isHovered = mediaClip->isHovered || ImGui::IsItemHovered();
 
+        ImVec2 savedPos = ImGui::GetCursorScreenPos();
         if (i == 0) {
             ImU32 textColor = ImGui::GetColorU32(ImVec4(0., 0., 0., 1));
-            ImVec2 savedPos = ImGui::GetCursorScreenPos();
             ImGui::SetCursorScreenPos(tracNamePos);
             ImGui::PushStyleColor(ImGuiCol_Text, textColor);
             ImGui::Text("%s", mediaClip->source->filename);
             ImGui::PopStyleColor();
             ImGui::SetCursorScreenPos(savedPos);
         }
+        
+        //──────────── waveform peak visualizer ────────────
+        ImVec2 graphSize = track_size;
 
-        // ######### border seperating track from track below in clip
+        DynArr* peaks = &mediaClip->source->peakBlocks[i-1];
+        if (mediaClip->source->peaksGenerated && i != 0 && peaks->size > 0) {
+            ImGui::SetCursorScreenPos(tracNamePos);
+
+            ImVec2 cursor = ImGui::GetCursorScreenPos();
+
+            ImGui::PlotLines("##max", PeakGetter_Max, mediaClip->source->peakBlocks, (int)peaks->size,
+                              0, NULL, -1.0f, 1.0f, graphSize);
+
+            ImGui::SetCursorScreenPos(cursor);
+
+            ImGui::PlotLines("##min", PeakGetter_Min, peaks, (int)peaks->size,
+                              0, NULL, -1.0f, 1.0f, graphSize);
+
+            // ImGui::PopID();
+
+        }
+        ImGui::SetCursorScreenPos(savedPos);
+        //──────────── waveform peak visualizer END ────────────
+
+
+        //─ border seperating track from track below in clip ─
 
         float thickness = 1;
         if (i != 0) {
@@ -573,14 +609,14 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !mediaClip->isBeingMoved) {
             if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
 
-                MediaClip* firstClip = (MediaClip*) app->selectedClips.items[0];
+                MediaClip* firstClip = *(MediaClip**) DynArr_Get(&app->selectedClips, 0);
                 App_ClearClipSelections(app);
 
                 if (mediaClip->timelineEventsIndex < firstClip->timelineEventsIndex) {
                     for (int i=firstClip->timelineEventsIndex; i >= mediaClip->timelineEventsIndex; i--) {
                         TimelineEvent event = app->timelineEvents[i];
                         if (event.type == TIMELINE_EVENT_VIDEO) {
-                            DynArr_Append(&app->selectedClips, event.clip);
+                            DynArr_Append(&app->selectedClips, &event.clip);
                             event.clip->isSelected = true;
                         }
                     }
@@ -589,17 +625,17 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
                     for (int i=firstClip->timelineEventsIndex; i <= mediaClip->timelineEventsIndex; i++) {
                         TimelineEvent event = app->timelineEvents[i];
                         if (event.type == TIMELINE_EVENT_VIDEO) {
-                            DynArr_Append(&app->selectedClips, event.clip);
+                            DynArr_Append(&app->selectedClips, &event.clip);
                             event.clip->isSelected = true;
                         }
                     }
                 }
             } else if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
                 if (mediaClip->isSelected) {
-                    DynArr_RemoveElement(&app->selectedClips, mediaClip);
+                    DynArr_RemoveElement(&app->selectedClips, &mediaClip);
                     mediaClip->isSelected = false;
                 } else {
-                    DynArr_Append(&app->selectedClips, mediaClip);
+                    DynArr_Append(&app->selectedClips, &mediaClip);
                     mediaClip->isSelected = true;
                 }
             } else {
@@ -607,13 +643,13 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
                     // bool addBack = app->selectedClips.size > 1;
                     App_ClearClipSelections(app);
                     // if (addBack) {
-                        DynArr_Append(&app->selectedClips, mediaClip);
+                        DynArr_Append(&app->selectedClips, &mediaClip);
                         mediaClip->isSelected = true;
                     // }
                 } else {
                     App_ClearClipSelections(app);
 
-                    DynArr_Append(&app->selectedClips, mediaClip);
+                    DynArr_Append(&app->selectedClips, &mediaClip);
                     mediaClip->isSelected = true;
                 }
             }

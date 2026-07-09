@@ -44,6 +44,5 @@ bool MediaClip_IsUnderTimeMarker(App* app, MediaClip* clip);
 ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, float drawClipLeftPadding, float drawClipWidth, bool isGhostClip);
 void MediaClip_Draw(App* app, MediaClip* mediaClip, int index);
 bool MediaClip_IsBeingPlayed(App* app, MediaClip* mediaClip);
-void App_DeleteMediaClip(App* app, MediaClip* mediaClip);
 
 #endif

@@ -93,6 +93,7 @@ elseif(UNIX)
         avcodec
         avutil
         avfilter
+        swresample
         GL
         dl
         pthread
@@ -109,6 +110,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     avcodec
     avutil
     avfilter
+    swresample
 )
 if(WIN32)
 	target_link_libraries(${PROJECT_NAME} PRIVATE

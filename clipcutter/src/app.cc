@@ -25,7 +25,7 @@ void App_Init(App* app) {
 	app->timeline.width = 2500;
 	app->timeline.snappingPrecision = 5.0;
     app->timeline.highestTrackCount = MINIMUM_DRAW_TRACK_COUNT;
-    DynArr_Init(&app->selectedClips, sizeof(MediaClip*));
+    DynArr_Init(&app->selectedClips, sizeof(MediaClip*), 4);
 
     getcwd(app->exportPath, sizeof(app->exportPath));
     size_t len = strlen(app->exportPath);
@@ -45,7 +45,7 @@ void App_Init(App* app) {
 
     app->availableFilterNames = Effects_GetAllFilterNames(&app->availableFilterNamesCount);
 
-    DynArr_Init(&app->exportState.userAudioFilters, sizeof(AudioEffect));
+    DynArr_Init(&app->exportState.userAudioFilters, sizeof(AudioEffect), 0);
 
     app->temp_attack = 20;
     app->temp_release = 250;
@@ -61,12 +61,7 @@ void App_Free(App* app) {
 		MediaSource* mediaSource = app->mediaSources[i];
 		if (mediaSource == nullptr) break;
 
-		if (mediaSource->filename != nullptr) {
-			free(mediaSource->filename);
-		}
-		if (mediaSource->path != nullptr) {
-			free(mediaSource->path);
-		}
+        MediaSource_Free(mediaSource);
 
 		free(mediaSource);
 	}
@@ -100,7 +95,7 @@ MediaSource* App_CreateMediaSource(App* app, const char* path) {
 	}
 
 	MediaSource* mediaSource = (MediaSource*) malloc(sizeof(MediaSource));
-	MediaSource_Init(&mediaSource, path);
+	MediaSource_Init(app, &mediaSource, path);
     if (mediaSource == nullptr)
         return nullptr;
     app->mediaSources[avail_index] = mediaSource;
@@ -145,9 +140,10 @@ void App_ProcessKeyboardShortcuts(App* app) {
     if (ImGui::Shortcut(ImGuiKey_Delete, global)) {
         if (app->selectedClips.size != 0)  {
             for (size_t i=0; i < app->selectedClips.size; i++) {
-                App_DeleteMediaClip(app, (MediaClip*) app->selectedClips.items[i]);
+                MediaClip* selected = *(MediaClip**) DynArr_Get(&app->selectedClips, i);
+                App_DeleteMediaClip(app, selected);
             }
-            DynArr_Init(&app->selectedClips, sizeof(MediaClip*));
+            DynArr_Init(&app->selectedClips, sizeof(MediaClip*), 0);
 
         }
     }
@@ -185,17 +181,35 @@ void App_ProcessKeyboardShortcuts(App* app) {
 
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_A, global)) {
         // clear previous selections to avoid adding duplicates
-        DynArr_Init(&app->selectedClips, sizeof(MediaClip*));
+        DynArr_Init(&app->selectedClips, sizeof(MediaClip*), 2);
 
         for (int i=0; i < MEDIACLIPS_SIZE; i++) {
             MediaClip* clip = app->mediaClips[i];
             if (clip == nullptr) break;
             clip->isSelected = true;
-            DynArr_Append(&app->selectedClips, clip);
+            DynArr_Append(&app->selectedClips, &clip);
         }
     }
 }
 
+
+void App_DeleteMediaSource(App* app, MediaSource* mediaSource) {
+    int srcIndex = -1;
+    for (int i=0; i < MEDIASOURCES_SIZE; i++) {
+        if (srcIndex == -1 && app->mediaSources[i] == mediaSource) {
+            srcIndex = i;
+        } else if (srcIndex != -1 && i > srcIndex) {
+            // shuffle all elements after the srcIndex back by one index
+            // so that the mediaSource is removed from the array
+            app->mediaSources[i-1] = app->mediaSources[i];
+            if (app->mediaSources[i] == nullptr)
+                break;
+        }
+    }
+
+    app->loadedMediaSource = nullptr;
+    MediaSource_Free(mediaSource);
+}
 
 void App_DeleteMediaClip(App* app, MediaClip* mediaClip) {
     bool isBeingPlayed = MediaClip_IsBeingPlayed(app, mediaClip);
@@ -228,18 +242,8 @@ void App_DeleteMediaClip(App* app, MediaClip* mediaClip) {
     }
 
     if (!mediaSourceUsedInOtherClips) {
-        int srcIndex = -1;
-        for (int i=0; i < MEDIASOURCES_SIZE; i++) {
-            if (srcIndex == -1 && app->mediaSources[i] == clipSource) {
-                srcIndex = i;
-            } else if (srcIndex != -1 && i > srcIndex) {
-                // shuffle all elements after the srcIndex back by one index
-                // so that the mediaSource is removed from the array
-                app->mediaSources[i-1] = app->mediaSources[i];
-                if (app->mediaSources[i] == nullptr)
-                    break;
-            }
-        }
+        log_info("Deleting unused media source %s", clipSource->filename);
+        App_DeleteMediaSource(app, clipSource);
     }
 
     App_CalculateTimelineEvents(app);
@@ -565,12 +569,12 @@ void App_Queue_SendNext(App* app) {
 
 void App_ClearClipSelections(App* app) {
     for (size_t i=0; i < app->selectedClips.size; i++) {
-        MediaClip* clip = (MediaClip*) app->selectedClips.items[i];
+        MediaClip* clip = *(MediaClip**) DynArr_Get(&app->selectedClips, i);
         if (clip != nullptr)
             clip->isSelected = false;
     }
 
-    DynArr_Init(&app->selectedClips, sizeof(MediaClip*)); // clear selectedClips array
+    DynArr_Init(&app->selectedClips, sizeof(MediaClip*), 0); // clear selectedClips array
 }
 
 
