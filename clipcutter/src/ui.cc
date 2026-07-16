@@ -284,6 +284,7 @@ void UI_DrawEditor(App* app) {
     ImGui::End();
 
 	if (ImGui::Begin("DebugThingies")) {
+		ImGui::Text("frame time: %.3f ms", ImGui::GetIO().DeltaTime * 1000.0f);
 		ImGui::Text("playbacktime: %.2f", app->playbackTime);
 		ImGui::Text("playbackActive: %d", app->playbackActive);
 		ImGui::Text("scaling: %.2f", app->scale);

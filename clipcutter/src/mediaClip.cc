@@ -246,6 +246,8 @@ void drawWaveform(DynArr* peaks, ImVec2 graphSize, float visibleStartPXOffset, f
     float blocksPerPixel = (float) blockCount / (float) pixelWidth;
     ImU32 color = IM_COL32(80, 180, 255, 255);
 
+    // log_debug("visibleStart:%.2f, visibleEnd:%.2f", visibleStartPXOffset, visibleEndPXOffset);
+
     for (int px = visibleStartPXOffset; px < pixelWidth; px++) {
         if (px >= pixelWidth-visibleEndPXOffset)
             break;
@@ -366,6 +368,7 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
                 }
 
 
+                // drawWaveform(peaks, graphSize, visibleStartPXOffset, visibleEndPXOffset, mediaClip->startCutoff, mediaClip->endCutoff, mediaClip->source->sampleRates[i-1]);
                 drawWaveform(peaks, graphSize, visibleStartPXOffset, visibleEndPXOffset, mediaClip->startCutoff, mediaClip->endCutoff, mediaClip->source->sampleRates[i-1]);
             }
 
