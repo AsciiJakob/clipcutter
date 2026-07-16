@@ -623,13 +623,15 @@ void UI_DrawEditor(App* app) {
 	ImGui::PopStyleVar();
 	ImGui::End();
 
+    bool show_demo_window = ArgParse_IsFlagSet("imgui-demo-window");
+    // 1. Show the big demo window (Most of the sample code is in
+    // ImGui::ShowDemoWindow()! You can browse its code to learn more about
+    // Dear ImGui!).
+    if (show_demo_window) {
+        ImGui::ShowDemoWindow(&show_demo_window);
+    }
 
-	bool show_demo_window = true;
-	// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-	if (show_demo_window)
-		ImGui::ShowDemoWindow(&show_demo_window);
-
-	// 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+    // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
 	{
         ImGui::Begin("Video Player");
         {

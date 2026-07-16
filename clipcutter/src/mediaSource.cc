@@ -68,7 +68,7 @@ static bool resample_into_peaks(SwrContext* swrCtx, const uint8_t** inData, int 
 
 
 CC_FFmpegError* getPeakBlocks(MediaSource* mediaSource, AVFormatContext* ifmt_ctx) {
-    const int blockSize = 256;
+    const int blockSize = PEAK_BLOCK_SIZE;
     int ret = 0;
     char* err = nullptr;
 
@@ -131,6 +131,8 @@ CC_FFmpegError* getPeakBlocks(MediaSource* mediaSource, AVFormatContext* ifmt_ct
             err = alloc_error("Failed to open audio codec");
             goto cleanup;
         }
+
+        mediaSource->sampleRates[i] = audioDecCtx[i]->sample_rate;
 
         // we normalize the sources to mono float so we don't have
         // to write code to accomendate for different sample formats since that

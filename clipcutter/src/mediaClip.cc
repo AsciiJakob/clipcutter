@@ -231,18 +231,50 @@ bool shouldPlaybackUpdateAfterMove(App* app, MediaClip* mediaClip, float drawCli
     return false;
 }
 
-//void MediaClip_Draw(App* app, MediaClip* mediaClip) {
+// visibleStartPXOffset and visibleEndPXOffset represent the amount of pixels 
+// that are outside our visible range on either side.
+void drawWaveform(DynArr* peaks, ImVec2 graphSize, float visibleStartPXOffset, float visibleEndPXOffset, float startCutoff, float endCutoff, int sampleRate) {
+    ImVec2 origin = ImGui::GetCursorScreenPos();
 
-static float PeakGetter_Max(void* data, int idx) {
-    DynArr* arr = (DynArr*)data;
-    PeakBlock* pb = (PeakBlock*)DynArr_Get(arr, (size_t)idx);
-    return pb->max;
-}
+    float peaksPerSecond = (float) sampleRate / (float) PEAK_BLOCK_SIZE;
+    float blockCount = peaks->size - ((startCutoff + endCutoff) * peaksPerSecond);
 
-static float PeakGetter_Min(void* data, int idx) {
-    DynArr* arr = (DynArr*)data;
-    PeakBlock* pb = (PeakBlock*)DynArr_Get(arr, (size_t)idx);
-    return pb->min;
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    int pixelWidth = (int) graphSize.x;
+    float midY = origin.y + graphSize.y * 0.5f;
+    float halfHeight = graphSize.y * 0.5f;
+    float blocksPerPixel = (float) blockCount / (float) pixelWidth;
+    ImU32 color = IM_COL32(80, 180, 255, 255);
+
+    for (int px = visibleStartPXOffset; px < pixelWidth; px++) {
+        if (px >= pixelWidth-visibleEndPXOffset)
+            break;
+
+        int startIdx = (int) (px * blocksPerPixel) + (int) (startCutoff * peaksPerSecond);
+        int endIdx = (int) ((px + 1) * blocksPerPixel) + (int) (startCutoff * peaksPerSecond);
+        if (endIdx <= startIdx) endIdx = startIdx + 1; // fallback, always cover at least one block
+
+        float colMin = 0.0f;
+        float colMax = 0.0f;
+        bool any = false;
+        for (int idx = startIdx; idx < endIdx; idx++) {
+            if (idx < 0 || (size_t) idx >= peaks->size) continue;
+            PeakBlock* pb = (PeakBlock*) DynArr_Get(peaks, (size_t) idx);
+            if (!any) {
+                colMin = pb->min;
+                colMax = pb->max;
+                any = true;
+            } else {
+                colMin = minf(colMin, pb->min);
+                colMax = maxf(colMax, pb->max);
+            }
+        }
+        if (!any) continue;
+
+        float x = origin.x + (float) px;
+        drawList->AddLine(ImVec2(x, midY - colMax * halfHeight),
+                           ImVec2(x, midY - colMin * halfHeight), color);
+    }
 }
 
 // actually draw the track, both video and audio tracks
@@ -313,17 +345,60 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
         if (mediaClip->source->peaksGenerated && i != 0 && peaks->size > 0) {
             ImGui::SetCursorScreenPos(tracNamePos);
 
-            ImVec2 cursor = ImGui::GetCursorScreenPos();
+            // the visible timeline viewport
+            float viewportLeft = ImGui::GetWindowPos().x;
+            float viewportRight = viewportLeft + ImGui::GetWindowSize().x;
 
-            ImGui::PlotLines("##max", PeakGetter_Max, mediaClip->source->peakBlocks, (int)peaks->size,
-                              0, NULL, -1.0f, 1.0f, graphSize);
+            float clipStartScaled = drawClipLeftPadding*app->scaleX + app->timeline.cursTopLeft.x;
+            float clipEndScaled = clipStartScaled + drawClipWidth*app->scaleX;
 
-            ImGui::SetCursorScreenPos(cursor);
+            // disregard anything that is not at all visible
+            if (clipEndScaled > viewportLeft && clipStartScaled < viewportRight) {
+                float visibleStartPXOffset = 0.0f;
+                float visibleEndPXOffset = 0.0f;
 
-            ImGui::PlotLines("##min", PeakGetter_Min, peaks, (int)peaks->size,
-                              0, NULL, -1.0f, 1.0f, graphSize);
+                if (clipStartScaled < viewportLeft) {
+                    visibleStartPXOffset += viewportLeft-clipStartScaled;
+                }
 
+                if (clipEndScaled > viewportRight) {
+                    visibleEndPXOffset += clipEndScaled-viewportRight;
+                }
+
+
+                drawWaveform(peaks, graphSize, visibleStartPXOffset, visibleEndPXOffset, mediaClip->startCutoff, mediaClip->endCutoff, mediaClip->source->sampleRates[i-1]);
+            }
+
+
+
+
+
+
+
+
+
+            // ImGui::PushID(i);
+            //
+            // ImPlot::PushStyleVar(ImPlotStyleVar_PlotPadding, ImVec2(0, 0));
+            // ImPlot::PushStyleColor(ImPlotCol_PlotBg, ImVec4(0, 0, 0, 0));
+            // ImPlot::PushStyleColor(ImPlotCol_PlotBorder, ImVec4(0, 0, 0, 0));
+            //
+            // if (ImPlot::BeginPlot("##waveform", graphSize, ImPlotFlags_CanvasOnly | ImPlotFlags_NoInputs)) {
+            //     ImPlot::SetupAxes(NULL, NULL,
+            //                        ImPlotAxisFlags_NoDecorations,
+            //                        ImPlotAxisFlags_NoDecorations);
+            //     ImPlot::SetupAxesLimits(0, (double)peaks->size, -1.0, 1.0, ImPlotCond_Always);
+            //
+            //     ImPlot::PlotLineG("##max", PeakGetter_Max, peaks, (int)peaks->size);
+            //     ImPlot::PlotLineG("##min", PeakGetter_Min, peaks, (int)peaks->size);
+            //
+            //     ImPlot::EndPlot();
+            // }
+            //
+            // ImPlot::PopStyleColor(2);
+            // ImPlot::PopStyleVar();
             // ImGui::PopID();
+
 
         }
         ImGui::SetCursorScreenPos(savedPos);
@@ -607,9 +682,11 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 
         // handle selection
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !mediaClip->isBeingMoved) {
-            if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
+            MediaClip** pFirstClip = (MediaClip**) DynArr_Get(&app->selectedClips, 0);
 
-                MediaClip* firstClip = *(MediaClip**) DynArr_Get(&app->selectedClips, 0);
+            if (ImGui::IsKeyDown(ImGuiKey_LeftShift) && pFirstClip) {
+
+                MediaClip* firstClip = *pFirstClip;
                 App_ClearClipSelections(app);
 
                 if (mediaClip->timelineEventsIndex < firstClip->timelineEventsIndex) {

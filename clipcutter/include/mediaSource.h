@@ -3,6 +3,7 @@
 #include "pch.h"
 #include "app.h"
 
+#define PEAK_BLOCK_SIZE 256
 
 typedef struct App App;
 
@@ -14,9 +15,9 @@ struct PeakBlock {
 struct MediaSource {
     char* path;
     char* filename;
-    // for videos
     float length;
     int audioTracks;
+    int sampleRates[MAX_SUPPORTED_AUDIO_TRACKS]; // index by audio stream id (not stream id)
     DynArr* peakBlocks;
     bool peaksGenerated;
 };

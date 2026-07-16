@@ -63,7 +63,7 @@ target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
     deps/sdl3/include
     deps/imgui
     deps/imgui/backends
-    deps/imgui-knobs/
+    deps/imgui-knobs
     deps/libmpv/include
 	deps/ffmpeg/include
 )

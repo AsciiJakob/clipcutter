@@ -73,4 +73,7 @@ typedef bool b8;
 static inline float minf(float a, float b) { return a < b ? a : b; }
 static inline float maxf(float a, float b) { return a > b ? a : b; }
 
+static inline float min(int a, int b) { return a < b ? a : b; }
+static inline float max(int a, int b) { return a > b ? a : b; }
+
 #endif // PCH_H

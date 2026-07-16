@@ -38,10 +38,10 @@ int main(int argc, char* argv[]) {
         err = ArgParse_RegisterFlag("debug", 'd', "Enable debug logging");
     if (!err)
         err = ArgParse_RegisterFlag("test", 't', NULL);
+#ifdef CC_BUILD_DEBUG
     if (!err)
-        err = ArgParse_RegisterFlag("export-path", NULL, "where to export to");
-    if (!err)
-        err = ArgParse_RegisterFlagParameter("export-path", "path", ARG_TYPE_STRING);
+        err = ArgParse_RegisterFlag("imgui-demo-window", 'i', "Show imgui demo window");
+#endif
     if (!err)
         err = ArgParse_Parse(argc, argv);
     
@@ -74,11 +74,6 @@ int main(int argc, char* argv[]) {
 #endif
         log_debug("Debug console allocated")
     }
-
-    log_debug("--debug-console: %d", ArgParse_IsFlagSet("debug-console"));
-    log_debug("--test: %d", ArgParse_IsFlagSet("test"));
-    log_debug("--export-path: %s", ArgParse_GetValueStr("export-path"));
-
 
 
     log_info("Clipcutter v0.0.1 ");
