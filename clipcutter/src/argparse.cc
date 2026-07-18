@@ -97,7 +97,7 @@ Flag* findFlagByName(const char* flagName) {
 // description: description to be shown in help message. Can be NULL.
 ArgParseError ArgParse_RegisterFlag(const char* name, const char abbreviation, const char* description) {
     if (findFlagByName(name)) return error(ARGPARSE_ERROR_DUPLICATE, "A flag with the name '%s'is already in use.", name);
-    if (abbreviation && findFlagByAbbreviation(abbreviation)) return error(ARGPARSE_ERROR_DUPLICATE, "Abbreviation '%s' is already in use.", abbreviation);
+    if (abbreviation && findFlagByAbbreviation(abbreviation)) return error(ARGPARSE_ERROR_DUPLICATE, "Abbreviation '%c' is already in use.", abbreviation);
 
     // if (strlen(abbreviation) > 1) return error(ARGPARSE_ERROR_ABBREVIATION_LENGTH, "Abbreviation '%s' is longer than one character.");
 
