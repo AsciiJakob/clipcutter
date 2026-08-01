@@ -31,6 +31,7 @@
 #include "SDL3/SDL_opengl.h"
 #include "SDL3/SDL_dialog.h"
 #include <SDL3/SDL_messagebox.h>
+#include <SDL3/SDL_video.h>
 
 #include <mpv/client.h>
 #include <mpv/render_gl.h>

@@ -16,6 +16,7 @@ struct MediaSource {
     char* path;
     char* filename;
     float length;
+    double fps;
     int audioTracks;
     int sampleRates[MAX_SUPPORTED_AUDIO_TRACKS]; // index by audio stream id (not stream id)
     DynArr* peakBlocks;

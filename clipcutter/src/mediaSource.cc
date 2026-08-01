@@ -341,6 +341,15 @@ void MediaSource_Init(App* app, MediaSource** mediaSourceP, const char* path) {
 
     mediaSource->length = (float) ifmt_ctx->duration / AV_TIME_BASE;
 
+    for (unsigned int i=0; i < ifmt_ctx->nb_streams; i++) {
+        AVCodecParameters *in_codecpar = ifmt_ctx->streams[i]->codecpar;
+
+        if (in_codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+            AVRational fps = av_guess_frame_rate(ifmt_ctx, ifmt_ctx->streams[i], NULL);
+            mediaSource->fps = av_q2d(fps);
+            break;
+        }
+    }
 
     mediaSource->peaksGenerated = false;
     log_info("Starting peak block generation.")

@@ -57,13 +57,14 @@ struct AppRender {
 };
 
 struct Timeline {
-	float zoomX;
+    float zoomX;
     int highestTrackCount;
-	bool snappingEnabled;
-	float snappingPrecision;
-	float clipHeight;
+    bool snappingEnabled;
+    double snappingPrecision;
+    float gridSteps;
+    float clipHeight;
     float width;
-	ImVec2 cursTopLeft;
+    ImVec2 cursTopLeft;
 };
 
 struct MpvCommand {
@@ -100,6 +101,7 @@ struct App {
 	DynArr selectedClips;
 	MediaSource* loadedMediaSource;
 	bool isLoadingVideo;
+    double projectFps; // set based on source of first clip loaded
 
     float userScaleFactor;
     float scale;

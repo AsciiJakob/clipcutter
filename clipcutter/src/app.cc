@@ -6,6 +6,7 @@
 #include "export.h"
 #include "dynArr.h"
 #include "effects.h"
+#include "ui.h"
 
 
 void App_Init(App* app) {
@@ -17,13 +18,16 @@ void App_Init(App* app) {
 
 	app->playbackBlocked = false;
 	app->playbackActive = false;
+    app->projectFps = 30; // set based on first clip loaded later
     app->userScaleFactor = 1.0;
-    app->scale = 10.0; // placeholder value, actual value gets set after imgui is initilalized
+    app->scale = 1.0; // placeholder value, actual value gets set after imgui is initilalized
 	app->timeline.clipHeight = 39;
 	// app->timeline.zoomX = 1.5;
     app->timeline.zoomX = 1.5;
 	app->timeline.width = 2500;
-	app->timeline.snappingPrecision = 5.0;
+    app->scaleX = app->scale*app->timeline.zoomX;
+	app->timeline.snappingPrecision = 10; // placeholder value, actual value gets set after imgui is initilalized
+    log_debug("it is: %.2f", app->timeline.snappingPrecision);
     app->timeline.highestTrackCount = MINIMUM_DRAW_TRACK_COUNT;
     DynArr_Init(&app->selectedClips, sizeof(MediaClip*), 4);
 
@@ -98,6 +102,16 @@ MediaSource* App_CreateMediaSource(App* app, const char* path) {
 	MediaSource_Init(app, &mediaSource, path);
     if (mediaSource == nullptr)
         return nullptr;
+
+    int loadedSources = 0;
+    for (int i=0; i < MEDIASOURCES_SIZE; i++) {
+        if (app->mediaSources[i] != nullptr) loadedSources++;
+    }
+
+    if (loadedSources == 0) {
+        app->projectFps = mediaSource->fps;
+    }
+
     app->mediaSources[avail_index] = mediaSource;
 	return mediaSource;
 }

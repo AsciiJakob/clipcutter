@@ -6,6 +6,7 @@
 #include "settings.h"
 #include "playback.h"
 #include "effects.h"
+#include "ui.h"
 
 int exportPathInputCallback(ImGuiInputTextCallbackData data) {
     /*if (data.EventFlag == ImGuiInputTextFlags_CallbackCompletion) {*/
@@ -15,11 +16,110 @@ int exportPathInputCallback(ImGuiInputTextCallbackData data) {
     return 0;
 }
 
+double UI_GetNiceNumber(double rawStep) {
+    double exp = floor(log10(rawStep));
+    double f = rawStep / pow(10, exp);
+
+    double niceF;
+    if (f < 1.5) niceF = 1;
+    else if (f < 3.0) niceF = 2;
+    else if (f < 7.0) niceF = 5;
+    else niceF = 10;
+
+    return niceF * pow(10, exp);
+}
+
+
+
+void formatTimecode(App* app, double t, bool showFrame, char* buf, size_t bufSize) {
+    if (showFrame) {
+        int fps = (int)round(app->projectFps);
+        int totalFrames = (int)round(t * app->projectFps);
+        int frames  = totalFrames % fps;
+        int totalSecs = totalFrames / fps;
+        int seconds = totalSecs % 60;
+        int minutes = (totalSecs / 60) % 60;
+        int hours   = totalSecs / 3600;
+        if (hours > 0) {
+            snprintf(buf, bufSize, "%02d:%02d:%02d:%02d", hours, minutes, seconds, frames);
+        } else {
+            snprintf(buf, bufSize, "%02d:%02d:%02d", minutes, seconds, frames);
+        }
+    } else {
+        int totalSecs = (int)t;
+        int seconds = totalSecs % 60;
+        int minutes = (totalSecs / 60) % 60;
+        int hours   = totalSecs / 3600;
+        if (hours > 0) {
+            snprintf(buf, bufSize, "%02d:%02d:%02d", hours, minutes, seconds);
+        }
+        else {
+            snprintf(buf, bufSize, "%02d:%02d", minutes, seconds);
+        }
+    }
+}
+
+
+
+double screenXToTime(App* app, float screenX) {
+    // return (double)(screenX - cursorTimelineBefore.x) / app->scaleX;
+    return (double)(screenX - app->timeline.cursTopLeft.x) / app->scaleX;
+}
+float timelineTimeToScreenX(App* app, double t) {
+    return app->timeline.cursTopLeft.x + (float)(t * app->scaleX);
+}
+
+
+void DrawTimelineGrid(App* app, float viewportTop) {
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+
+    float viewportLeft = ImGui::GetWindowPos().x;
+    float viewportRight = viewportLeft + ImGui::GetWindowSize().x;
+    double visibleStartS = screenXToTime(app, viewportLeft);
+    double visibleEndS = screenXToTime(app, viewportRight);
+
+    double step = app->timeline.snappingPrecision;
+
+    ImU32 majorColor = IM_COL32(200, 200, 200, 255);
+    ImU32 minorColor = IM_COL32(90, 90, 90, 255);
+    ImU32 textColor  = IM_COL32(180, 180, 180, 255);
+
+    int startIndex = floor(visibleStartS / step);
+    int endIndex = ceil(visibleEndS / step);
+
+    // TODO: do this backwards so that no lines are drawn over text
+    for (int index = startIndex; index <= endIndex; index++) {
+        double t = (double)index * step;
+        float x = timelineTimeToScreenX(app, t);
+
+        int majorEvery = 20;
+        bool isMajor = (index % majorEvery) == 0;
+
+        float majorLineLength = (TIMELINE_GRID_TICKS_HEIGHT*app->scale);
+        float lineBottom = isMajor ? viewportTop+majorLineLength : viewportTop+majorLineLength/2.0;
+        draw->AddLine(ImVec2(x, viewportTop), ImVec2(x, lineBottom),
+                       isMajor ? majorColor : minorColor);
+
+        if (isMajor) {
+            double frameTime = 1.0 / app->projectFps;
+            bool frameLocked = false;
+            if (step < frameTime) {
+                step = frameTime;
+                frameLocked = true;
+            }
+
+            char buf[32];
+            formatTimecode(app, t, frameLocked, buf, sizeof(buf));
+            draw->AddText(ImVec2(x + 2, viewportTop), textColor, buf);
+        }
+    }
+}
 
 
 void UI_DrawEditor(App* app) {
     app->scale = ImGui::GetFontSize()/13.0*app->userScaleFactor; // divide by 13 so we can use higher, readable values rather than decimal numbers like 0.052
     app->scaleX = app->scale*app->timeline.zoomX;
+    app->timeline.snappingPrecision = UI_GetNiceNumber(TIMELINE_GRID_PRECISION / app->scaleX); // rename to snappingSteps?
 
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::Button("Load File")) {
@@ -207,10 +307,13 @@ void UI_DrawEditor(App* app) {
             if (ImGui::Button("Render")) {
                 std::thread thread_obj(exportVideo, app, true);
                 thread_obj.detach();
+                // SDL_SetWindowProgressState(app->window, SDL_PROGRESS_STATE_NORMAL);
             };
 
             ImGui::Text("Status: %s", app->exportState.statusString);
             ImGui::ProgressBar(app->exportState.exportProgress);
+            // TODO: experiment with this, but have to update SDL first.
+            // SDL_SetWindowProgressValue(app->window, app->exportState.exportProgress);
 
             if (ImGui::Button("Close")) {
                 ImGui::CloseCurrentPopup();
@@ -375,17 +478,20 @@ void UI_DrawEditor(App* app) {
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,  ImVec2(0, 0));
 
 	if (ImGui::Begin("Timeline")) {
-		ImVec2 cursorTrackListBefore;
+		ImVec2 cursorTracksBefore;
 		ImVec2 cursorTracklistAfter;
-		{ // Tracklist
+        //─────────────────── Tracklist ────────────────────
+
+		{
 			ImGui::BeginGroup();
+
 			ImU32 tracklistColor = ImGui::GetColorU32(ImVec4(0.15, 0.15, 0.15, 1));
             double tracklistWidth = 104*app->scale;
             // double tracklistWidth = 95.0;
 			// ImVec2 tracklistSize = ImVec2(tracklistWidth, fmax(ImGui::GetContentRegionAvail().y, (float)((app->timeline.highestTrackCount) * app->timeline.clipHeight)));
 			ImVec2 tracklistSize = ImVec2(tracklistWidth, fmax(ImGui::GetContentRegionAvail().y, (float)((app->timeline.highestTrackCount) * app->timeline.clipHeight)));
 
-			cursorTrackListBefore = ImGui::GetCursorScreenPos();
+			ImVec2 cursorTrackListBefore = ImGui::GetCursorScreenPos();
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 			ImGui::Dummy(tracklistSize);
 			ImGui::PopStyleVar();
@@ -397,7 +503,33 @@ void UI_DrawEditor(App* app) {
 			timelineDrawlist->AddRectFilled(r_min, r_max, tracklistColor);
 			ImGui::SetCursorScreenPos(cursorTrackListBefore);
 
-			ImVec2 trackCursor = cursorTrackListBefore;
+            //─── aligned with grid ticks ontop of timeline ────
+
+            ImVec2 cursorBeforeTickAligned = ImGui::GetCursorScreenPos();
+			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+            ImGui::Dummy(ImVec2(0, TIMELINE_GRID_TICKS_HEIGHT));
+			ImGui::PopStyleVar();
+            ImVec2 cursorAfterTickAligned = ImGui::GetCursorScreenPos();
+
+            ImGui::SetCursorScreenPos(cursorBeforeTickAligned);
+
+            char timeStr[64];
+            formatTimecode(app, app->playbackTime, true, timeStr, sizeof(timeStr));
+            // ImGui::Text("Time: %.3f", app->playbackTime);
+            ImGui::Text("Time: %s", timeStr);
+
+            ImGui::SetCursorScreenPos(cursorAfterTickAligned);
+
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+            ImGui::Separator();
+            ImGui::PopStyleVar();
+
+            ImGui::SetCursorScreenPos(cursorAfterTickAligned);
+
+            //────────────── aligned with tracks ───────────────
+
+			cursorTracksBefore = cursorAfterTickAligned;
+            ImVec2 trackCursor = cursorTracksBefore;
 			for (int i = 0; i < app->timeline.highestTrackCount+1; i++) {
 
                 if (app->streamDisabled[i]) {
@@ -446,7 +578,7 @@ void UI_DrawEditor(App* app) {
 			}
 			ImGui::Dummy(ImVec2(0, 0)); // workaround.If there is no element(such as text or button or this) after the last track's ImGUI Separator then the SameL
 
-			ImGui::SetCursorScreenPos(cursorTrackListBefore);
+			ImGui::SetCursorScreenPos(cursorTracksBefore);
 
 			//ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 			ImGui::EndGroup(); 
@@ -455,7 +587,13 @@ void UI_DrawEditor(App* app) {
 
 		bool hoveringOverTrack = false;
 
-		{ // Timeline
+        //──────────────────── timeline ────────────────────
+
+		{
+			//───────────────────── setup ──────────────────────
+
+
+
 			ImGui::SetCursorScreenPos(cursorTracklistAfter);
 			ImGui::BeginGroup();
 			ImU32 timeline_color = ImGui::GetColorU32(ImVec4(0.25f, 0.25f, 0.25f, 1.0f));
@@ -470,7 +608,26 @@ void UI_DrawEditor(App* app) {
 			bool timelineHovered = ImGui::IsWindowHovered();
 
 			ImGui::SetNextItemAllowOverlap();
-			ImVec2 cursorTimelineBefore = ImGui::GetCursorScreenPos();
+
+			ImVec2 cursorGridTicks = ImGui::GetCursorScreenPos();
+            ImGui::SetCursorScreenPos(cursorGridTicks);
+			ImU32 thingColor = ImGui::GetColorU32(ImVec4(0.15, 0.15, 0.15, 1));
+
+            ImVec2 rectBottomRight = cursorGridTicks;
+            rectBottomRight.y += TIMELINE_GRID_TICKS_HEIGHT*app->scale;
+            rectBottomRight.x += ImGui::GetWindowWidth();
+
+            ImGui::GetWindowDrawList()->AddRectFilled(cursorGridTicks, rectBottomRight, thingColor, 0.0f);
+
+            //─────────────── background visuals ───────────────
+            // draw background grid ticks
+            // float viewportTop = cursorTimelineBefore.y;
+            // float viewportBottom = viewportTop + ImGui::GetWindowHeight();
+            // DrawTimelineGrid(app, cursorTimelineBefore, viewportTop, viewportBottom);
+
+
+			ImVec2 cursorTimelineBefore = cursorGridTicks; // shallow copy???
+			cursorTimelineBefore.y += TIMELINE_GRID_TICKS_HEIGHT*app->scale;
 			app->timeline.cursTopLeft = cursorTimelineBefore; // todo: refac to use this
 
 			// ImVec2 timeline_size = ImVec2(5000, ImGui::GetContentRegionAvail().y);
@@ -483,6 +640,8 @@ void UI_DrawEditor(App* app) {
 			ImGui::GetWindowDrawList()->AddRectFilled(r_min, r_max, timeline_color);
 
 			bool timelineClicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+
+            DrawTimelineGrid(app, cursorGridTicks.y);
 
             // draw track seperators
 			ImVec2 separatorPos = cursorTimelineBefore;

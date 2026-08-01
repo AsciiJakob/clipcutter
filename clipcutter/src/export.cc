@@ -1349,8 +1349,43 @@ void exportVideo(App* app, bool combineAudioStreams) {
             free(exportErr->FFmpegError);
             free(errBuff);
         } else {
+            log_debug("in else");
             app->exportState.statusString = (char*) "Completed";
+
             SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Export", "Sucessfully exported video", app->window);
+
+#ifdef CC_PLATFORM_WINDOWS
+            SB arg;
+            SB_init(&arg, 128);
+            SB_appendf(&arg, "/select,\"%s\"", app->exportPath);
+
+            log_debug("%s", arg.buf);
+            HINSTANCE result = ShellExecuteA(nullptr, "open", "explorer.exe", arg.buf, nullptr, SW_SHOWNORMAL);
+            if ((INT_PTR)result <= 32) {
+                printf("ShellExecute failed: %Id\n", (INT_PTR)result);
+            }
+            SB_free(&arg);
+#endif
+
+            // TODO: show ImGui errors, but figure out how to do it since this is on a different thread.
+            // if (ImGui::BeginPopupModal("Export", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) {
+            //     ImGui::Text("Succesfully exported video");
+            //     ImGui::Separator();
+            //
+            //     if (ImGui::Button("Reveal in file manager", ImVec2(120, 0))) {
+            //         SB arg;
+            //         SB_appendf(&arg, "/select,\"%s\"", app->exportPath);
+            //
+            //         ShellExecuteA(nullptr, "open", "explorer.exe",
+            //                       arg.buf, nullptr, SW_SHOWNORMAL);
+            //         SB_free(&arg);
+            //     }
+            //     ImGui::SameLine();
+            //     if (ImGui::Button("OK", ImVec2(120, 0))) {
+            //         ImGui::CloseCurrentPopup();
+            //     }
+            //     ImGui::EndPopup();
+            // }
         }
     } else {
         /*int err = remux_keepMultipleAudioTracks(firstClip, "D:/notCDrive/Videos/cc_debug/ffmpeg/cc_output.mp4");*/
