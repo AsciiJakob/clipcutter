@@ -91,6 +91,7 @@ struct App {
 	mpv_render_context* mpv_gl;
 	GLuint mpv_texture;
 	Events events;
+    bool debugMode; // debug mode
 
 	int mpv_width; 
 	int mpv_height;

@@ -386,42 +386,44 @@ void UI_DrawEditor(App* app) {
     }
     ImGui::End();
 
-	if (ImGui::Begin("DebugThingies")) {
-		ImGui::Text("frame time: %.3f ms", ImGui::GetIO().DeltaTime * 1000.0f);
-		ImGui::Text("playbacktime: %.2f", app->playbackTime);
-		ImGui::Text("playbackActive: %d", app->playbackActive);
-		ImGui::Text("scaling: %.2f", app->scale);
-		ImGui::Text("scaling X: %.2f", app->scaleX);
-		ImGui::Text("timeline width: %.2f", app->timeline.width);
-		// ImGui::Text("timelineEvent: %d", app->timelineEvents[app->timelineEventIndex].type);
-		ImGui::Text("timelineEvent: %s", TimelineEventType_ToString(app->timelineEvents[app->timelineEventIndex].type));
-		if (app->loadedMediaSource != nullptr) {
-			ImGui::Text("currentLoaded: %s", app->loadedMediaSource->filename); }
+    if (app->debugMode) {
+        if (ImGui::Begin("DebugThingies")) {
+            ImGui::Text("frame time: %.3f ms", ImGui::GetIO().DeltaTime * 1000.0f);
+            ImGui::Text("playbacktime: %.2f", app->playbackTime);
+            ImGui::Text("playbackActive: %d", app->playbackActive);
+            ImGui::Text("scaling: %.2f", app->scale);
+            ImGui::Text("scaling X: %.2f", app->scaleX);
+            ImGui::Text("timeline width: %.2f", app->timeline.width);
+            // ImGui::Text("timelineEvent: %d", app->timelineEvents[app->timelineEventIndex].type);
+            ImGui::Text("timelineEvent: %s", TimelineEventType_ToString(app->timelineEvents[app->timelineEventIndex].type));
+            if (app->loadedMediaSource != nullptr) {
+                ImGui::Text("currentLoaded: %s", app->loadedMediaSource->filename); }
 
-		ImGui::Text("isLoadingVideo: %d", app->isLoadingVideo);
+            ImGui::Text("isLoadingVideo: %d", app->isLoadingVideo);
 
 
-        ImGui::InputDouble("Force seek", &app->playbackTime, -1, -1, "%.2f", 0);
-        if (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter, false)) {
-            log_info("user is force seeking");
-            Playback_SetPlaybackPos(app, app->playbackTime);
+            ImGui::InputDouble("Force seek", &app->playbackTime, -1, -1, "%.2f", 0);
+            if (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter, false)) {
+                log_info("user is force seeking");
+                Playback_SetPlaybackPos(app, app->playbackTime);
+            }
+
+
+            ImGui::Text("------clip 1:");
+            MediaClip* testClip = app->mediaClips[0];
+            if (testClip != nullptr) {
+                ImGui::Text("length: %.2f", testClip->source->length);
+                ImGui::Text("width: %.2f", testClip->width);
+                ImGui::Text("padding: %.2f", testClip->padding);
+                ImGui::Text("cutoffstart: %.2f", testClip->startCutoff);
+                ImGui::Text("cutoffend: %.2f", testClip->endCutoff);
+
+                ImGui::Checkbox("track1beingMoved", &testClip->isBeingMoved);
+            }
+
         }
-
-
-		ImGui::Text("------clip 1:");
-		MediaClip* testClip = app->mediaClips[0];
-		if (testClip != nullptr) {
-			ImGui::Text("length: %.2f", testClip->source->length);
-			ImGui::Text("width: %.2f", testClip->width);
-			ImGui::Text("padding: %.2f", testClip->padding);
-			ImGui::Text("cutoffstart: %.2f", testClip->startCutoff);
-			ImGui::Text("cutoffend: %.2f", testClip->endCutoff);
-
-			ImGui::Checkbox("track1beingMoved", &testClip->isBeingMoved);
-		}
-
-	}
-	ImGui::End();
+        ImGui::End();
+    }
 
 	if (ImGui::Begin("Effects")) {
         ImGui::TextWrapped("Tip: when sliders are used, ctr-click to enter precise values, double click to reset to default.\nFor detailed effect descriptions, see:");

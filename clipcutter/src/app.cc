@@ -15,6 +15,7 @@ void App_Init(App* app) {
 	app->mpv_height = 720;
 	app->mpv = nullptr;
 	app->mpv_gl = nullptr;
+    app->debugMode = ArgParse_IsFlagSet("debug");
 
 	app->playbackBlocked = false;
 	app->playbackActive = false;
