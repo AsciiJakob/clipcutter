@@ -37,6 +37,8 @@ int main(int argc, char* argv[]) {
     if (!err)
         err = ArgParse_RegisterFlag("debug", 'd', "Enable debug logging");
     if (!err)
+        err = ArgParse_RegisterFlag("theme-editor", NULL, "Show theme editor");
+    if (!err)
         err = ArgParse_RegisterFlag("test", 't', NULL);
 #ifdef CC_BUILD_DEBUG
     if (!err)
@@ -104,6 +106,7 @@ int main(int argc, char* argv[]) {
     }
 
     App_MovePlaybackMarker(app, 0);
+    UI_ApplyThemeDefault(app);
 
     // we have to reset the lavfi option every time we load a new video.
     // Otherwise it might try to load too many audio tracks, causing the video to not load

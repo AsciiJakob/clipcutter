@@ -88,6 +88,21 @@ constexpr const char* SUPPORTED_FILE_FORMATS[] = {
 };
 constexpr size_t NUM_SUPPORTED_FORMATS = sizeof(SUPPORTED_FILE_FORMATS) / sizeof(SUPPORTED_FILE_FORMATS[0]);
 
+struct UiColors {
+    ImVec4 timelineBackground;
+    ImVec4 timelineTracklist;
+    ImVec4 timelineTicksMajor;
+    ImVec4 timelineTicksMinor;
+    ImVec4 timelineTicksText;
+    ImVec4 timelineTimeMarker;
+
+    ImVec4 trackAudio;
+    ImVec4 trackVideo;
+    ImVec4 trackMuted;
+    ImVec4 trackGhost;
+    ImVec4 trackWaveform;
+};
+
 struct App {
 	SDL_Window* window;
     SDL_GLContext gl_context;
@@ -95,7 +110,7 @@ struct App {
 	mpv_render_context* mpv_gl;
 	GLuint mpv_texture;
 	Events events;
-    bool debugMode; // debug mode
+    bool debugMode;
 
 	int mpv_width; 
 	int mpv_height;
@@ -112,6 +127,7 @@ struct App {
     float scale;
     float scaleX;
 	Timeline timeline;
+    UiColors colors;
 
 	int timelineEventIndex;
 	TimelineEvent timelineEvents[TIMELINE_EVENTS_SIZE];

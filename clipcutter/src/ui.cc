@@ -80,10 +80,6 @@ void DrawTimelineGrid(App* app, float viewportTop) {
 
     double step = app->timeline.snappingPrecision;
 
-    ImU32 majorColor = IM_COL32(200, 200, 200, 255);
-    ImU32 minorColor = IM_COL32(90, 90, 90, 255);
-    ImU32 textColor  = IM_COL32(180, 180, 180, 255);
-
     int startIndex = floor(visibleStartS / step);
     int endIndex = ceil(visibleEndS / step);
 
@@ -97,8 +93,8 @@ void DrawTimelineGrid(App* app, float viewportTop) {
 
         float majorLineLength = (TIMELINE_GRID_TICKS_HEIGHT*app->scale);
         float lineBottom = isMajor ? viewportTop+majorLineLength : viewportTop+majorLineLength/2.0;
-        draw->AddLine(ImVec2(x, viewportTop), ImVec2(x, lineBottom),
-                       isMajor ? majorColor : minorColor);
+        ImColor tickColor = isMajor ? app->colors.timelineTicksMajor : app->colors.timelineTicksMinor;
+        draw->AddLine(ImVec2(x, viewportTop), ImVec2(x, lineBottom), tickColor);
 
         if (isMajor) {
             double frameTime = 1.0 / app->projectFps;
@@ -110,9 +106,37 @@ void DrawTimelineGrid(App* app, float viewportTop) {
 
             char buf[32];
             formatTimecode(app, t, frameLocked, buf, sizeof(buf));
-            draw->AddText(ImVec2(x + 2, viewportTop), textColor, buf);
+            draw->AddText(ImVec2(x + 2, viewportTop), ImColor(app->colors.timelineTicksText), buf);
         }
     }
+}
+
+
+void UI_ApplyThemeDefault(App* app) {
+    //─────────────────── Dear ImGui ───────────────────
+
+    ImGui::StyleColorsDark(); // Apply ImGui defaults
+    ImGuiStyle& style = ImGui::GetStyle();
+
+    style.Colors[ImGuiCol_WindowBg] = ImColor(17,17,17,255);
+
+
+    //─────────────────── Clipcutter ───────────────────
+
+    
+    app->colors.timelineBackground = ImColor(45,45,45,255);
+    app->colors.timelineTracklist = ImColor(31,31,31,255);
+    app->colors.timelineTicksMajor = ImColor(200, 200, 200, 255);
+    app->colors.timelineTicksMinor = ImColor(90, 90, 90, 255);
+    app->colors.timelineTicksText = ImColor(255, 255, 255, 255);
+    app->colors.timelineTimeMarker = ImColor(0.7f, 0.7f, 0.7f, 1.0f);
+
+    app->colors.trackAudio = ImColor(0,90,153,253);
+    app->colors.trackVideo = ImColor(255,217,136,255);
+    app->colors.trackMuted = ImColor(79,0,0,255);
+    app->colors.trackGhost = ImColor(0.5f, 0.5f, 0.5f, 1.0f);
+    app->colors.trackWaveform = ImColor(65,148,206,255);
+
 }
 
 
@@ -177,6 +201,33 @@ void UI_DrawEditor(App* app) {
 
         if (ImGui::IsKeyPressed(ImGuiKey_F9)) {
             ImGui::OpenPopup("Export options");
+        }
+
+        // TODO: don't call method every time
+        if (ArgParse_IsFlagSet("theme-editor")) {
+            if (ImGui::Begin("Theme editor")) {
+                ImGui::SeparatorText("Imgui-builtins");
+                ImGui::ShowStyleEditor();
+
+                ImGui::SeparatorText("Clipcutter specific");
+
+                static ImGuiColorEditFlags flags = ImGuiColorEditFlags_NoInputs;
+
+                ImGui::ColorEdit4("timelineBackground", (float*)&app->colors.timelineBackground, flags);
+                ImGui::ColorEdit4("timelineTracklist", (float*)&app->colors.timelineTracklist, flags);
+                ImGui::ColorEdit4("timelineTicksMajor", (float*)&app->colors.timelineTicksMajor, flags);
+                ImGui::ColorEdit4("timelineTicksMinor", (float*)&app->colors.timelineTicksMinor, flags);
+                ImGui::ColorEdit4("timelineTicksText", (float*)&app->colors.timelineTicksText, flags);
+                ImGui::ColorEdit4("timelineTimeMarker", (float*)&app->colors.timelineTimeMarker, flags);
+
+                ImGui::ColorEdit4("trackAudio", (float*)&app->colors.trackAudio, flags);
+                ImGui::ColorEdit4("trackVideo", (float*)&app->colors.trackVideo, flags);
+                ImGui::ColorEdit4("trackMuted", (float*)&app->colors.trackMuted, flags);
+                ImGui::ColorEdit4("trackGhost", (float*)&app->colors.trackGhost, flags);
+                ImGui::ColorEdit4("trackWaveform", (float*)&app->colors.trackWaveform, flags);
+
+            }
+            ImGui::End();
         }
 
         if (ImGui::BeginPopupModal("Export options")) {
@@ -489,7 +540,7 @@ void UI_DrawEditor(App* app) {
 		{
 			ImGui::BeginGroup();
 
-			ImU32 tracklistColor = ImGui::GetColorU32(ImVec4(0.15, 0.15, 0.15, 1));
+			ImVec4 tracklistColor = app->colors.timelineTracklist;
             double tracklistWidth = 104*app->scale;
             // double tracklistWidth = 95.0;
 			// ImVec2 tracklistSize = ImVec2(tracklistWidth, fmax(ImGui::GetContentRegionAvail().y, (float)((app->timeline.highestTrackCount) * app->timeline.clipHeight)));
@@ -504,7 +555,7 @@ void UI_DrawEditor(App* app) {
 			cursorTracklistAfter = ImGui::GetCursorScreenPos();
 
 			ImDrawList* timelineDrawlist = ImGui::GetWindowDrawList();
-			timelineDrawlist->AddRectFilled(r_min, r_max, tracklistColor);
+			timelineDrawlist->AddRectFilled(r_min, r_max, ImColor(tracklistColor));
 			ImGui::SetCursorScreenPos(cursorTrackListBefore);
 
             //─── aligned with grid ticks ontop of timeline ────
@@ -600,7 +651,7 @@ void UI_DrawEditor(App* app) {
 
 			ImGui::SetCursorScreenPos(cursorTracklistAfter);
 			ImGui::BeginGroup();
-			ImU32 timeline_color = ImGui::GetColorU32(ImVec4(0.25f, 0.25f, 0.25f, 1.0f));
+			ImColor timeline_color = app->colors.timelineBackground;
 			app->timeline.snappingEnabled = !ImGui::IsKeyDown(ImGuiKey_LeftShift);
 
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
@@ -695,7 +746,7 @@ void UI_DrawEditor(App* app) {
 				cursor_offset.x = cursor_offset.x + timeMarkerPos;
 				ImGui::SetCursorScreenPos(cursor_offset);
 
-				ImU32 timeline_color = ImGui::GetColorU32(ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+				ImColor timeMarkerColor = app->colors.timelineTimeMarker;
 				ImVec2 timeline_size(2*app->scale, ImGui::GetContentRegionAvail().y);
 				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 				ImGui::Dummy(timeline_size);
@@ -704,7 +755,7 @@ void UI_DrawEditor(App* app) {
 				ImVec2 r_min = ImGui::GetItemRectMin();
 				ImVec2 r_max = ImGui::GetItemRectMax();
 
-				ImGui::GetWindowDrawList()->AddRectFilled(r_min, r_max, timeline_color);
+				ImGui::GetWindowDrawList()->AddRectFilled(r_min, r_max, timeMarkerColor );
 			}
 
             { // panning around with middle mouse button

@@ -124,8 +124,8 @@ bool initWindow(App* app) {
         io.ConfigDpiScaleFonts = true;          // [Experimental] Automatically overwrite style.FontScaleDpi in Begin() when Monitor DPI changes. This will scale fonts but _NOT_ scale sizes/padding for now.
         io.ConfigDpiScaleViewports = true;      // [Experimental] Scale Dear ImGui and Platform Windows when Monitor DPI changes.
 
-        // Setup Dear ImGui style
-        ImGui::StyleColorsDark();
+
+        io.Fonts->AddFontDefaultVector();
 
         ImGui_ImplSDL3_InitForOpenGL(window, *gl_context);
         ImGui_ImplOpenGL3_Init(glsl_version);

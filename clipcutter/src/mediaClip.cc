@@ -231,7 +231,7 @@ bool shouldPlaybackUpdateAfterMove(App* app, MediaClip* mediaClip, float drawCli
 
 // visibleStartPXOffset and visibleEndPXOffset represent the amount of pixels 
 // that are outside our visible range on either side.
-void drawWaveform(DynArr* peaks, ImVec2 graphSize, float visibleStartPXOffset, float visibleEndPXOffset, float startCutoff, float endCutoff, int sampleRate) {
+void drawWaveform(DynArr* peaks, ImVec2 graphSize, ImColor graphColor, float visibleStartPXOffset, float visibleEndPXOffset, float startCutoff, float endCutoff, int sampleRate) {
     ImVec2 origin = ImGui::GetCursorScreenPos();
 
     float peaksPerSecond = (float) sampleRate / (float) PEAK_BLOCK_SIZE;
@@ -242,7 +242,6 @@ void drawWaveform(DynArr* peaks, ImVec2 graphSize, float visibleStartPXOffset, f
     float midY = origin.y + graphSize.y * 0.5f;
     float halfHeight = graphSize.y * 0.5f;
     float blocksPerPixel = (float) blockCount / (float) pixelWidth;
-    ImU32 color = IM_COL32(80, 180, 255, 255);
 
     // log_debug("visibleStart:%.2f, visibleEnd:%.2f", visibleStartPXOffset, visibleEndPXOffset);
 
@@ -273,7 +272,7 @@ void drawWaveform(DynArr* peaks, ImVec2 graphSize, float visibleStartPXOffset, f
 
         float x = origin.x + (float) px;
         drawList->AddLine(ImVec2(x, midY - colMax * halfHeight),
-                           ImVec2(x, midY - colMin * halfHeight), color);
+                           ImVec2(x, midY - colMin * halfHeight), graphColor);
     }
 }
 
@@ -313,15 +312,15 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
         ImVec2 r_min = ImGui::GetItemRectMin();
         ImVec2 r_max = ImGui::GetItemRectMax();
 
-        ImU32 track_color = ImGui::GetColorU32(ImVec4(0., 0.5, 0.95, 1));
+        ImColor track_color = app->colors.trackAudio;
         if (i == 0) { // if video track
-            track_color = ImGui::GetColorU32(ImVec4(0.96, 0.655, 0., 1));
+            track_color = app->colors.trackVideo;
         }
         if (app->streamDisabled[i]) { // if track disabled
-            track_color = ImGui::GetColorU32(ImVec4(0.2, 0.2, 0.2, 1));
+            track_color = app->colors.trackMuted;
         }
         if (isGhostClip) {
-            track_color = ImGui::GetColorU32(ImVec4(0.5, 0.5, 0.5, 1));
+            track_color = app->colors.trackGhost;
         }
 
         ImGui::GetWindowDrawList()->AddRectFilled(r_min, r_max, track_color, 0.0f);
@@ -367,7 +366,9 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
 
 
                 // drawWaveform(peaks, graphSize, visibleStartPXOffset, visibleEndPXOffset, mediaClip->startCutoff, mediaClip->endCutoff, mediaClip->source->sampleRates[i-1]);
-                drawWaveform(peaks, graphSize, visibleStartPXOffset, visibleEndPXOffset, mediaClip->startCutoff, mediaClip->endCutoff, mediaClip->source->sampleRates[i-1]);
+                ImVec4 waveformColor = app->colors.trackWaveform;
+                waveformColor.w = app->streamDisabled[i] ? 0.2f : 1.0f;
+                drawWaveform(peaks, graphSize, waveformColor, visibleStartPXOffset, visibleEndPXOffset, mediaClip->startCutoff, mediaClip->endCutoff, mediaClip->source->sampleRates[i-1]);
             }
 
 
