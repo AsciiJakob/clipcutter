@@ -7,27 +7,28 @@
 void Playback_ApplyLavfiComplex(App* app) {
     int audioTrackCount = app->loadedMediaSource ? app->loadedMediaSource->audioTracks : 0;
     log_trace("Playback_SetAudioTracks() with %d as count", audioTrackCount);
-    cc_unused(app);
     // https://mpv.io/manual/stable/#options-lavfi-complex
 
     SB valueOptionStr;
     SB_init(&valueOptionStr, 64);
 
     for (int i=1; i < audioTrackCount+1; i++) { // assuming video has exactly one video track
-        if (!app->streamDisabled[i]) {
+        if (app->streamDisabled[i]) {
+            SB_appendf(&valueOptionStr, "[aid%d]volume=0[a%d];", i, i);
+        } else {
             SB_appendf(&valueOptionStr, "[aid%d]volume=%.3fdB[a%d];", i, app->streamAudioGain[i], i);
-        } 
+        }
     }
 
     int enabledTrackCount = 0;
 
     for (int i=1; i < audioTrackCount+1; i++) { // assuming video has exactly one video track
+        SB_appendf(&valueOptionStr, "[a%d]", i);
         if (!app->streamDisabled[i]) {
-            SB_appendf(&valueOptionStr, "[a%d]", i);
             enabledTrackCount++;
         } 
     }
-    SB_appendf(&valueOptionStr, "amix=inputs=%d[ao]", enabledTrackCount);
+    SB_appendf(&valueOptionStr, "amix=inputs=%d[ao]", audioTrackCount);
     // Examples of what valueOptionStr can look like:
     // two audio tracks and -2dB gain on first audio stream
     // [aid1]volume=-2.000dB[a1];[aid2]volume=0.000dB[a2];[a1][a2]amix=inputs=2[ao]

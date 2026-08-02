@@ -123,7 +123,6 @@ void UI_ApplyThemeDefault(App* app) {
 
     //─────────────────── Clipcutter ───────────────────
 
-    
     app->colors.timelineBackground = ImColor(45,45,45,255);
     app->colors.timelineTracklist = ImColor(31,31,31,255);
     app->colors.timelineTicksMajor = ImColor(200, 200, 200, 255);
