@@ -120,6 +120,8 @@ void UI_DrawEditor(App* app) {
     app->scale = ImGui::GetFontSize()/13.0*app->userScaleFactor; // divide by 13 so we can use higher, readable values rather than decimal numbers like 0.052
     app->scaleX = app->scale*app->timeline.zoomX;
     app->timeline.snappingPrecision = UI_GetNiceNumber(TIMELINE_GRID_PRECISION / app->scaleX); // rename to snappingSteps?
+                                                                                               app->timeline.snapThresholdClip = app->timeline.snappingPrecision;
+                                                                                               app->timeline.snapThresholdMarker = app->timeline.snappingPrecision;
 
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::Button("Load File")) {

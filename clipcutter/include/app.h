@@ -59,8 +59,12 @@ struct AppRender {
 struct Timeline {
     float zoomX;
     int highestTrackCount;
+
     bool snappingEnabled;
     double snappingPrecision;
+    float snapThresholdClip;
+    float snapThresholdMarker;
+
     float gridSteps;
     float clipHeight;
     float width;

@@ -3,8 +3,6 @@
 #include "app.h"
 #include <imgui.h>
 
-#define SNAPTHRESHOLD_MARKER 5
-#define SNAPTHRESHOLD_CLIP 1
 
 // use App_CreateMediaClip instead of calling this directly
 void MediaClip_Init(MediaClip* mediaClip, MediaSource* mediaSource) {
@@ -457,18 +455,31 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
                 TimelineEvent* leftClipEvent = nullptr;
                 TimelineEvent* rightClipEvent = nullptr;
 
+
                 float pointLeft = drawClipLeftPadding+diff;
                 float pointRight = drawClipLeftPadding+diff+drawClipWidth;
                 findNeighbourClipsOfPoints(app, pointLeft, pointRight, mediaClip->timelineEventsIndex, &leftClipEvent, &rightClipEvent, &leftClipDist, &rightClipDist);
 
+
+
                 if (leftClipEvent != nullptr) {
-                    if (leftClipDist < SNAPTHRESHOLD_CLIP) {
+                    // log_debug("---clip left:")
+                    // log_debug("dist;%.2f", leftClipDist);
+                    // log_debug("snapping precision;%.2f", app->timeline.snappingPrecision);
+                    // log_debug("snapping if below;%.2f", app->timeline.snapThresholdClip);
+                    // log_debug("---")
+                    if (leftClipDist < app->timeline.snapThresholdClip) {
                         drawClipLeftPadding = leftClipEvent->start+leftClipEvent->clip->width;
                         snapToGrid = false;
                     }
                 }
                 if (rightClipEvent != nullptr) {
-                    if (rightClipDist < SNAPTHRESHOLD_CLIP && (!leftClipEvent || (rightClipDist < leftClipDist))) {
+                    // log_debug("---clip right:")
+                    // log_debug("dist;%.2f", rightClipDist);
+                    // log_debug("snapping precision;%.2f", app->timeline.snappingPrecision);
+                    // log_debug("snapping if below;%.2f", app->timeline.snapThresholdClip);
+                    // log_debug("---")
+                    if (rightClipDist < app->timeline.snapThresholdClip && (!leftClipEvent || (rightClipDist < leftClipDist))) {
                         drawClipLeftPadding = rightClipEvent->start-mediaClip->width;
                         snapToGrid = false;
                     }
@@ -482,11 +493,17 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
             {
                 markerDistLeft = fabs(app->playbackTime-(mediaClip->padding+diff));
                 markerDistRight = fabs(app->playbackTime-(mediaClip->padding+diff+mediaClip->width));
-                if (markerDistLeft < SNAPTHRESHOLD_MARKER) {
+                // log_debug("---marker:")
+                // log_debug("dist;%.2f", markerDistLeft);
+                // log_debug("snapping precision;%.2f", app->timeline.snappingPrecision);
+                // log_debug("snapping if below;%.2f", app->timeline.snapThresholdMarker);
+                // log_debug("---")
+
+                if (markerDistLeft < app->timeline.snapThresholdMarker) {
                     drawClipLeftPadding = app->playbackTime;
                     snapToGrid = false;
                 }
-                if (markerDistRight < SNAPTHRESHOLD_MARKER) {
+                if (markerDistRight < app->timeline.snapThresholdMarker) {
                     drawClipLeftPadding = app->playbackTime-mediaClip->width;
                     snapToGrid = false;
                 }
@@ -540,13 +557,13 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
             findNeighbourClipsOfPoints(app, pointLeft, pointRight, mediaClip->timelineEventsIndex, &leftClipEvent, &rightClipEvent, &leftClipDist, &rightClipDist);
             
             if (leftClipEvent != nullptr) {
-                if (leftClipDist < SNAPTHRESHOLD_CLIP) {
+                if (leftClipDist < app->timeline.snapThresholdMarker) {
                     cutoffOffset -= drawClipLeftPadding+cutoffOffset-(leftClipEvent->start+leftClipEvent->clip->width);
                     snapToGrid = false;
                 }
             }
             if (rightClipEvent != nullptr) {
-                if (rightClipDist < SNAPTHRESHOLD_CLIP && (!leftClipEvent || (rightClipDist < leftClipDist))) {
+                if (rightClipDist < app->timeline.snapThresholdClip && (!leftClipEvent || (rightClipDist < leftClipDist))) {
                     cutoffOffset -= drawClipLeftPadding+cutoffOffset-rightClipEvent->start;
                     snapToGrid = false;
                 }
@@ -554,7 +571,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 
             float markerDist = fabs(app->playbackTime-(drawClipLeftPadding+cutoffOffset));
 
-            if (markerDist < SNAPTHRESHOLD_MARKER) {
+            if (markerDist < app->timeline.snapThresholdMarker) {
                 cutoffOffset -= drawClipLeftPadding+cutoffOffset-app->playbackTime;
                 snapToGrid = false;
             }
@@ -624,13 +641,13 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
             }
             
             if (leftClipEvent != nullptr) {
-                if (leftClipDist < SNAPTHRESHOLD_CLIP) {
+                if (leftClipDist < app->timeline.snapThresholdClip) {
                     cutoffOffset -= drawClipLeftPadding+drawClipWidth-cutoffOffset-(leftClipEvent->start+leftClipEvent->clip->width);
                     snapToGrid = false;
                 }
             }
             if (rightClipEvent != nullptr) {
-                if (rightClipDist < SNAPTHRESHOLD_CLIP && (!leftClipEvent || (rightClipDist < leftClipDist))) {
+                if (rightClipDist < app->timeline.snapThresholdClip && (!leftClipEvent || (rightClipDist < leftClipDist))) {
                     cutoffOffset += drawClipLeftPadding+drawClipWidth-cutoffOffset-rightClipEvent->start;
                     snapToGrid = false;
                 }
@@ -638,7 +655,7 @@ void MediaClip_Draw(App* app, MediaClip* mediaClip, int clipIndex) {
 
             float markerDist = fabs(app->playbackTime-(drawClipLeftPadding+drawClipWidth-cutoffOffset));
 
-            if (markerDist < SNAPTHRESHOLD_MARKER) {
+            if (markerDist < app->timeline.snapThresholdMarker) {
                 cutoffOffset += drawClipLeftPadding+drawClipWidth-cutoffOffset-app->playbackTime;
                 snapToGrid = false;
             }
