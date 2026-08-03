@@ -231,7 +231,7 @@ bool shouldPlaybackUpdateAfterMove(App* app, MediaClip* mediaClip, float drawCli
 
 // visibleStartPXOffset and visibleEndPXOffset represent the amount of pixels 
 // that are outside our visible range on either side.
-void drawWaveform(DynArr* peaks, ImVec2 graphSize, ImColor graphColor, float visibleStartPXOffset, float visibleEndPXOffset, float startCutoff, float endCutoff, int sampleRate) {
+void drawWaveform(DynArr* peaks, ImVec2 graphSize, ImVec4 clippedColor, ImVec4 normalColor, float visibleStartPXOffset, float visibleEndPXOffset, float startCutoff, float endCutoff, int sampleRate) {
     ImVec2 origin = ImGui::GetCursorScreenPos();
 
     float peaksPerSecond = (float) sampleRate / (float) PEAK_BLOCK_SIZE;
@@ -270,9 +270,31 @@ void drawWaveform(DynArr* peaks, ImVec2 graphSize, ImColor graphColor, float vis
         }
         if (!any) continue;
 
+        bool clipped = false;
+        if (colMax > 1.0f || colMin < -1.0f) {
+            clipped = true;
+        }
+
+        float drawColMin = maxf(colMin, -1.0f);
+        float drawColMax = minf(colMax, 1.0f);
+
         float x = origin.x + (float) px;
-        drawList->AddLine(ImVec2(x, midY - colMax * halfHeight),
-                           ImVec2(x, midY - colMin * halfHeight), graphColor);
+        drawList->AddLine(ImVec2(x, midY - drawColMax * halfHeight), ImVec2(x, midY - drawColMin * halfHeight), ImColor(normalColor));
+
+
+        if (clipped) {
+            ImU32 color = ImColor(clippedColor);
+
+            const float pxheight = 3.0f;
+
+            if (colMax > 1.0f) {
+                drawList->AddLine(ImVec2(x, origin.y), ImVec2(x, origin.y + pxheight), color);
+            }
+            if (colMin < -1.0f) {
+                drawList->AddLine(ImVec2(x, origin.y + graphSize.y - pxheight),
+                                   ImVec2(x, origin.y + graphSize.y), color);
+            }
+        }
     }
 }
 
@@ -367,8 +389,9 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
 
                 // drawWaveform(peaks, graphSize, visibleStartPXOffset, visibleEndPXOffset, mediaClip->startCutoff, mediaClip->endCutoff, mediaClip->source->sampleRates[i-1]);
                 ImVec4 waveformColor = app->colors.trackWaveform;
+                ImVec4 clippedColor = app->colors.trackWaveformClipped;
                 waveformColor.w = app->streamDisabled[i] ? 0.2f : 1.0f;
-                drawWaveform(peaks, graphSize, waveformColor, visibleStartPXOffset, visibleEndPXOffset, mediaClip->startCutoff, mediaClip->endCutoff, mediaClip->source->sampleRates[i-1]);
+                drawWaveform(peaks, graphSize, clippedColor, waveformColor, visibleStartPXOffset, visibleEndPXOffset, mediaClip->startCutoff, mediaClip->endCutoff, mediaClip->source->sampleRates[i-1]);
             }
 
 
