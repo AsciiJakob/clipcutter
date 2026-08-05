@@ -8,6 +8,7 @@
 #include "effects.h"
 #include "ui.h"
 
+
 int exportPathInputCallback(ImGuiInputTextCallbackData data) {
     /*if (data.EventFlag == ImGuiInputTextFlags_CallbackCompletion) {*/
     /**/
@@ -15,6 +16,8 @@ int exportPathInputCallback(ImGuiInputTextCallbackData data) {
     log_debug("Buffer: %s", data.Buf);
     return 0;
 }
+
+//────────────── grid/ticks functions ──────────────
 
 double UI_GetNiceNumber(double rawStep) {
     double exp = floor(log10(rawStep));
@@ -111,33 +114,102 @@ void DrawTimelineGrid(App* app, float viewportTop) {
     }
 }
 
+//───────────── Theme export functions ─────────────
+
+typedef struct {
+    const char* name;
+    size_t      offset;   // offsetof(AppColors, field)
+} ColorFieldDesc;
+ 
+#define COLOR_FIELD(fieldname) { #fieldname, offsetof(UiColors, fieldname) }
+ 
+static const ColorFieldDesc g_clipcutterColorFields[] = {
+    COLOR_FIELD(timelineBackground),
+    COLOR_FIELD(timelineTracklist),
+    COLOR_FIELD(timelineTicksMajor),
+    COLOR_FIELD(timelineTicksMinor),
+    COLOR_FIELD(timelineTicksText),
+    COLOR_FIELD(timelineTimeMarker),
+    COLOR_FIELD(timelineTrackSeparator),
+
+    COLOR_FIELD(trackAudio),
+    COLOR_FIELD(trackVideo),
+    COLOR_FIELD(trackMuted),
+    COLOR_FIELD(trackGhost),
+    COLOR_FIELD(trackWaveform),
+    COLOR_FIELD(trackWaveformClippedWarning),
+    COLOR_FIELD(trackWaveformClippedSerious),
+};
+#define CLIPCUTTER_COLOR_FIELD_COUNT \
+    (sizeof(g_clipcutterColorFields) / sizeof(g_clipcutterColorFields[0]))
+ 
+static ImVec4* getColorField(App* app, const ColorFieldDesc* desc) {
+    return (ImVec4*)((char*)&app->colors + desc->offset);
+}
+
+
+static void appendColorLine(SB* out, const char* variableNameStr, ImVec4 c) {
+    SB_appendf(out, "    %s = ImColor(%.3ff, %.3ff, %.3ff, %.3ff);\n", variableNameStr, c.x, c.y, c.z, c.w);
+}
+
+static void exportTheme(App* app, SB* out) {
+    SB_appendf(out, "    //--------------------- Dear ImGui ---------------------\n");
+ 
+    ImGuiStyle* liveStyle = &ImGui::GetStyle();
+    ImGuiStyle reference;
+    ImGui::StyleColorsDark(&reference);
+ 
+    for (int i = 0; i < ImGuiCol_COUNT; i++) {
+        ImVec4 c = liveStyle->Colors[i];
+        ImVec4 r = reference.Colors[i];
+        if (c.x != r.x || c.y != r.y || c.z != r.z || c.w != r.w) {
+            char variableNameStr[64];
+            snprintf(variableNameStr, sizeof(variableNameStr), "style.Colors[ImGuiCol_%s]", ImGui::GetStyleColorName(i));
+            appendColorLine(out, variableNameStr, c);
+        }
+    }
+ 
+    SB_appendf(out, "\n    //--------------------- Clipcutter ---------------------\n");
+    for (size_t i = 0; i < CLIPCUTTER_COLOR_FIELD_COUNT; i++) {
+        const ColorFieldDesc* desc = &g_clipcutterColorFields[i];
+        char variableNameStr[64];
+        snprintf(variableNameStr, sizeof(variableNameStr), "app->colors.%s", desc->name);
+        appendColorLine(out, variableNameStr, *getColorField(app, desc));
+    }
+}
+
 
 void UI_ApplyThemeDefault(App* app) {
-    //─────────────────── Dear ImGui ───────────────────
-
     ImGui::StyleColorsDark(); // Apply ImGui defaults
     ImGuiStyle& style = ImGui::GetStyle();
 
-    style.Colors[ImGuiCol_WindowBg] = ImColor(17,17,17,255);
+    //──────────────────── [General] ────────────────────
 
 
-    //─────────────────── Clipcutter ───────────────────
+    
+    //──────────────────── [Colors] ────────────────────
+    // This part of the code may be generated from the theme editor by clicking "copy"
 
-    app->colors.timelineBackground = ImColor(45,45,45,255);
-    app->colors.timelineTracklist = ImColor(31,31,31,255);
-    app->colors.timelineTicksMajor = ImColor(200, 200, 200, 255);
-    app->colors.timelineTicksMinor = ImColor(90, 90, 90, 255);
-    app->colors.timelineTicksText = ImColor(255, 255, 255, 255);
-    app->colors.timelineTimeMarker = ImColor(0.7f, 0.7f, 0.7f, 1.0f);
 
-    app->colors.trackAudio = ImColor(0,90,153,253);
-    app->colors.trackVideo = ImColor(255,217,136,255);
-    app->colors.trackMuted = ImColor(79,0,0,255);
-    app->colors.trackGhost = ImColor(0.5f, 0.5f, 0.5f, 1.0f);
-    app->colors.trackWaveform = ImColor(65,148,206,255);
-    app->colors.trackWaveformClippedWarning = ImColor(255,158,0,255);
-    app->colors.trackWaveformClippedSerious = ImColor(255,48,48,255);
 
+    //--------------------- Dear ImGui ---------------------
+    style.Colors[ImGuiCol_WindowBg] = ImColor(0.067f, 0.067f, 0.067f, 1.000f);
+
+    //--------------------- Clipcutter ---------------------
+    app->colors.timelineBackground = ImColor(0.176f, 0.176f, 0.176f, 1.000f);
+    app->colors.timelineTracklist = ImColor(0.122f, 0.122f, 0.122f, 1.000f);
+    app->colors.timelineTicksMajor = ImColor(0.784f, 0.784f, 0.784f, 1.000f);
+    app->colors.timelineTicksMinor = ImColor(0.353f, 0.353f, 0.353f, 1.000f);
+    app->colors.timelineTicksText = ImColor(1.000f, 1.000f, 1.000f, 1.000f);
+    app->colors.timelineTimeMarker = ImColor(0.700f, 0.700f, 0.700f, 1.000f);
+    app->colors.timelineTrackSeparator = ImColor(0.400f, 0.400f, 0.400f, 1.000f);
+    app->colors.trackAudio = ImColor(0.000f, 0.353f, 0.600f, 0.992f);
+    app->colors.trackVideo = ImColor(1.000f, 0.851f, 0.533f, 1.000f);
+    app->colors.trackMuted = ImColor(0.310f, 0.000f, 0.000f, 1.000f);
+    app->colors.trackGhost = ImColor(0.500f, 0.500f, 0.500f, 1.000f);
+    app->colors.trackWaveform = ImColor(0.255f, 0.580f, 0.808f, 1.000f);
+    app->colors.trackWaveformClippedWarning = ImColor(1.000f, 0.620f, 0.000f, 1.000f);
+    app->colors.trackWaveformClippedSerious = ImColor(1.000f, 0.188f, 0.188f, 1.000f);
 }
 
 
@@ -214,20 +286,19 @@ void UI_DrawEditor(App* app) {
 
                 static ImGuiColorEditFlags flags = ImGuiColorEditFlags_NoInputs;
 
-                ImGui::ColorEdit4("timelineBackground", (float*)&app->colors.timelineBackground, flags);
-                ImGui::ColorEdit4("timelineTracklist", (float*)&app->colors.timelineTracklist, flags);
-                ImGui::ColorEdit4("timelineTicksMajor", (float*)&app->colors.timelineTicksMajor, flags);
-                ImGui::ColorEdit4("timelineTicksMinor", (float*)&app->colors.timelineTicksMinor, flags);
-                ImGui::ColorEdit4("timelineTicksText", (float*)&app->colors.timelineTicksText, flags);
-                ImGui::ColorEdit4("timelineTimeMarker", (float*)&app->colors.timelineTimeMarker, flags);
+                for (size_t i = 0; i < CLIPCUTTER_COLOR_FIELD_COUNT; i++) {
+                    const ColorFieldDesc* desc = &g_clipcutterColorFields[i];
+                    ImGui::ColorEdit4(desc->name, (float*)getColorField(app, desc), flags);
+                }
 
-                ImGui::ColorEdit4("trackAudio", (float*)&app->colors.trackAudio, flags);
-                ImGui::ColorEdit4("trackVideo", (float*)&app->colors.trackVideo, flags);
-                ImGui::ColorEdit4("trackMuted", (float*)&app->colors.trackMuted, flags);
-                ImGui::ColorEdit4("trackGhost", (float*)&app->colors.trackGhost, flags);
-                ImGui::ColorEdit4("trackWaveform", (float*)&app->colors.trackWaveform, flags);
-                ImGui::ColorEdit4("trackWaveformClippedWarning", (float*)&app->colors.trackWaveformClippedWarning, flags);
-                ImGui::ColorEdit4("trackWaveformClippedSerious", (float*)&app->colors.trackWaveformClippedSerious, flags);
+                ImGui::SeparatorText("Export");
+
+                if (ImGui::Button("Copy to clipboard")) {
+                    SB exportBuf;
+                    SB_init(&exportBuf, 1024);
+                    exportTheme(app, &exportBuf);
+                    ImGui::SetClipboardText(exportBuf.buf);
+                }
 
             }
             ImGui::End();
@@ -669,6 +740,7 @@ void UI_DrawEditor(App* app) {
 
 			ImVec2 cursorGridTicks = ImGui::GetCursorScreenPos();
             ImGui::SetCursorScreenPos(cursorGridTicks);
+            // TODO: this doesn't even do anything.....
 			ImU32 thingColor = ImGui::GetColorU32(ImVec4(0.15, 0.15, 0.15, 1));
 
             ImVec2 rectBottomRight = cursorGridTicks;
@@ -707,7 +779,7 @@ void UI_DrawEditor(App* app) {
             for (int i=0; i < app->timeline.highestTrackCount+1; i++) {
                 ImGui::SetCursorScreenPos(separatorPos);
 
-                ImU32 separatorColor = ImGui::GetColorU32(ImVec4(0.4, 0.4, 0.4, 1));
+                ImU32 separatorColor = ImColor(app->colors.timelineTrackSeparator);
                 ImGui::PushStyleColor(ImGuiCol_Separator, separatorColor);
                 ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
                 ImGui::Separator();

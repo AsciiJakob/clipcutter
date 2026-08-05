@@ -95,6 +95,7 @@ struct UiColors {
     ImVec4 timelineTicksMinor;
     ImVec4 timelineTicksText;
     ImVec4 timelineTimeMarker;
+    ImVec4 timelineTrackSeparator;
 
     ImVec4 trackAudio;
     ImVec4 trackVideo;
