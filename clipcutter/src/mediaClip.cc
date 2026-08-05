@@ -229,9 +229,106 @@ bool shouldPlaybackUpdateAfterMove(App* app, MediaClip* mediaClip, float drawCli
     return false;
 }
 
+
+// legacy waveform function. Code is kept in case i decide to draw waveform in some other part of the program
 // visibleStartPXOffset and visibleEndPXOffset represent the amount of pixels 
 // that are outside our visible range on either side.
-void drawWaveform(DynArr* peaks, ImVec2 graphSize, ImVec4 clippedColor, ImVec4 normalColor, float visibleStartPXOffset, float visibleEndPXOffset, float startCutoff, float endCutoff, int sampleRate) {
+// void drawWaveform(DynArr* peaks, ImVec2 graphSize, ImVec4 clippedColor, ImVec4 normalColor, float visibleStartPXOffset, float visibleEndPXOffset, float startCutoff, float endCutoff, int sampleRate) {
+//     ImVec2 origin = ImGui::GetCursorScreenPos();
+//
+//     float peaksPerSecond = (float) sampleRate / (float) PEAK_BLOCK_SIZE;
+//     float blockCount = peaks->size - ((startCutoff + endCutoff) * peaksPerSecond);
+//
+//     ImDrawList* drawList = ImGui::GetWindowDrawList();
+//     int pixelWidth = (int) graphSize.x;
+//     float midY = origin.y + graphSize.y * 0.5f;
+//     float halfHeight = graphSize.y * 0.5f;
+//     float blocksPerPixel = (float) blockCount / (float) pixelWidth;
+//
+//     // log_debug("visibleStart:%.2f, visibleEnd:%.2f", visibleStartPXOffset, visibleEndPXOffset);
+//
+//     for (int px = visibleStartPXOffset; px < pixelWidth; px++) {
+//         if (px >= pixelWidth-visibleEndPXOffset)
+//             break;
+//
+//         int startIdx = (int) (px * blocksPerPixel) + (int) (startCutoff * peaksPerSecond);
+//         int endIdx = (int) ((px + 1) * blocksPerPixel) + (int) (startCutoff * peaksPerSecond);
+//         if (endIdx <= startIdx) endIdx = startIdx + 1; // fallback, always cover at least one block
+//
+//         float colMin = 0.0f;
+//         float colMax = 0.0f;
+//         bool any = false;
+//         for (int idx = startIdx; idx < endIdx; idx++) {
+//             if (idx < 0 || (size_t) idx >= peaks->size) continue;
+//             PeakBlock* pb = (PeakBlock*) DynArr_Get(peaks, (size_t) idx);
+//             if (!any) {
+//                 colMin = pb->min;
+//                 colMax = pb->max;
+//                 any = true;
+//             } else {
+//                 colMin = minf(colMin, pb->min);
+//                 colMax = maxf(colMax, pb->max);
+//             }
+//         }
+//         if (!any) continue;
+//
+//         bool clipped = false;
+//         if (colMax > 1.0f || colMin < -1.0f) {
+//             clipped = true;
+//         }
+//
+//         float drawColMin = maxf(colMin, -1.0f);
+//         float drawColMax = minf(colMax, 1.0f);
+//
+//         float x = origin.x + (float) px;
+//         drawList->AddLine(ImVec2(x, midY - drawColMax * halfHeight), ImVec2(x, midY - drawColMin * halfHeight), ImColor(normalColor));
+//
+//
+//         if (clipped) {
+//             ImU32 color = ImColor(clippedColor);
+//
+//             const float pxheight = 3.0f;
+//
+//             if (colMax > 1.0f) {
+//                 drawList->AddLine(ImVec2(x, origin.y), ImVec2(x, origin.y + pxheight), color);
+//             }
+//             if (colMin < -1.0f) {
+//                 drawList->AddLine(ImVec2(x, origin.y + graphSize.y - pxheight),
+//                                    ImVec2(x, origin.y + graphSize.y), color);
+//             }
+//         }
+//     }
+// }
+
+// TODO: move all math functions into its own file. This is really dumb and lazy. or use a library
+inline double clampf(double d, double min, double max) {
+  const double t = d < min ? min : d;
+  return t > max ? max : t;
+}
+
+inline ImVec4 lerpImVec4(const ImVec4& a, const ImVec4& b, float t) {
+    return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t);
+}
+
+inline float envelopeToHeightPx(float env, float halfHeight) {
+    float displayGamma = 0.4f; // boosts low signals
+    // determines how fast the asymptotic curve should converge. Lower = faster
+    // with some test values it seems like really loud things generally don't go over 1.46 in signal
+    float kOverCompression = 10.0f; 
+
+    if (env <= 1.0f) {
+        return powf(env, displayGamma) * halfHeight;
+    }
+    float over = env - 1.0f;
+    float compressed = 1.0f - 1.0f / (1.0f + over * kOverCompression);
+    return halfHeight + compressed * halfHeight;
+}
+
+// visibleStartPXOffset and visibleEndPXOffset represent the amount of pixels 
+// that are outside our visible range on either side.
+void drawAudioEnvelope(DynArr* peaks, ImVec2 graphSize, ImVec4 clippedWarningColor, ImVec4 clippedSeriousColor, ImVec4 normalColor, float visibleStartPXOffset, float visibleEndPXOffset, float startCutoff, float endCutoff, int sampleRate) {
+    float highestEncountered = 0;
+
     ImVec2 origin = ImGui::GetCursorScreenPos();
 
     float peaksPerSecond = (float) sampleRate / (float) PEAK_BLOCK_SIZE;
@@ -239,11 +336,14 @@ void drawWaveform(DynArr* peaks, ImVec2 graphSize, ImVec4 clippedColor, ImVec4 n
 
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     int pixelWidth = (int) graphSize.x;
-    float midY = origin.y + graphSize.y * 0.5f;
     float halfHeight = graphSize.y * 0.5f;
     float blocksPerPixel = (float) blockCount / (float) pixelWidth;
 
-    // log_debug("visibleStart:%.2f, visibleEnd:%.2f", visibleStartPXOffset, visibleEndPXOffset);
+    float seriousThreshold = 1.2f;
+    float seriousHeightPx = envelopeToHeightPx(seriousThreshold, halfHeight);
+    float seriousY = origin.y + graphSize.y - seriousHeightPx;
+
+    float clippingThresholdY = origin.y + graphSize.y - envelopeToHeightPx(1.0f, halfHeight); // if signal is over 1 or under -1 it is clipping.
 
     for (int px = visibleStartPXOffset; px < pixelWidth; px++) {
         if (px >= pixelWidth-visibleEndPXOffset)
@@ -270,33 +370,41 @@ void drawWaveform(DynArr* peaks, ImVec2 graphSize, ImVec4 clippedColor, ImVec4 n
         }
         if (!any) continue;
 
-        bool clipped = false;
-        if (colMax > 1.0f || colMin < -1.0f) {
-            clipped = true;
+        // column absolute highest signal
+        float colAbs = maxf(fabsf(colMin), fabsf(colMax));
+        // apply asymptotic curve so the height never goes above what we are able so show
+        float heightPx = envelopeToHeightPx(colAbs, halfHeight);
+
+        float topY = origin.y + graphSize.y - heightPx;
+        float bottomY = origin.y + graphSize.y;
+
+        if (colAbs > highestEncountered) {
+            highestEncountered = colAbs;
         }
 
-        float drawColMin = maxf(colMin, -1.0f);
-        float drawColMax = minf(colMax, 1.0f);
 
         float x = origin.x + (float) px;
-        drawList->AddLine(ImVec2(x, midY - drawColMax * halfHeight), ImVec2(x, midY - drawColMin * halfHeight), ImColor(normalColor));
+        drawList->AddRectFilledMultiColor(ImVec2(x, max(topY, clippingThresholdY)), ImVec2(x + 1.0f, bottomY),
+                                   ImColor(normalColor), ImColor(normalColor), ImColor(normalColor), ImColor(normalColor));
+        if (colAbs > 1.0f) {
+            float yellowTopY = maxf(topY, seriousY);
+            float t = clampf((clippingThresholdY - yellowTopY) / (clippingThresholdY - seriousY), 0.0f, 1.0f);
+            ImU32 yellowTopColor = ImGui::ColorConvertFloat4ToU32(lerpImVec4(ImGui::ColorConvertU32ToFloat4(ImColor(normalColor)),
+                                            ImGui::ColorConvertU32ToFloat4(ImColor(clippedWarningColor)), t));
 
+            drawList->AddRectFilledMultiColor(ImVec2(x, max(topY, seriousY)), ImVec2(x + 1.0f, clippingThresholdY),
+                                       ImColor(yellowTopColor), ImColor(yellowTopColor), ImColor(normalColor), ImColor(normalColor));
 
-        if (clipped) {
-            ImU32 color = ImColor(clippedColor);
-
-            const float pxheight = 3.0f;
-
-            if (colMax > 1.0f) {
-                drawList->AddLine(ImVec2(x, origin.y), ImVec2(x, origin.y + pxheight), color);
-            }
-            if (colMin < -1.0f) {
-                drawList->AddLine(ImVec2(x, origin.y + graphSize.y - pxheight),
-                                   ImVec2(x, origin.y + graphSize.y), color);
+            if (colAbs > seriousThreshold) {
+                drawList->AddRectFilledMultiColor(ImVec2(x, topY), ImVec2(x + 1.0f, seriousY),
+                                           ImColor(clippedSeriousColor), ImColor(clippedSeriousColor), ImColor(clippedSeriousColor), ImColor(clippedSeriousColor));
             }
         }
     }
+
+    // log_debug("Highest encountered: %.4f", highestEncountered);
 }
+
 
 // actually draw the track, both video and audio tracks
 ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, float drawClipLeftPadding, float drawClipWidth, bool isGhostClip) {
@@ -389,9 +497,11 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
 
                 // drawWaveform(peaks, graphSize, visibleStartPXOffset, visibleEndPXOffset, mediaClip->startCutoff, mediaClip->endCutoff, mediaClip->source->sampleRates[i-1]);
                 ImVec4 waveformColor = app->colors.trackWaveform;
-                ImVec4 clippedColor = app->colors.trackWaveformClipped;
+                ImVec4 clippedSeriousColor = app->colors.trackWaveformClippedSerious;
+                ImVec4 clippedWarningColor = app->colors.trackWaveformClippedWarning;
                 waveformColor.w = app->streamDisabled[i] ? 0.2f : 1.0f;
-                drawWaveform(peaks, graphSize, clippedColor, waveformColor, visibleStartPXOffset, visibleEndPXOffset, mediaClip->startCutoff, mediaClip->endCutoff, mediaClip->source->sampleRates[i-1]);
+                // log_debug("drawing for videoclip: %s", mediaClip->source->filename);
+                drawAudioEnvelope(peaks, graphSize, clippedWarningColor, clippedSeriousColor, waveformColor, visibleStartPXOffset, visibleEndPXOffset, mediaClip->startCutoff, mediaClip->endCutoff, mediaClip->source->sampleRates[i-1]);
             }
 
 

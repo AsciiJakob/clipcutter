@@ -135,7 +135,8 @@ void UI_ApplyThemeDefault(App* app) {
     app->colors.trackMuted = ImColor(79,0,0,255);
     app->colors.trackGhost = ImColor(0.5f, 0.5f, 0.5f, 1.0f);
     app->colors.trackWaveform = ImColor(65,148,206,255);
-    app->colors.trackWaveformClipped = ImColor(255,48,48,255);
+    app->colors.trackWaveformClippedWarning = ImColor(255,158,0,255);
+    app->colors.trackWaveformClippedSerious = ImColor(255,48,48,255);
 
 }
 
@@ -225,7 +226,8 @@ void UI_DrawEditor(App* app) {
                 ImGui::ColorEdit4("trackMuted", (float*)&app->colors.trackMuted, flags);
                 ImGui::ColorEdit4("trackGhost", (float*)&app->colors.trackGhost, flags);
                 ImGui::ColorEdit4("trackWaveform", (float*)&app->colors.trackWaveform, flags);
-                ImGui::ColorEdit4("trackWaveformClipped", (float*)&app->colors.trackWaveformClipped, flags);
+                ImGui::ColorEdit4("trackWaveformClippedWarning", (float*)&app->colors.trackWaveformClippedWarning, flags);
+                ImGui::ColorEdit4("trackWaveformClippedSerious", (float*)&app->colors.trackWaveformClippedSerious, flags);
 
             }
             ImGui::End();

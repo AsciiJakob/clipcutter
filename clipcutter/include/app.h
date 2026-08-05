@@ -101,7 +101,8 @@ struct UiColors {
     ImVec4 trackMuted;
     ImVec4 trackGhost;
     ImVec4 trackWaveform;
-    ImVec4 trackWaveformClipped;
+    ImVec4 trackWaveformClippedWarning;
+    ImVec4 trackWaveformClippedSerious;
 };
 
 struct App {
