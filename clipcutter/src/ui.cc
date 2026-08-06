@@ -148,8 +148,8 @@ static ImVec4* getColorField(App* app, const ColorFieldDesc* desc) {
 }
 
 
-static void appendColorLine(SB* out, const char* variableNameStr, ImVec4 c) {
-    SB_appendf(out, "    %s = ImColor(%.3ff, %.3ff, %.3ff, %.3ff);\n", variableNameStr, c.x, c.y, c.z, c.w);
+static void appendColor(SB* out, ImVec4 c) {
+    SB_appendf(out, "ImColor(%.3ff, %.3ff, %.3ff, %.3ff);\n", c.x, c.y, c.z, c.w);
 }
 
 static void exportTheme(App* app, SB* out) {
@@ -163,18 +163,16 @@ static void exportTheme(App* app, SB* out) {
         ImVec4 c = liveStyle->Colors[i];
         ImVec4 r = reference.Colors[i];
         if (c.x != r.x || c.y != r.y || c.z != r.z || c.w != r.w) {
-            char variableNameStr[64];
-            snprintf(variableNameStr, sizeof(variableNameStr), "style.Colors[ImGuiCol_%s]", ImGui::GetStyleColorName(i));
-            appendColorLine(out, variableNameStr, c);
+            SB_appendf(out, "    style.Colors[ImGuiCol_%s] = ", ImGui::GetStyleColorName(i));
+            appendColor(out,  c);
         }
     }
  
     SB_appendf(out, "\n    //--------------------- Clipcutter ---------------------\n");
     for (size_t i = 0; i < CLIPCUTTER_COLOR_FIELD_COUNT; i++) {
         const ColorFieldDesc* desc = &g_clipcutterColorFields[i];
-        char variableNameStr[64];
-        snprintf(variableNameStr, sizeof(variableNameStr), "app->colors.%s", desc->name);
-        appendColorLine(out, variableNameStr, *getColorField(app, desc));
+        SB_appendf(out, "    app->colors.%s = ", desc->name);
+        appendColor(out, *getColorField(app, desc));
     }
 }
 
@@ -204,6 +202,7 @@ void UI_ApplyThemeDefault(App* app) {
     app->colors.timelineTicksText = ImColor(1.000f, 1.000f, 1.000f, 1.000f);
     app->colors.timelineTimeMarker = ImColor(0.700f, 0.700f, 0.700f, 1.000f);
     app->colors.timelineTrackSeparator = ImColor(0.400f, 0.400f, 0.400f, 1.000f);
+
     app->colors.trackAudio = ImColor(0.000f, 0.353f, 0.600f, 0.992f);
     app->colors.trackVideo = ImColor(1.000f, 0.851f, 0.533f, 1.000f);
     app->colors.trackMuted = ImColor(0.310f, 0.000f, 0.000f, 1.000f);
@@ -289,7 +288,21 @@ void UI_DrawEditor(App* app) {
 
                 for (size_t i = 0; i < CLIPCUTTER_COLOR_FIELD_COUNT; i++) {
                     const ColorFieldDesc* desc = &g_clipcutterColorFields[i];
-                    ImGui::ColorEdit4(desc->name, (float*)getColorField(app, desc), flags);
+                    float* col = (float*)getColorField(app, desc);
+
+                    ImGui::PushID(i);
+                    if (ImGui::Button("C")) {
+                        SB s;
+                        SB_init(&s, 24);
+                        appendColor(&s, ImColor(*col));
+                        s.buf[s.len-1] = '\0'; // omit one character to remove newline
+                        ImGui::SetClipboardText(s.buf);
+                        SB_free(&s);
+                    }
+                    ImGui::PopID();
+
+                    ImGui::SameLine();
+                    ImGui::ColorEdit4(desc->name, col, flags);
                 }
 
                 ImGui::SeparatorText("Export");
@@ -299,6 +312,7 @@ void UI_DrawEditor(App* app) {
                     SB_init(&exportBuf, 1024);
                     exportTheme(app, &exportBuf);
                     ImGui::SetClipboardText(exportBuf.buf);
+                    SB_free(&exportBuf);
                 }
 
             }
