@@ -65,11 +65,10 @@ void formatTimecode(App* app, double t, bool showFrame, char* buf, size_t bufSiz
 
 
 double screenXToTime(App* app, float screenX) {
-    // return (double)(screenX - cursorTimelineBefore.x) / app->scaleX;
-    return (double)(screenX - app->timeline.cursTopLeft.x) / app->scaleX;
+    return (double)(screenX - app->timeline.cursContentTopLeft.x) / app->scaleX;
 }
 float timelineTimeToScreenX(App* app, double t) {
-    return app->timeline.cursTopLeft.x + (float)(t * app->scaleX);
+    return app->timeline.cursContentTopLeft.x + (float)(t * app->scaleX);
 }
 
 
@@ -126,6 +125,7 @@ typedef struct {
 static const ColorFieldDesc g_clipcutterColorFields[] = {
     COLOR_FIELD(timelineBackground),
     COLOR_FIELD(timelineTracklist),
+    COLOR_FIELD(timelineTicksBackground),
     COLOR_FIELD(timelineTicksMajor),
     COLOR_FIELD(timelineTicksMinor),
     COLOR_FIELD(timelineTicksText),
@@ -198,6 +198,7 @@ void UI_ApplyThemeDefault(App* app) {
     //--------------------- Clipcutter ---------------------
     app->colors.timelineBackground = ImColor(0.176f, 0.176f, 0.176f, 1.000f);
     app->colors.timelineTracklist = ImColor(0.122f, 0.122f, 0.122f, 1.000f);
+    app->colors.timelineTicksBackground = ImColor(0.098f, 0.098f, 0.098f, 1.000f);;
     app->colors.timelineTicksMajor = ImColor(0.784f, 0.784f, 0.784f, 1.000f);
     app->colors.timelineTicksMinor = ImColor(0.353f, 0.353f, 0.353f, 1.000f);
     app->colors.timelineTicksText = ImColor(1.000f, 1.000f, 1.000f, 1.000f);
@@ -736,45 +737,38 @@ void UI_DrawEditor(App* app) {
 
 			bool timelineHovered = ImGui::IsWindowHovered();
 
-			ImGui::SetNextItemAllowOverlap();
+			ImVec2 timelineSize = ImVec2(app->timeline.width*app->scaleX, ImGui::GetContentRegionAvail().y);
 
-			ImVec2 cursorGridTicks = ImGui::GetCursorScreenPos();
-            ImGui::SetCursorScreenPos(cursorGridTicks);
-            // TODO: this doesn't even do anything.....
-			ImU32 thingColor = ImGui::GetColorU32(ImVec4(0.15, 0.15, 0.15, 1));
-
-            ImVec2 rectBottomRight = cursorGridTicks;
-            rectBottomRight.y += TIMELINE_GRID_TICKS_HEIGHT*app->scale;
-            rectBottomRight.x += ImGui::GetWindowWidth();
-
-            ImGui::GetWindowDrawList()->AddRectFilled(cursorGridTicks, rectBottomRight, thingColor, 0.0f);
 
             //─────────────── background visuals ───────────────
-            // draw background grid ticks
-            // float viewportTop = cursorTimelineBefore.y;
-            // float viewportBottom = viewportTop + ImGui::GetWindowHeight();
-            // DrawTimelineGrid(app, cursorTimelineBefore, viewportTop, viewportBottom);
+			ImVec2 cursorGridTicks = ImGui::GetCursorScreenPos();
+            ImVec2 rectBottomRight = cursorGridTicks;
+            rectBottomRight.y += TIMELINE_GRID_TICKS_HEIGHT*app->scale;
+            rectBottomRight.x += timelineSize.x;
+
+            ImGui::GetWindowDrawList()->AddRectFilled(cursorGridTicks, rectBottomRight, ImColor(app->colors.timelineTicksBackground), 0.0f);
 
 
-			ImVec2 cursorTimelineBefore = cursorGridTicks; // shallow copy???
-			cursorTimelineBefore.y += TIMELINE_GRID_TICKS_HEIGHT*app->scale;
-			app->timeline.cursTopLeft = cursorTimelineBefore; // todo: refac to use this
+            ImVec2 contentStart = cursorGridTicks; // shallow copy is fine
+            contentStart.y += TIMELINE_GRID_TICKS_HEIGHT * app->scale;
+            app->timeline.cursContentTopLeft = contentStart; // todo: refac to use this
 
-			// ImVec2 timeline_size = ImVec2(5000, ImGui::GetContentRegionAvail().y);
-			ImVec2 timeline_size = ImVec2(app->timeline.width*app->scaleX, ImGui::GetContentRegionAvail().y);
-			ImGui::InvisibleButton("timeline", timeline_size);
+            // the timeline grid ticks at the top of the timeline is included in the invisibleButton.
+			ImGui::SetNextItemAllowOverlap();
+			ImGui::InvisibleButton("timeline", timelineSize);
 			ImGui::PopStyleVar();
 
-			ImVec2 r_min = ImGui::GetItemRectMin();
 			ImVec2 r_max = ImGui::GetItemRectMax();
-			ImGui::GetWindowDrawList()->AddRectFilled(r_min, r_max, timeline_color);
+			ImGui::GetWindowDrawList()->AddRectFilled(app->timeline.cursContentTopLeft, r_max, timeline_color);
 
 			bool timelineClicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
 
+            // grid ticks have to be drawn after other timeline background is drawn
             DrawTimelineGrid(app, cursorGridTicks.y);
 
+                                      
             // draw track seperators
-			ImVec2 separatorPos = cursorTimelineBefore;
+            ImVec2 separatorPos = app->timeline.cursContentTopLeft;
 
             for (int i=0; i < app->timeline.highestTrackCount+1; i++) {
                 ImGui::SetCursorScreenPos(separatorPos);
@@ -789,7 +783,7 @@ void UI_DrawEditor(App* app) {
                 separatorPos.y += app->timeline.clipHeight*app->scale;
             }
 
-			ImGui::SetCursorScreenPos(cursorTimelineBefore);
+			ImGui::SetCursorScreenPos(app->timeline.cursContentTopLeft);
 
             MediaClip* drawAgain = nullptr;
 			for (int i = 0; i < MEDIACLIPS_SIZE; i++) { // draw clips
@@ -816,7 +810,7 @@ void UI_DrawEditor(App* app) {
 			{ // timeMarker
 				float timeMarkerPos = app->playbackTime*app->scaleX;
 
-				ImGui::SetCursorScreenPos(cursorTimelineBefore);
+				ImGui::SetCursorScreenPos(app->timeline.cursContentTopLeft);
 				ImVec2 cursor_offset = ImGui::GetCursorScreenPos();
 				cursor_offset.x = cursor_offset.x + timeMarkerPos;
 				ImGui::SetCursorScreenPos(cursor_offset);
@@ -835,7 +829,7 @@ void UI_DrawEditor(App* app) {
 
             { // panning around with middle mouse button
               if (timelineHovered && ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
-                float timelineMousePos = ImGui::GetMousePos().x - cursorTimelineBefore.x;
+                float timelineMousePos = ImGui::GetMousePos().x - app->timeline.cursContentTopLeft.x;
                 cc_unused(timelineMousePos);
                 float panDelta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle, 0.0).x;
                 panDelta = panDelta * -1; // negate
@@ -863,7 +857,7 @@ void UI_DrawEditor(App* app) {
 						}
 
 						float currentScrollPos = ImGui::GetScrollX();
-						float timelineMousePos = ImGui::GetMousePos().x - cursorTimelineBefore.x;
+						float timelineMousePos = ImGui::GetMousePos().x - app->timeline.cursContentTopLeft.x;
 
 						float diffBefore = timelineMousePos / oldZoom - currentScrollPos;
 						float diffAfter = timelineMousePos / app->timeline.zoomX - currentScrollPos;
@@ -878,14 +872,14 @@ void UI_DrawEditor(App* app) {
 			{ // changing playback cursor position
 				if (!hoveringOverTrack && timelineClicked) {
 					ImVec2 mousePos = ImGui::GetMousePos();
-					if (mousePos.x > cursorTimelineBefore.x) {
-						float secs = (mousePos.x - cursorTimelineBefore.x)/app->scaleX;
+					if (mousePos.x > app->timeline.cursContentTopLeft.x) {
+						float secs = (mousePos.x - app->timeline.cursContentTopLeft.x)/app->scaleX;
 						MediaClip* clip = App_FindClosestMediaClip(app, secs);
                         //log_debug("CLOSEST MEDIA CLIP IS: %s", clip->source->filename);
 						if (app->timeline.snappingEnabled && clip != nullptr) {
 							float snapSensitivity = 10;
-							float track1LeftmostPos = cursorTimelineBefore.x + clip->padding * app->scaleX;
-							float track1RightmostPos = cursorTimelineBefore.x + (clip->padding + clip->width) * app->scaleX;
+							float track1LeftmostPos = app->timeline.cursContentTopLeft.x + clip->padding * app->scaleX;
+							float track1RightmostPos = app->timeline.cursContentTopLeft.x + (clip->padding + clip->width) * app->scaleX;
 
 							if (fabs(mousePos.x - track1LeftmostPos) < snapSensitivity) {
 								mousePos.x = track1LeftmostPos;
@@ -896,7 +890,7 @@ void UI_DrawEditor(App* app) {
 						}
 
 						
-						float newSecs = (mousePos.x - cursorTimelineBefore.x)/app->scaleX;
+						float newSecs = (mousePos.x - app->timeline.cursContentTopLeft.x)/app->scaleX;
                         App_ClearClipSelections(app);
 						app->playbackTime = newSecs;
 						App_MovePlaybackMarker(app, newSecs);

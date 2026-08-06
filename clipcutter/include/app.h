@@ -68,7 +68,7 @@ struct Timeline {
     float gridSteps;
     float clipHeight;
     float width;
-    ImVec2 cursTopLeft;
+    ImVec2 cursContentTopLeft;
 };
 
 struct MpvCommand {
@@ -91,6 +91,7 @@ constexpr size_t NUM_SUPPORTED_FORMATS = sizeof(SUPPORTED_FILE_FORMATS) / sizeof
 struct UiColors {
     ImVec4 timelineBackground;
     ImVec4 timelineTracklist;
+    ImVec4 timelineTicksBackground;
     ImVec4 timelineTicksMajor;
     ImVec4 timelineTicksMinor;
     ImVec4 timelineTicksText;

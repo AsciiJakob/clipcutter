@@ -416,7 +416,7 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
     }
 
     ImVec2 cursor_trackclip(0, 0);
-    ImGui::SetCursorScreenPos(app->timeline.cursTopLeft);
+    ImGui::SetCursorScreenPos(app->timeline.cursContentTopLeft);
     for (int i = 0; i <= mediaClip->source->audioTracks; i++) {
         cursor_trackclip = ImGui::GetCursorScreenPos();
         ImVec2 cursor_trackclip_padded = ImGui::GetCursorScreenPos();
@@ -478,7 +478,7 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
             float viewportLeft = ImGui::GetWindowPos().x;
             float viewportRight = viewportLeft + ImGui::GetWindowSize().x;
 
-            float clipStartScaled = drawClipLeftPadding*app->scaleX + app->timeline.cursTopLeft.x;
+            float clipStartScaled = drawClipLeftPadding*app->scaleX + app->timeline.cursContentTopLeft.x;
             float clipEndScaled = clipStartScaled + drawClipWidth*app->scaleX;
 
             // disregard anything that is not at all visible
@@ -556,13 +556,13 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
         if (drawClipWidth == 0.0) {
             border_color = ImGui::GetColorU32(ImVec4(0.8, 0.1, 0.1, 1));
         }
-        ImVec2 posStart(app->timeline.cursTopLeft.x + drawClipLeftPadding * app->scaleX, app->timeline.cursTopLeft.y);
-        ImVec2 posEnd(app->timeline.cursTopLeft.x + (drawClipLeftPadding + drawClipWidth) * app->scaleX, app->timeline.cursTopLeft.y + app->timeline.clipHeight * app->scale * (mediaClip->source->audioTracks+1));
+        ImVec2 posStart(app->timeline.cursContentTopLeft.x + drawClipLeftPadding * app->scaleX, app->timeline.cursContentTopLeft.y);
+        ImVec2 posEnd(app->timeline.cursContentTopLeft.x + (drawClipLeftPadding + drawClipWidth) * app->scaleX, app->timeline.cursContentTopLeft.y + app->timeline.clipHeight * app->scale * (mediaClip->source->audioTracks+1));
         ImGui::GetWindowDrawList()->AddRect(posStart, posEnd, border_color, 0.0f, 0, 1.0*app->scale);
     } else { // ########### clip left & right borders
         ImU32 border_color = ImGui::GetColorU32(ImVec4(0, 0, 0, 1));
-        ImVec2 posStart(app->timeline.cursTopLeft.x + drawClipLeftPadding * app->scaleX, app->timeline.cursTopLeft.y);
-        ImVec2 posEnd(app->timeline.cursTopLeft.x + (drawClipLeftPadding + drawClipWidth) * app->scaleX, app->timeline.cursTopLeft.y + app->timeline.clipHeight * app->scale * (mediaClip->source->audioTracks+1));
+        ImVec2 posStart(app->timeline.cursContentTopLeft.x + drawClipLeftPadding * app->scaleX, app->timeline.cursContentTopLeft.y);
+        ImVec2 posEnd(app->timeline.cursContentTopLeft.x + (drawClipLeftPadding + drawClipWidth) * app->scaleX, app->timeline.cursContentTopLeft.y + app->timeline.clipHeight * app->scale * (mediaClip->source->audioTracks+1));
         ImGui::GetWindowDrawList()->AddRect(posStart, posEnd, border_color, 0.0f, 0, 1.0*app->scale);
     }
 
