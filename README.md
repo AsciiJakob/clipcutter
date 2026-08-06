@@ -25,6 +25,10 @@ Under development, not suitable for usage.
 * TODO
 * TODO
 
+#### Limitations
+* You can only export video in h.264 (with AAC audio) at the moment. Audio can only be exported as mp3.
+* You can only export video in h.264 (with AAC audio) at the moment. Audio can only be exported as mp3.
+
 ## Building
 Like any other cmake project. Dependencies are all included, except ffmpeg dlls. In the future dependencies will be compiled along the program.
 

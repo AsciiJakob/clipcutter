@@ -410,9 +410,9 @@ void drawAudioEnvelope(DynArr* peaks, ImVec2 graphSize, ImVec4 clippedWarningCol
 ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, float drawClipLeftPadding, float drawClipWidth, bool isGhostClip) {
     ImU32 normal_border_color;
     if (isGhostClip) {
-        normal_border_color = ImGui::GetColorU32(ImVec4(0.7, 0.7, 0.7, 1));
+        normal_border_color = ImColor(app->colors.trackBorderGhost);
     } else {
-        normal_border_color = ImGui::GetColorU32(ImVec4(1, 1, 1, 1));
+        normal_border_color = ImColor(app->colors.trackBorderSelected);
     }
 
     ImVec2 cursor_trackclip(0, 0);
@@ -442,15 +442,15 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
         ImVec2 r_min = ImGui::GetItemRectMin();
         ImVec2 r_max = ImGui::GetItemRectMax();
 
-        ImColor track_color = app->colors.trackAudio;
+        ImColor track_color = app->colors.trackBackgroundAudio;
         if (i == 0) { // if video track
-            track_color = app->colors.trackVideo;
+            track_color = app->colors.trackBackgroundVideo;
         }
         if (app->streamDisabled[i]) { // if track disabled
-            track_color = app->colors.trackMuted;
+            track_color = app->colors.trackBackgroundMuted;
         }
         if (isGhostClip) {
-            track_color = app->colors.trackGhost;
+            track_color = app->colors.trackBackgroundGhost;
         }
 
         ImGui::GetWindowDrawList()->AddRectFilled(r_min, r_max, track_color, 0.0f);
@@ -459,7 +459,7 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
 
         ImVec2 savedPos = ImGui::GetCursorScreenPos();
         if (i == 0) {
-            ImU32 textColor = ImGui::GetColorU32(ImVec4(0., 0., 0., 1));
+            ImU32 textColor = ImGui::GetColorU32(app->colors.trackText);
             ImGui::SetCursorScreenPos(tracNamePos);
             ImGui::PushStyleColor(ImGuiCol_Text, textColor);
             ImGui::Text("%s", mediaClip->source->filename);
@@ -560,7 +560,7 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
         ImVec2 posEnd(app->timeline.cursContentTopLeft.x + (drawClipLeftPadding + drawClipWidth) * app->scaleX, app->timeline.cursContentTopLeft.y + app->timeline.clipHeight * app->scale * (mediaClip->source->audioTracks+1));
         ImGui::GetWindowDrawList()->AddRect(posStart, posEnd, border_color, 0.0f, 0, 1.0*app->scale);
     } else { // ########### clip left & right borders
-        ImU32 border_color = ImGui::GetColorU32(ImVec4(0, 0, 0, 1));
+        ImU32 border_color = ImColor(app->colors.trackBorder);
         ImVec2 posStart(app->timeline.cursContentTopLeft.x + drawClipLeftPadding * app->scaleX, app->timeline.cursContentTopLeft.y);
         ImVec2 posEnd(app->timeline.cursContentTopLeft.x + (drawClipLeftPadding + drawClipWidth) * app->scaleX, app->timeline.cursContentTopLeft.y + app->timeline.clipHeight * app->scale * (mediaClip->source->audioTracks+1));
         ImGui::GetWindowDrawList()->AddRect(posStart, posEnd, border_color, 0.0f, 0, 1.0*app->scale);

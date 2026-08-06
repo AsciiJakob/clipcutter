@@ -1,6 +1,6 @@
 /*
  Simple DirectMedia Layer
- Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
+ Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
  This software is provided 'as-is', without any express or implied
  warranty.  In no event will the authors be held liable for any damages
@@ -48,9 +48,9 @@
  */
 #define SDL_REVISION "Some arbitrary string decided at SDL build time"
 #elif defined(SDL_VENDOR_INFO)
-#define SDL_REVISION "release-3.2.4-0-gb5c3eab6b (" SDL_VENDOR_INFO ")"
+#define SDL_REVISION "SDL-release-3.4.14-0-g147a8ee32 (" SDL_VENDOR_INFO ")"
 #else
-#define SDL_REVISION "release-3.2.4-0-gb5c3eab6b"
+#define SDL_REVISION "SDL-release-3.4.14-0-g147a8ee32"
 #endif
 
 #endif /* SDL_revision_h_ */

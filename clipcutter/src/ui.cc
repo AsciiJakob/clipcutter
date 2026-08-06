@@ -132,10 +132,14 @@ static const ColorFieldDesc g_clipcutterColorFields[] = {
     COLOR_FIELD(timelineTimeMarker),
     COLOR_FIELD(timelineTrackSeparator),
 
-    COLOR_FIELD(trackAudio),
-    COLOR_FIELD(trackVideo),
-    COLOR_FIELD(trackMuted),
-    COLOR_FIELD(trackGhost),
+    COLOR_FIELD(trackText),
+    COLOR_FIELD(trackBackgroundAudio),
+    COLOR_FIELD(trackBackgroundVideo),
+    COLOR_FIELD(trackBackgroundMuted),
+    COLOR_FIELD(trackBackgroundGhost),
+    COLOR_FIELD(trackBorderSelected),
+    COLOR_FIELD(trackBorderGhost),
+    COLOR_FIELD(trackBorder),
     COLOR_FIELD(trackWaveform),
     COLOR_FIELD(trackWaveformClippedWarning),
     COLOR_FIELD(trackWaveformClippedSerious),
@@ -203,10 +207,14 @@ void UI_ApplyThemeDefault(App* app) {
     app->colors.timelineTimeMarker = ImColor(0.700f, 0.700f, 0.700f, 1.000f);
     app->colors.timelineTrackSeparator = ImColor(0.400f, 0.400f, 0.400f, 1.000f);
 
-    app->colors.trackAudio = ImColor(0.000f, 0.353f, 0.600f, 0.992f);
-    app->colors.trackVideo = ImColor(1.000f, 0.851f, 0.533f, 1.000f);
-    app->colors.trackMuted = ImColor(0.310f, 0.000f, 0.000f, 1.000f);
-    app->colors.trackGhost = ImColor(0.500f, 0.500f, 0.500f, 1.000f);
+    app->colors.trackText = ImColor(0.000f, 0.000f, 0.000f, 1.0f);
+    app->colors.trackBackgroundAudio = ImColor(0.000f, 0.353f, 0.600f, 0.992f);
+    app->colors.trackBackgroundVideo = ImColor(1.000f, 0.851f, 0.533f, 1.000f);
+    app->colors.trackBackgroundMuted = ImColor(0.310f, 0.000f, 0.000f, 1.000f);
+    app->colors.trackBackgroundGhost = ImColor(0.500f, 0.500f, 0.500f, 1.000f);
+    app->colors.trackBorderSelected = ImColor(1.000f, 1.000f, 1.000f, 1.000f);
+    app->colors.trackBorderGhost = ImColor(0.700f, 0.700f, 0.700f, 1.000f);
+    app->colors.trackBorder = ImColor(0.000f, 0.000f, 0.000f, 1.000f);
     app->colors.trackWaveform = ImColor(0.255f, 0.580f, 0.808f, 1.000f);
     app->colors.trackWaveformClippedWarning = ImColor(1.000f, 0.620f, 0.000f, 1.000f);
     app->colors.trackWaveformClippedSerious = ImColor(1.000f, 0.188f, 0.188f, 1.000f);
@@ -349,6 +357,8 @@ void UI_DrawEditor(App* app) {
                     cc_unused(count);
                     cc_unused(userdata);
                     cc_unused(filelist);
+                    log_trace("In SDL_ShowSaveFileDialog callback");
+
                     if (!filelist) {
                         log_error("File dialog error: %s", SDL_GetError());
                         return;
@@ -367,7 +377,10 @@ void UI_DrawEditor(App* app) {
 
                 };
 
-                SDL_ShowSaveFileDialog(callback, app, app->window, filters, 3, app->exportPath);
+                cc_unused(filters);
+                SDL_ShowSaveFileDialog(callback, app, app->window, NULL, 0, NULL);
+                // SDL_ShowSaveFileDialog(callback, app, app->window, filters, 3, "Z:\\Programming\\c\\clipcutter_sdl3\\build\\bin");
+                // SDL_ShowSaveFileDialog(callback, app, app->window, filters, 3, app->exportPath);
             }
 
             if (options->exportAsComboIndex == EXPORT_AS_OPTION_VIDEO) {
@@ -434,7 +447,9 @@ void UI_DrawEditor(App* app) {
                     //     }
                     //     ImGui::EndCombo();
                     // }
-                    ImGui::Checkbox("Merge audio-tracks (dummy)", &options->mergeAudioTracks);
+                    ImGui::BeginDisabled();
+                    ImGui::Checkbox("Merge audio-tracks (has to be enabled for now)", &options->mergeAudioTracks);
+                    ImGui::EndDisabled();
                 }
             } else { // we chose "Export as audio"
                 ImGui::SeparatorText("Encoding Options:");
@@ -444,7 +459,9 @@ void UI_DrawEditor(App* app) {
                     }
                     ImGui::EndCombo();
                 }
-                ImGui::Checkbox("Merge audio-tracks (dummy)", &options->mergeAudioTracks);
+                ImGui::BeginDisabled();
+                ImGui::Checkbox("Merge audio-tracks (has to be enabled for now)", &options->mergeAudioTracks);
+                ImGui::EndDisabled();
             }
             if (ImGui::Button("Render")) {
                 std::thread thread_obj(exportVideo, app, true);

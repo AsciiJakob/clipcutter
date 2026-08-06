@@ -98,10 +98,14 @@ struct UiColors {
     ImVec4 timelineTimeMarker;
     ImVec4 timelineTrackSeparator;
 
-    ImVec4 trackAudio;
-    ImVec4 trackVideo;
-    ImVec4 trackMuted;
-    ImVec4 trackGhost;
+    ImVec4 trackText;
+    ImVec4 trackBackgroundAudio;
+    ImVec4 trackBackgroundVideo;
+    ImVec4 trackBackgroundMuted;
+    ImVec4 trackBackgroundGhost;
+    ImVec4 trackBorderSelected;
+    ImVec4 trackBorderGhost;
+    ImVec4 trackBorder;
     ImVec4 trackWaveform;
     ImVec4 trackWaveformClippedWarning;
     ImVec4 trackWaveformClippedSerious;

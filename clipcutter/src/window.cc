@@ -13,6 +13,13 @@ bool initWindow(App* app) {
         return false;
     }
 
+    log_info("Compiled  SDL version: %d, running SDL version: %d", SDL_VERSION, SDL_GetVersion());
+
+    HMODULE mod = GetModuleHandleA("SDL3.dll");
+    char path[MAX_PATH];
+    GetModuleFileNameA(mod, path, MAX_PATH);
+    log_info("SDL3.dll loaded from: %s", path);
+
     SDL_Window* window = nullptr;
     SDL_GLContext* gl_context = &app->gl_context;
     const char* glsl_version = "#version 330 core";
