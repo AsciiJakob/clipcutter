@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
     }
 
     App_MovePlaybackMarker(app, 0);
-    UI_ApplyThemeDefault(app);
+    UI_ApplyThemeVanillaLatte(app);
 
     // we have to reset the lavfi option every time we load a new video.
     // Otherwise it might try to load too many audio tracks, causing the video to not load

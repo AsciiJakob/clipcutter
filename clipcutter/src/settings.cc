@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "app.h"
+#include "ui.h"
 #include <libloaderapi.h>
 
 void registerOpenWith(App* app) {
@@ -228,9 +229,21 @@ void Settings_DrawSettings(App* app) {
     }
     #endif
 
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImGui::SliderFloat("Font scale", &style.FontScaleMain, 0, 3);
     ImGui::SliderFloat("UI scale factor", &app->userScaleFactor, 0, 10);
 
     ImGui::InputText("Default export path", app->exportPath, 1024);
+
+    if (ImGui::BeginCombo("UI Theme", "")) {
+        if (ImGui::Selectable("Vanilla Latte", false)) {
+            UI_ApplyThemeVanillaLatte(app);
+        }
+        if (ImGui::Selectable("Midnight", false)) {
+            UI_ApplyThemeMidnight(app);
+        }
+        ImGui::EndCombo();
+    }
 
     ImGui::Checkbox("UI Theme Editor", &app->themeEditorMode);
 

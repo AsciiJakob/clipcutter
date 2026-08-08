@@ -145,6 +145,7 @@ int App_FindFirstNullptr(void** array, int maxLength) {
 	return -1;
 }
 
+// Register keyboard shortcuts. Some are registered in the UI code though as they utilize information from certain windows.
 void App_ProcessKeyboardShortcuts(App* app) {
     const int global = ImGuiInputFlags_RouteGlobal;
     const int repeat = ImGuiInputFlags_Repeat;
@@ -174,12 +175,6 @@ void App_ProcessKeyboardShortcuts(App* app) {
             App_CalculateTimelineEvents(app);
         }
 
-    }
-
-    // move marker to start of timeline
-    if (ImGui::Shortcut(ImGuiKey_0, global)) {
-        app->playbackTime = 0;
-        App_MovePlaybackMarker(app, 0);
     }
 
     if (ImGui::Shortcut(ImGuiKey_Space, global | ImGuiInputFlags_Repeat)) {

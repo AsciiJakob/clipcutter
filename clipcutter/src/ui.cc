@@ -182,8 +182,118 @@ static void exportTheme(App* app, SB* out) {
     }
 }
 
+void UI_ApplyThemeVanillaLatte(App* app) {
+    ImGui::StyleColorsDark(); // Apply ImGui defaults
+    ImGuiStyle& style = ImGui::GetStyle();
 
-void UI_ApplyThemeDefault(App* app) {
+    //──────────────────── [General] ────────────────────
+    style.TabBorderSize = 1;
+    style.WindowTitleAlign.x = 0.5f;
+    style.WindowMenuButtonPosition = ImGuiDir_None;
+    style.DockingSeparatorSize = 1; // default is 2
+
+    style.WindowRounding = 6.0f;
+    style.ChildRounding = 6.0f;
+    style.PopupRounding = 6.0f;
+    style.FrameRounding = 4.0f;
+    style.GrabRounding = 4.0f;
+    style.TabRounding = 4.0f;
+    
+    style.WindowBorderSize = 1.0f;
+    style.ChildBorderSize = 1.0f;
+    style.PopupBorderSize = 1.0f;
+    style.FrameBorderSize = 0.0f;
+    
+    style.WindowPadding = ImVec2(10.0f, 10.0f);
+    style.FramePadding = ImVec2(8.0f, 4.0f);
+    style.ItemSpacing = ImVec2(8.0f, 5.0f);
+    style.ItemInnerSpacing = ImVec2(6.0f, 4.0f);
+    style.IndentSpacing = 20.0f;
+    style.ScrollbarSize = 14.0f;
+    style.GrabMinSize = 10.0f;
+
+    
+    //──────────────────── [Colors] ────────────────────
+    // This part of the code may be generated from the theme editor by clicking "copy"
+    //--------------------- Dear ImGui ---------------------
+    style.Colors[ImGuiCol_Text] = ImColor(0.416f, 0.255f, 0.169f, 1.000f);
+    style.Colors[ImGuiCol_TextDisabled] = ImColor(0.659f, 0.537f, 0.435f, 1.000f);
+    style.Colors[ImGuiCol_WindowBg] = ImColor(0.875f, 0.780f, 0.647f, 1.000f);
+    style.Colors[ImGuiCol_ChildBg] = ImColor(0.875f, 0.780f, 0.647f, 1.000f);
+    style.Colors[ImGuiCol_PopupBg] = ImColor(0.875f, 0.780f, 0.647f, 1.000f);
+    style.Colors[ImGuiCol_Border] = ImColor(0.416f, 0.255f, 0.169f, 0.350f);
+    style.Colors[ImGuiCol_FrameBg] = ImColor(0.949f, 0.902f, 0.812f, 1.000f);
+    style.Colors[ImGuiCol_FrameBgHovered] = ImColor(0.910f, 0.827f, 0.659f, 1.000f);
+    style.Colors[ImGuiCol_FrameBgActive] = ImColor(0.878f, 0.722f, 0.471f, 1.000f);
+    style.Colors[ImGuiCol_TitleBg] = ImColor(0.929f, 0.855f, 0.753f, 1.000f);
+    style.Colors[ImGuiCol_TitleBgActive] = ImColor(0.875f, 0.780f, 0.647f, 1.000f);
+    style.Colors[ImGuiCol_TitleBgCollapsed] = ImColor(0.973f, 0.941f, 0.890f, 1.000f);
+    style.Colors[ImGuiCol_MenuBarBg] = ImColor(0.875f, 0.780f, 0.647f, 1.000f);
+    style.Colors[ImGuiCol_ScrollbarBg] = ImColor(0.973f, 0.941f, 0.890f, 1.000f);
+    style.Colors[ImGuiCol_ScrollbarGrab] = ImColor(0.851f, 0.769f, 0.612f, 1.000f);
+    style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImColor(0.804f, 0.710f, 0.529f, 1.000f);
+    style.Colors[ImGuiCol_ScrollbarGrabActive] = ImColor(0.788f, 0.588f, 0.310f, 1.000f);
+    style.Colors[ImGuiCol_CheckMark] = ImColor(0.788f, 0.588f, 0.310f, 1.000f);
+    style.Colors[ImGuiCol_SliderGrab] = ImColor(0.788f, 0.588f, 0.310f, 1.000f);
+    style.Colors[ImGuiCol_SliderGrabActive] = ImColor(0.878f, 0.722f, 0.471f, 1.000f);
+    style.Colors[ImGuiCol_Button] = ImColor(0.925f, 0.851f, 0.706f, 1.000f);
+    style.Colors[ImGuiCol_ButtonHovered] = ImColor(0.886f, 0.780f, 0.569f, 1.000f);
+    style.Colors[ImGuiCol_ButtonActive] = ImColor(0.722f, 0.510f, 0.227f, 1.000f);
+    style.Colors[ImGuiCol_Header] = ImColor(0.925f, 0.851f, 0.706f, 1.000f);
+    style.Colors[ImGuiCol_HeaderHovered] = ImColor(0.886f, 0.780f, 0.569f, 1.000f);
+    style.Colors[ImGuiCol_HeaderActive] = ImColor(0.722f, 0.510f, 0.227f, 1.000f);
+    style.Colors[ImGuiCol_Separator] = ImColor(0.416f, 0.255f, 0.169f, 0.350f);
+    style.Colors[ImGuiCol_SeparatorHovered] = ImColor(0.878f, 0.722f, 0.471f, 1.000f);
+    style.Colors[ImGuiCol_SeparatorActive] = ImColor(0.788f, 0.588f, 0.310f, 1.000f);
+    style.Colors[ImGuiCol_ResizeGrip] = ImColor(0.788f, 0.588f, 0.310f, 0.200f);
+    style.Colors[ImGuiCol_ResizeGripHovered] = ImColor(0.788f, 0.588f, 0.310f, 0.500f);
+    style.Colors[ImGuiCol_ResizeGripActive] = ImColor(0.788f, 0.588f, 0.310f, 1.000f);
+    style.Colors[ImGuiCol_TabHovered] = ImColor(0.886f, 0.780f, 0.569f, 1.000f);
+    style.Colors[ImGuiCol_Tab] = ImColor(0.941f, 0.886f, 0.769f, 1.000f);
+    style.Colors[ImGuiCol_TabSelected] = ImColor(0.925f, 0.851f, 0.706f, 1.000f);
+    style.Colors[ImGuiCol_TabDimmed] = ImColor(0.973f, 0.941f, 0.890f, 1.000f);
+    style.Colors[ImGuiCol_TabDimmedSelected] = ImColor(0.875f, 0.780f, 0.647f, 1.000f);
+    style.Colors[ImGuiCol_DockingPreview] = ImColor(0.788f, 0.588f, 0.310f, 0.350f);
+    style.Colors[ImGuiCol_DockingEmptyBg] = ImColor(0.973f, 0.941f, 0.890f, 1.000f);
+    style.Colors[ImGuiCol_PlotLines] = ImColor(0.659f, 0.537f, 0.435f, 1.000f);
+    style.Colors[ImGuiCol_PlotLinesHovered] = ImColor(0.878f, 0.722f, 0.471f, 1.000f);
+    style.Colors[ImGuiCol_PlotHistogram] = ImColor(0.788f, 0.588f, 0.310f, 1.000f);
+    style.Colors[ImGuiCol_PlotHistogramHovered] = ImColor(0.878f, 0.722f, 0.471f, 1.000f);
+    style.Colors[ImGuiCol_TableHeaderBg] = ImColor(0.925f, 0.851f, 0.706f, 1.000f);
+    style.Colors[ImGuiCol_TableBorderStrong] = ImColor(0.416f, 0.255f, 0.169f, 0.350f);
+    style.Colors[ImGuiCol_TableBorderLight] = ImColor(0.416f, 0.255f, 0.169f, 0.180f);
+    style.Colors[ImGuiCol_TableRowBgAlt] = ImColor(0.000f, 0.000f, 0.000f, 0.020f);
+    style.Colors[ImGuiCol_TextSelectedBg] = ImColor(0.788f, 0.588f, 0.310f, 0.350f);
+    style.Colors[ImGuiCol_DragDropTarget] = ImColor(0.878f, 0.722f, 0.471f, 1.000f);
+    style.Colors[ImGuiCol_NavCursor] = ImColor(0.788f, 0.588f, 0.310f, 1.000f);
+    style.Colors[ImGuiCol_NavWindowingDimBg] = ImColor(0.200f, 0.200f, 0.200f, 0.400f);
+    style.Colors[ImGuiCol_ModalWindowDimBg] = ImColor(0.000f, 0.000f, 0.000f, 0.500f);
+
+    //--------------------- Clipcutter ---------------------
+    app->colors.knobHover = ImColor(0.878f, 0.722f, 0.471f, 1.000f);
+    app->colors.timelineBackground = ImColor(0.875f, 0.780f, 0.647f, 1.000f);
+    app->colors.timelineTracklist = ImColor(0.827f, 0.722f, 0.565f, 1.000f);
+    app->colors.timelineTicksBackground = ImColor(0.973f, 0.941f, 0.890f, 1.000f);
+    app->colors.timelineTicksMajor = ImColor(0.478f, 0.310f, 0.204f, 1.000f);
+    app->colors.timelineTicksMinor = ImColor(0.702f, 0.612f, 0.490f, 1.000f);
+    app->colors.timelineTicksText = ImColor(0.416f, 0.255f, 0.169f, 1.000f);
+    app->colors.timelineTimeMarker = ImColor(0.915f, 0.547f, 0.784f, 1.000f);
+    app->colors.timelineTrackSeparator = ImColor(0.416f, 0.255f, 0.169f, 0.350f);
+    app->colors.trackText = ImColor(0.173f, 0.102f, 0.063f, 1.000f);
+    app->colors.trackBackgroundAudio = ImColor(0.851f, 0.725f, 0.557f, 1.000f);
+    app->colors.trackBackgroundVideo = ImColor(0.788f, 0.588f, 0.310f, 1.000f);
+    app->colors.trackBackgroundMuted = ImColor(0.761f, 0.718f, 0.659f, 1.000f);
+    app->colors.trackBackgroundGhost = ImColor(0.502f, 0.502f, 0.502f, 0.500f);
+    app->colors.trackBorderSelected = ImColor(0.227f, 0.133f, 0.086f, 1.000f);
+    app->colors.trackBorderGhost = ImColor(0.600f, 0.600f, 0.600f, 0.600f);
+    app->colors.trackBorder = ImColor(0.165f, 0.098f, 0.059f, 1.000f);
+    app->colors.trackWaveform = ImColor(0.290f, 0.180f, 0.118f, 1.000f);
+    app->colors.trackWaveformClippedWarning = ImColor(1.000f, 0.620f, 0.173f, 1.000f);
+    app->colors.trackWaveformClippedSerious = ImColor(0.949f, 0.263f, 0.263f, 1.000f);
+
+}
+
+void UI_ApplyThemeMidnight(App* app) {
     ImGui::StyleColorsDark(); // Apply ImGui defaults
     ImGuiStyle& style = ImGui::GetStyle();
 
@@ -217,7 +327,6 @@ void UI_ApplyThemeDefault(App* app) {
     
     //──────────────────── [Colors] ────────────────────
     // This part of the code may be generated from the theme editor by clicking "copy"
-    //--------------------- Dear ImGui ---------------------
     //--------------------- Dear ImGui ---------------------
     style.Colors[ImGuiCol_Text] = ImColor(0.925f, 0.925f, 0.933f, 1.000f);
     style.Colors[ImGuiCol_TextDisabled] = ImColor(0.500f, 0.500f, 0.514f, 1.000f);
@@ -827,7 +936,7 @@ void UI_DrawEditor(App* app) {
 
                     char gainLabel[10];
                     snprintf(gainLabel, sizeof(gainLabel), "Gain##%d", (unsigned char) i);
-                    if (drawKnob(app, gainLabel, &app->streamAudioGain[i], -100.0f, 50.0f, 0.4f, "%.1f", ImGuiKnobVariant_WiperOnly, 22, ImGuiKnobFlags_AlwaysClamp | ImGuiKnobFlags_NoTitle | ImGuiKnobFlags_NoInput)) {
+                    if (drawKnob(app, gainLabel, &app->streamAudioGain[i], -50.0f, 50.0f, 0.4f, "%.1f", ImGuiKnobVariant_WiperOnly, 22, ImGuiKnobFlags_AlwaysClamp | ImGuiKnobFlags_NoTitle | ImGuiKnobFlags_NoInput)) {
                     }
 
                     if (ImGui::IsItemDeactivated())
@@ -881,9 +990,16 @@ void UI_DrawEditor(App* app) {
 
 			ImVec2 timelineSize = ImVec2(app->timeline.width*app->scaleX, ImGui::GetContentRegionAvail().y);
 
+            // move marker to start of timeline
+            if (ImGui::Shortcut(ImGuiKey_0, ImGuiInputFlags_RouteGlobal)) {
+                app->playbackTime = 0;
+                App_MovePlaybackMarker(app, 0);
+                ImGui::SetScrollX(0.0);
+            }
+
 
             //─────────────── background visuals ───────────────
-			ImVec2 cursorGridTicks = ImGui::GetCursorScreenPos();
+            ImVec2 cursorGridTicks = ImGui::GetCursorScreenPos();
             ImVec2 rectBottomRight = cursorGridTicks;
             rectBottomRight.y += TIMELINE_GRID_TICKS_HEIGHT*app->scale;
             rectBottomRight.x += timelineSize.x;
@@ -984,14 +1100,16 @@ void UI_DrawEditor(App* app) {
 			{ // zooming in and out of the timeline
 				if (timelineHovered && !ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
 					float mw = ImGui::GetIO().MouseWheel; // -1 for downwards, 1 for upwards
-					float factor = 1.05f;
+					float factor = 1.15f;
 
 					if (mw != 0) {
 						float oldZoom = app->timeline.zoomX;
+                        float scaledFactor = powf(factor, fabsf(mw));
+
 						if (mw > 0) {
-							app->timeline.zoomX = app->timeline.zoomX * factor;
+							app->timeline.zoomX = app->timeline.zoomX * factor * scaledFactor;
 						} else {
-							app->timeline.zoomX = app->timeline.zoomX / factor;
+							app->timeline.zoomX = app->timeline.zoomX / (factor * scaledFactor);
                             if (ImGui::GetWindowWidth() / app->timeline.zoomX > app->timeline.width) {
                                 app->timeline.zoomX = ImGui::GetWindowWidth() / app->timeline.width; // revert change to limit how far we can zoom out.
                             }
