@@ -89,6 +89,8 @@ constexpr const char* SUPPORTED_FILE_FORMATS[] = {
 constexpr size_t NUM_SUPPORTED_FORMATS = sizeof(SUPPORTED_FILE_FORMATS) / sizeof(SUPPORTED_FILE_FORMATS[0]);
 
 struct UiColors {
+    ImVec4 knobHover;
+
     ImVec4 timelineBackground;
     ImVec4 timelineTracklist;
     ImVec4 timelineTicksBackground;
@@ -119,6 +121,7 @@ struct App {
 	GLuint mpv_texture;
 	Events events;
     bool debugMode;
+    bool themeEditorMode;
 
 	int mpv_width; 
 	int mpv_height;

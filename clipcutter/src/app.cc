@@ -16,6 +16,7 @@ void App_Init(App* app) {
 	app->mpv = nullptr;
 	app->mpv_gl = nullptr;
     app->debugMode = ArgParse_IsFlagSet("debug");
+    app->themeEditorMode = ArgParse_IsFlagSet("theme-editor");
 
 	app->playbackBlocked = false;
 	app->playbackActive = false;

@@ -500,6 +500,8 @@ ImVec2 MediaClip_Draw_DrawTracks(App* app, MediaClip* mediaClip, int clipIndex, 
                 ImVec4 clippedSeriousColor = app->colors.trackWaveformClippedSerious;
                 ImVec4 clippedWarningColor = app->colors.trackWaveformClippedWarning;
                 waveformColor.w = app->streamDisabled[i] ? 0.2f : 1.0f;
+                clippedSeriousColor.w = app->streamDisabled[i] ? 0.2f : 1.0f;
+                clippedWarningColor.w = app->streamDisabled[i] ? 0.2f : 1.0f;
                 // log_debug("drawing for videoclip: %s", mediaClip->source->filename);
                 drawAudioEnvelope(peaks, graphSize, clippedWarningColor, clippedSeriousColor, waveformColor, visibleStartPXOffset, visibleEndPXOffset, mediaClip->startCutoff, mediaClip->endCutoff, mediaClip->source->sampleRates[i-1]);
             }

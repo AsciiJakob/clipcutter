@@ -232,6 +232,8 @@ void Settings_DrawSettings(App* app) {
 
     ImGui::InputText("Default export path", app->exportPath, 1024);
 
+    ImGui::Checkbox("UI Theme Editor", &app->themeEditorMode);
+
 
     if (ImGui::Button("Close")) {
         ImGui::CloseCurrentPopup();
