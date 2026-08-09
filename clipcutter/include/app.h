@@ -134,6 +134,11 @@ struct App {
 	bool isLoadingVideo;
     double projectFps; // set based on source of first clip loaded
 
+    // consume-on-read UI instructions
+    // helps with getting the UI to do stuff that are state specific
+    // from other places in the code
+    bool centerViewportOnClips; // set when new clip is loaded
+
     float userScaleFactor;
     float scale;
     float scaleX;

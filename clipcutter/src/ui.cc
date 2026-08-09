@@ -284,7 +284,7 @@ void UI_ApplyThemeVanillaLatte(App* app) {
     app->colors.trackBackgroundVideo = ImColor(0.788f, 0.588f, 0.310f, 1.000f);
     app->colors.trackBackgroundMuted = ImColor(0.761f, 0.718f, 0.659f, 1.000f);
     app->colors.trackBackgroundGhost = ImColor(0.502f, 0.502f, 0.502f, 0.500f);
-    app->colors.trackBorderSelected = ImColor(0.227f, 0.133f, 0.086f, 1.000f);
+    app->colors.trackBorderSelected = ImColor(1.000f, 1.000f, 1.000f, 1.000f);
     app->colors.trackBorderGhost = ImColor(0.600f, 0.600f, 0.600f, 0.600f);
     app->colors.trackBorder = ImColor(0.165f, 0.098f, 0.059f, 1.000f);
     app->colors.trackWaveform = ImColor(0.290f, 0.180f, 0.118f, 1.000f);
@@ -772,6 +772,7 @@ void UI_DrawEditor(App* app) {
             ImGui::Text("scaling: %.2f", app->scale);
             ImGui::Text("scaling X: %.2f", app->scaleX);
             ImGui::Text("timeline width: %.2f", app->timeline.width);
+            ImGui::Text("timeline.zoomX: %.2f", app->timeline.zoomX);
             // ImGui::Text("timelineEvent: %d", app->timelineEvents[app->timelineEventIndex].type);
             ImGui::Text("timelineEvent: %s", TimelineEventType_ToString(app->timelineEvents[app->timelineEventIndex].type));
             if (app->loadedMediaSource != nullptr) {
@@ -985,6 +986,29 @@ void UI_DrawEditor(App* app) {
 			ImVec2 childSize = ImVec2(ImGui::GetContentRegionAvail().x, fmax(ImGui::GetContentRegionAvail().y, (app->timeline.highestTrackCount) * app->timeline.clipHeight * app->scale));
 			// create child window so that we can have a horizontal scrollbar for the timeline
 			ImGui::BeginChild("TimelineWindowChild", childSize, false, ImGuiWindowFlags_HorizontalScrollbar);
+
+            if (app->centerViewportOnClips) {
+                // TODO: god damn, i really need methods for working with these arrays...
+                // program will fuck up if you fill up the array to the max, seriously
+                // take the time to use my dynarr or make proper methods for the mediaClips array.
+                int firstNullPIdx = App_FindFirstNullptr((void**) app->mediaClips, MEDIACLIPS_SIZE);
+                if (firstNullPIdx > 0) {
+                    MediaClip* firstClip = app->mediaClips[0];
+                    // TODO: don't get the last mediaClip this way, it's stupid
+                    MediaClip* lastClip = app->mediaClips[firstNullPIdx-1];
+
+                    const float spacing = 30;
+                    float distBetween = (lastClip->padding+lastClip->width)-firstClip->padding+spacing;
+                    app->timeline.zoomX = ImGui::GetWindowWidth()/distBetween;
+
+                    float xScroll = firstClip->padding*app->timeline.zoomX;
+                    xScroll = maxf(0, xScroll-spacing);
+                    ImGui::SetScrollX(xScroll);
+
+                    // reset consume-on-read
+                    app->centerViewportOnClips = false;
+                }
+            }
 
 			bool timelineHovered = ImGui::IsWindowHovered();
 

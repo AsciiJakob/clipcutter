@@ -133,6 +133,8 @@ MediaClip* App_CreateMediaClip(App* app, MediaSource* mediaSource) {
 	mediaClip->padding = App_GetTimelineEventsEnd(app)->start+20;
 	if (avail_index == 0) mediaClip->padding = 0;
 
+    app->centerViewportOnClips = true;
+
 	return mediaClip;
 }
 
