@@ -7,8 +7,6 @@
 #define TIMELINE_GRID_PRECISION 20 // technically pixels per step/line in grid?
 
 double UI_GetNiceNumber(double rawStep);
-void UI_ApplyThemeVanillaLatte(App* app);
-void UI_ApplyThemeMidnight(App* app);
 void UI_DrawEditor(App* app);
 
 

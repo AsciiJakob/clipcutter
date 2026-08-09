@@ -1,6 +1,7 @@
 #ifndef APP_H
 #define APP_H
 #include "pch.h"
+#include "theming.h"
 
 #define MEDIACLIPS_SIZE 248
 #define MEDIASOURCES_SIZE 248
@@ -88,30 +89,30 @@ constexpr const char* SUPPORTED_FILE_FORMATS[] = {
 };
 constexpr size_t NUM_SUPPORTED_FORMATS = sizeof(SUPPORTED_FILE_FORMATS) / sizeof(SUPPORTED_FILE_FORMATS[0]);
 
-struct UiColors {
-    ImVec4 knobHover;
-
-    ImVec4 timelineBackground;
-    ImVec4 timelineTracklist;
-    ImVec4 timelineTicksBackground;
-    ImVec4 timelineTicksMajor;
-    ImVec4 timelineTicksMinor;
-    ImVec4 timelineTicksText;
-    ImVec4 timelineTimeMarker;
-    ImVec4 timelineTrackSeparator;
-
-    ImVec4 trackText;
-    ImVec4 trackBackgroundAudio;
-    ImVec4 trackBackgroundVideo;
-    ImVec4 trackBackgroundMuted;
-    ImVec4 trackBackgroundGhost;
-    ImVec4 trackBorderSelected;
-    ImVec4 trackBorderGhost;
-    ImVec4 trackBorder;
-    ImVec4 trackWaveform;
-    ImVec4 trackWaveformClippedWarning;
-    ImVec4 trackWaveformClippedSerious;
-};
+// struct UiColors {
+//     ImVec4 knobHover;
+//
+//     ImVec4 timelineBackground;
+//     ImVec4 timelineTracklist;
+//     ImVec4 timelineTicksBackground;
+//     ImVec4 timelineTicksMajor;
+//     ImVec4 timelineTicksMinor;
+//     ImVec4 timelineTicksText;
+//     ImVec4 timelineTimeMarker;
+//     ImVec4 timelineTrackSeparator;
+//
+//     ImVec4 trackText;
+//     ImVec4 trackBackgroundAudio;
+//     ImVec4 trackBackgroundVideo;
+//     ImVec4 trackBackgroundMuted;
+//     ImVec4 trackBackgroundGhost;
+//     ImVec4 trackBorderSelected;
+//     ImVec4 trackBorderGhost;
+//     ImVec4 trackBorder;
+//     ImVec4 trackWaveform;
+//     ImVec4 trackWaveformClippedWarning;
+//     ImVec4 trackWaveformClippedSerious;
+// };
 
 struct App {
 	SDL_Window* window;
