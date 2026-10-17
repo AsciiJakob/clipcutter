@@ -30,7 +30,7 @@ Under development, not suitable for usage. Testing and submitting issues is welc
 * You can only export video in h.264 (with AAC audio) at the moment. Audio can only be exported as mp3.
 
 ## Building
-Like any other cmake project. Dependencies are all included, except ffmpeg dlls. In the future dependencies will be compiled along the program.
+Like any other cmake project. Dependencies are all included, except ffmpeg dlls on windows. On Linux install ffmpeg, mpv, sdl3 with your package manager. In the future dependencies will be compiled along the program.
 
 ## Bug reports
 Make an issue and try to provide steps on how to reproduce.

@@ -344,8 +344,10 @@ bool Effects_RenderEffectOptions(App* app, AudioEffect* effect, int effectIndex)
                     break;
                 case AV_OPT_TYPE_COLOR:
                     log_debug("Color thing\n");
+                    [[fallthrough]];
                 case AV_OPT_TYPE_RATIONAL:
                     log_debug("Rational thing\n");
+                    [[fallthrough]];
                 case AV_OPT_TYPE_STRING:
                     ImGui::InputText(opt->name, opt->value.str, sizeof(opt->value.str)-1);
                     break;
@@ -382,11 +384,11 @@ bool Effects_RenderEffectOptions(App* app, AudioEffect* effect, int effectIndex)
 }
 
 int AudioEffect_IsAudioFilter(const AVFilter *filter) {
-    for (int i = 0; i < filter->nb_inputs; i++) {
+    for (unsigned int i = 0; i < avfilter_filter_pad_count(filter, 0); i++) { // zero argument means input
         if (avfilter_pad_get_type(filter->inputs, i) == AVMEDIA_TYPE_AUDIO)
             return 1;
     }
-    for (int i = 0; i < filter->nb_outputs; i++) {
+    for (unsigned int i = 0; i < avfilter_filter_pad_count(filter, 1); i++) { // 1 means output
         if (avfilter_pad_get_type(filter->outputs, i) == AVMEDIA_TYPE_AUDIO)
             return 1;
     }

@@ -800,16 +800,21 @@ CC_FFmpegError* encodeClip(MediaClip* mediaClip, ExportState* exportState) {
             }
 
             // Set the output format constraints to match the encoder
-            AVSampleFormat sample_fmts[] = { (AVSampleFormat)audioEncCtx->sample_fmt, AV_SAMPLE_FMT_NONE };
-            ret = av_opt_set_int_list(abuffersink_ctx, "sample_fmts", sample_fmts, AV_SAMPLE_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
+            // AVSampleFormat sample_fmts[] = { (AVSampleFormat)audioEncCtx->sample_fmt, AV_SAMPLE_FMT_NONE };
+            // ret = av_opt_set_int_list(abuffersink_ctx, "sample_fmts", sample_fmts, AV_SAMPLE_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
+            const char* fmtName = av_get_sample_fmt_name((AVSampleFormat) audioEncCtx->sample_fmt);
+            ret = av_opt_set(abuffersink_ctx, "sample_formats", fmtName, AV_OPT_SEARCH_CHILDREN);
             if (ret < 0) {
                 err = alloc_error("Could not set output sample format");
                 goto cleanup;
             }
 
             // int sample_rates[] = { outAudioCodecPar->sample_rate, -1 };
-            int sample_rates[] = { audioEncCtx->sample_rate, -1 };
-            ret = av_opt_set_int_list(abuffersink_ctx, "sample_rates", sample_rates, -1, AV_OPT_SEARCH_CHILDREN);
+            // int sample_rates[] = { audioEncCtx->sample_rate, -1 };
+            // ret = av_opt_set_int_list(abuffersink_ctx, "sample_rates", sample_rates, -1, AV_OPT_SEARCH_CHILDREN);
+            char rateStr[16];
+            snprintf(rateStr, sizeof(rateStr), "%d", audioEncCtx->sample_rate);
+            ret = av_opt_set(abuffersink_ctx, "samplerates", rateStr, AV_OPT_SEARCH_CHILDREN);
             if (ret < 0) {
                 err = alloc_error("Could not set output sample rate");
                 goto cleanup;

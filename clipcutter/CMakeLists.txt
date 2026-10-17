@@ -60,84 +60,55 @@ if(MSVC)
 endif()
 
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
-    deps/sdl3/include
     deps/imgui
     deps/imgui/backends
     deps/imgui-knobs
-    deps/libmpv/include
-	deps/ffmpeg/include
 )
+if(WIN32)
+    target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
+        deps/sdl3/include
+        deps/libmpv/include
+        deps/ffmpeg/include
+    )
+endif()
 target_include_directories(${PROJECT_NAME} PRIVATE
     include
 )
 
 
 if(WIN32)
-target_link_directories(${PROJECT_NAME} PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/deps/sdl3/lib/x64"
-    "${CMAKE_CURRENT_SOURCE_DIR}/deps/libmpv/lib"
-	"${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/lib"
-)
-elseif(UNIX)
     target_link_directories(${PROJECT_NAME} PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/deps/sdl3/lib/x64"
-    "${CMAKE_CURRENT_SOURCE_DIR}/deps/libmpv/lib"
-    "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/lib"
-    #/usr/lib
+        "${CMAKE_CURRENT_SOURCE_DIR}/deps/sdl3/lib/x64"
+        "${CMAKE_CURRENT_SOURCE_DIR}/deps/libmpv/lib"
+        "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/lib"
     )
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+        avformat avcodec avutil avfilter swresample
+        sdl3 libmpv
+        opengl32 kernel32 user32 gdi32
+    )
+else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
+        libavformat libavcodec libavutil libavfilter libswresample)
+    pkg_check_modules(MPV REQUIRED IMPORTED_TARGET mpv)
+    find_package(SDL3 REQUIRED CONFIG)
+    find_package(OpenGL REQUIRED)
 
     target_link_libraries(${PROJECT_NAME} PRIVATE
-        SDL3
-        mpv
-        avformat
-        avcodec
-        avutil
-        avfilter
-        swresample
-        GL
-        dl
+        PkgConfig::FFMPEG
+        PkgConfig::MPV
+        SDL3::SDL3
+        OpenGL::GL
+        ${CMAKE_DL_LIBS}
         pthread
     )
-
-    # set rpath so the binary can find shared libs in ./deps/ffmpeg/lib
-    set(CMAKE_INSTALL_RPATH "\$ORIGIN/deps/ffmpeg/lib")
-    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-endif()
-
-# seems i am linking som libraries twice on linux, TODO: remove that and test when i am on linux
-target_link_libraries(${PROJECT_NAME} PRIVATE
-    avformat
-    avcodec
-    avutil
-    avfilter
-    swresample
-)
-if(WIN32)
-	target_link_libraries(${PROJECT_NAME} PRIVATE
-		sdl3
-		libmpv
-		opengl32
-		kernel32
-		user32
-		gdi32
-		# msvcrt
-	)
-else()
-	target_link_libraries(${PROJECT_NAME} PRIVATE
-		SDL3
-		mpv
-	)
-
-	target_link_directories(${PROJECT_NAME} PRIVATE
-		/usr/lib/
-	)
-	target_include_directories(${PROJECT_NAME} PRIVATE
-		/usr/include/
-	)
 endif()
 
 if(WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE CC_PLATFORM_WINDOWS NOMINMAX)
+else()
+    target_compile_definitions(${PROJECT_NAME} PRIVATE CC_PLATFORM_LINUX)
 endif()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -171,25 +142,27 @@ set_source_files_properties(
     PROPERTIES SKIP_PRECOMPILE_HEADERS ON
 )
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/avcodec-61.dll"
-        "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/avdevice-61.dll"
-        "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/avfilter-10.dll"
-        "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/avformat-61.dll"
-        "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/avutil-59.dll"
-        "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/postproc-58.dll"
-        "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/swresample-5.dll"
-        "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/swscale-8.dll"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+if(WIN32)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/avcodec-61.dll"
+            "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/avdevice-61.dll"
+            "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/avfilter-10.dll"
+            "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/avformat-61.dll"
+            "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/avutil-59.dll"
+            "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/postproc-58.dll"
+            "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/swresample-5.dll"
+            "${CMAKE_CURRENT_SOURCE_DIR}/deps/ffmpeg/bin/swscale-8.dll"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
 
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/deps/sdl3/lib/x64/SDL3.dll"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/deps/sdl3/lib/x64/SDL3.dll"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
 
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/deps/libmpv/lib/libmpv-2.dll"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/deps/libmpv/lib/libmpv-2.dll"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
 
-    COMMENT "copying runtime dependencies to build directory"
-)
+        COMMENT "copying runtime dependencies to build directory"
+    )
+endif()

@@ -9,9 +9,11 @@
 #include <SDL3/SDL_keycode.h>
 
 void initConsole() {
+#if defined(CC_PLATFORM_WINDOWS)
      FILE* f;
      freopen_s(&f, "conout$", "w", stdout);
      freopen_s(&f, "conout$", "w", stderr);
+#endif
 }
 
 #if defined(CC_PLATFORM_WINDOWS)
@@ -25,12 +27,14 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 #else
 int main(int argc, char* argv[]) {
 #endif
+#if defined(CC_PLATFORM_WINDOWS)
     bool consoleAttached;
     if ((consoleAttached = AttachConsole(ATTACH_PARENT_PROCESS))) {
         initConsole();
         fputs("\n", stdout);
         fflush(stdout);
     }
+#endif
 
     ArgParseError err = ARGPARSE_ERROR_SUCCESS;
     err = ArgParse_RegisterVariadicParameter("video file(s)");
@@ -48,6 +52,7 @@ int main(int argc, char* argv[]) {
         err = ArgParse_Parse(argc, argv);
     
     if (err != ARGPARSE_ERROR_SUCCESS) {
+#if defined(CC_PLATFORM_WINDOWS)
         if (!consoleAttached) {
             // TODO: message box for linux
 #if defined(CC_PLATFORM_WINDOWS)
@@ -63,14 +68,15 @@ int main(int argc, char* argv[]) {
             ArgParse_ShowHelpMessage();
             ArgParse_Free();
         }
+#endif
         exit(1);
         //ArgParse_Free()
     }
 
     if (ArgParse_IsFlagSet("debug")) {
+#if defined(CC_PLATFORM_WINDOWS)
         if (consoleAttached)
             FreeConsole();
-#if defined(CC_PLATFORM_WINDOWS)
         AllocConsole();
         initConsole();
 #endif

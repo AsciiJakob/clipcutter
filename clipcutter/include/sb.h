@@ -1,5 +1,7 @@
 #ifndef SB_H
 #define SB_H
+#include <cstddef>
+
 // growable string builder
 typedef struct {
     char*  buf;

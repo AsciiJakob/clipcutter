@@ -477,9 +477,11 @@ void UI_DrawEditor(App* app) {
         for (size_t i=0; i < app->exportState.userAudioFilters.size ; i++) {
             AudioEffect* effect = *(AudioEffect**) DynArr_Get(&app->exportState.userAudioFilters, i);
             bool showHeader = true;
-            char label[64];
-            snprintf(label, sizeof(label), "%s##%zu", effect->filter_name, i);
-            if (ImGui::CollapsingHeader(label)) {
+            // char label[64];
+            // snprintf(label, sizeof(label), "%s##%zu", effect->filter_name, i);
+            ImGui::PushID((int) i);
+            if (ImGui::CollapsingHeader(effect->filter_name)) {
+                ImGui::PopID();
                 bool shouldUpdate = Effects_RenderEffectOptions(app, effect, i);
 
                 if (shouldUpdate) {

@@ -10,7 +10,9 @@
 #include <Windows.h>
 #include <direct.h>
 #else
-#include <<unistd.h>
+#include <unistd.h>
+#include <alloca.h>
+#define _alloca alloca
 #endif
 
 #include <cstdlib>

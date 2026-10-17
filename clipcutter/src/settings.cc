@@ -1,7 +1,10 @@
 #include "pch.h"
 #include "app.h"
 #include "ui.h"
+
+#ifdef CC_PLATFORM_WINDOWS
 #include <libloaderapi.h>
+#endif
 
 void registerOpenWith(App* app) {
 #ifdef CC_PLATFORM_WINDOWS
@@ -149,6 +152,8 @@ void registerOpenWith(App* app) {
 
     // TODO: proper error handling
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Success", "Succesfully registered 'open with' shortcut to windows context menu.", app->window);
+#else
+    cc_unused(app);
 #endif
 }
 
@@ -213,6 +218,8 @@ void unregisterOpenWith(App* app) {
         deleteValue(HKEY_CURRENT_USER, progidsKey, "Applications\\clipcutter.exe");
     }
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Success", "Succesfully unregistered 'open with' shortcut from windows context menu.", app->window);
+#else
+    cc_unused(app);
 #endif
 }
 
